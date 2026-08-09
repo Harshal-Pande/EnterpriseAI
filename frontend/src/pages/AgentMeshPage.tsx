@@ -1,116 +1,173 @@
 import React from 'react';
-import { Cpu, Server, ShieldCheck } from 'lucide-react';
+import { Cpu, Server, ShieldCheck, Activity, Clock } from 'lucide-react';
 import { useDemo } from '../state/DemoContext';
 import { StatusBadge } from '../components/common/StatusBadge';
+import type { AgentId } from '../types';
+
+const AGENT_STYLE: Record<AgentId, { color: string; bg: string; border: string; label: string }> = {
+  supervisor:  { color: '#6366F1', bg: 'rgba(99,102,241,0.1)',  border: 'rgba(99,102,241,0.25)',  label: 'Supervisor'   },
+  inventory:   { color: '#10B981', bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.25)',  label: 'Inventory'    },
+  procurement: { color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.25)',  label: 'Procurement'  },
+  finance:     { color: '#EC4899', bg: 'rgba(236,72,153,0.1)',  border: 'rgba(236,72,153,0.25)',  label: 'Finance'      },
+  logistics:   { color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)', border: 'rgba(139,92,246,0.25)',  label: 'Logistics'    },
+};
 
 export const AgentMeshPage: React.FC = () => {
   const { agents, selectedAgentId, setSelectedAgentId } = useDemo();
-
-  const selectedAgent = agents.find(a => a.id === selectedAgentId) || agents[0];
+  const selectedAgent = agents.find(a => a.id === selectedAgentId) ?? agents[0];
+  const style = AGENT_STYLE[selectedAgent.id];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Cpu className="w-5 h-5 text-indigo-400" /> Multi-Agent Topology & Health Operations
-        </h2>
-        <p className="text-xs text-slate-400">
-          Autonomous sub-agent fleet performance, execution workloads, and response latencies
-        </p>
+    <div className="space-y-5">
+      {/* Page Header */}
+      <div className="pb-5 border-b border-[#1E293B]">
+        <h1 className="text-2xl font-extrabold text-white tracking-tight">Agent Mesh Operations</h1>
+        <p className="text-sm text-slate-500 mt-1">Autonomous sub-agent fleet topology, workloads, and execution telemetry</p>
       </div>
 
-      {/* Agents Topology Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {/* Agent Fleet Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {agents.map(agent => {
+          const s = AGENT_STYLE[agent.id];
           const isSelected = selectedAgentId === agent.id;
           return (
             <div
               key={agent.id}
+              id={`agent-card-${agent.id}`}
               onClick={() => setSelectedAgentId(agent.id)}
-              className={`bg-[#121929] border rounded-2xl p-4 cursor-pointer transition-all duration-200 shadow-lg ${
-                isSelected
-                  ? 'border-indigo-500 ring-2 ring-indigo-500/30 bg-[#162035]'
-                  : 'border-[#24334D] hover:border-slate-600'
-              }`}
+              className="rounded-xl p-4 cursor-pointer transition-all duration-150"
+              style={{
+                background: isSelected ? s.bg : '#111827',
+                border: `1px solid ${isSelected ? s.border : '#1E293B'}`,
+                boxShadow: isSelected ? `0 0 20px ${s.bg}` : 'none'
+              }}
             >
+              {/* Icon + Status */}
               <div className="flex items-center justify-between mb-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-xs border border-indigo-500/30">
-                  <Cpu className="w-4 h-4" />
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center"
+                  style={{ background: s.bg, border: `1px solid ${s.border}` }}
+                >
+                  <Cpu className="w-4.5 h-4.5" style={{ color: s.color }} />
                 </div>
                 <StatusBadge status={agent.status} size="sm" />
               </div>
 
+              {/* Name + Role */}
               <div className="font-bold text-sm text-white mb-0.5">{agent.name}</div>
-              <div className="text-[10px] text-slate-400 truncate mb-3">{agent.role}</div>
+              <div className="text-[10px] text-slate-500 truncate mb-3">{agent.role}</div>
 
-              {/* Workload Progress */}
-              <div className="space-y-1 my-2">
-                <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+              {/* Workload bar */}
+              <div className="space-y-1 mb-3">
+                <div className="flex justify-between text-[10px] font-mono text-slate-500">
                   <span>Workload</span>
-                  <span>{agent.workload}%</span>
+                  <span style={{ color: s.color }}>{agent.workload}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-1 rounded-full overflow-hidden" style={{ background: '#1E293B' }}>
                   <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
-                    style={{ width: `${agent.workload}%` }}
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${agent.workload}%`, background: s.color }}
                   />
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-[#1E293B] flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                <span>Avg Latency</span>
+              {/* Latency + Tasks */}
+              <div className="flex items-center justify-between text-[10px] font-mono border-t border-[#1E293B] pt-2">
+                <span className="text-slate-600">Avg Latency</span>
                 <span className="text-cyan-400">{agent.avgResponseMs}ms</span>
               </div>
+              <div className="flex items-center justify-between text-[10px] font-mono mt-1">
+                <span className="text-slate-600">Tasks Done</span>
+                <span className="text-white">{agent.tasksCompleted.toLocaleString()}</span>
+              </div>
+
+              {/* Active indicator */}
+              {agent.active && (
+                <div className="mt-2 flex items-center gap-1.5 text-[9px] font-mono font-bold uppercase" style={{ color: s.color }}>
+                  <span className="w-1.5 h-1.5 rounded-full animate-ping" style={{ background: s.color }} />
+                  Processing Task
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
-      {/* Agent Detail Inspection Panel */}
-      <div className="bg-[#121929] border border-[#24334D] rounded-2xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-[#24334D] pb-3">
+      {/* Inspector Panel */}
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ background: '#0F172A', border: `1px solid ${style.border}` }}
+      >
+        {/* Inspector Header */}
+        <div
+          className="flex items-center justify-between px-5 py-4 border-b"
+          style={{ borderColor: style.border, background: style.bg }}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
-              <Server className="w-5 h-5" />
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${style.border}` }}
+            >
+              <Server className="w-5 h-5" style={{ color: style.color }} />
             </div>
             <div>
-              <h3 className="font-bold text-base text-white">{selectedAgent.name} Inspector</h3>
-              <p className="text-xs text-slate-400">{selectedAgent.role}</p>
+              <div className="text-sm font-bold text-white">{selectedAgent.name} — Inspector</div>
+              <div className="text-[11px] text-slate-400">{selectedAgent.role}</div>
             </div>
           </div>
-          <StatusBadge status={selectedAgent.status} />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-          <div className="bg-[#0A0F1D] p-3 rounded-xl border border-slate-800">
-            <div className="text-slate-400 mb-1 font-semibold">Total Tasks Executed</div>
-            <div className="text-xl font-bold text-white font-mono">{selectedAgent.tasksCompleted}</div>
-          </div>
-
-          <div className="bg-[#0A0F1D] p-3 rounded-xl border border-slate-800">
-            <div className="text-slate-400 mb-1 font-semibold">Average Response Time</div>
-            <div className="text-xl font-bold text-cyan-400 font-mono">{selectedAgent.avgResponseMs} ms</div>
-          </div>
-
-          <div className="bg-[#0A0F1D] p-3 rounded-xl border border-slate-800">
-            <div className="text-slate-400 mb-1 font-semibold">Confidence Metric</div>
-            <div className="text-xl font-bold text-emerald-400 font-mono">{selectedAgent.confidence}%</div>
-          </div>
-
-          <div className="bg-[#0A0F1D] p-3 rounded-xl border border-slate-800">
-            <div className="text-slate-400 mb-1 font-semibold">Current Active Task</div>
-            <div className="text-xs font-semibold text-slate-200 truncate">{selectedAgent.currentTask}</div>
+          <div className="flex items-center gap-3">
+            <StatusBadge status={selectedAgent.status} />
           </div>
         </div>
 
-        <div className="bg-[#0A0F1D] p-4 rounded-xl border border-slate-800 space-y-2 text-xs">
-          <div className="font-bold text-indigo-300 flex items-center gap-1.5 uppercase text-[10px] tracking-wider">
-            <ShieldCheck className="w-4 h-4 text-indigo-400" /> Enterprise Explainability Rationale
+        {/* Metrics Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-5">
+          {[
+            { label: 'Tasks Executed',       value: selectedAgent.tasksCompleted.toLocaleString(), icon: <Activity className="w-4 h-4" />,     color: style.color },
+            { label: 'Avg Response Time',     value: `${selectedAgent.avgResponseMs} ms`,           icon: <Clock className="w-4 h-4" />,         color: '#38BDF8'   },
+            { label: 'Confidence Level',      value: `${selectedAgent.confidence}%`,                icon: <ShieldCheck className="w-4 h-4" />,   color: '#10B981'   },
+            { label: 'Workload',             value: `${selectedAgent.workload}%`,                   icon: <Cpu className="w-4 h-4" />,           color: '#F59E0B'   },
+          ].map(({ label, value, icon, color }) => (
+            <div key={label} className="rounded-lg p-3" style={{ background: '#080C14', border: '1px solid #1E293B' }}>
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-600 font-mono uppercase mb-1.5">
+                <span style={{ color }}>{icon}</span>
+                {label}
+              </div>
+              <div className="text-xl font-bold font-mono" style={{ color }}>{value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Decision fields */}
+        <div className="px-5 pb-5 space-y-3">
+          {[
+            { label: 'Current Task',   value: selectedAgent.currentTask,     mono: false },
+            { label: 'Input Received', value: selectedAgent.inputReceived,   mono: true  },
+            { label: 'Last Decision',  value: selectedAgent.lastDecision,    mono: false, accent: style.color },
+            { label: 'Next Action',    value: selectedAgent.nextAction,      mono: false, accent: '#F59E0B'   },
+          ].map(({ label, value, mono, accent }) => (
+            <div key={label} className="rounded-lg px-4 py-3" style={{ background: '#080C14', border: '1px solid #1E293B' }}>
+              <div className="text-[9px] font-mono font-bold text-slate-600 uppercase tracking-widest mb-1">{label}</div>
+              <div className={`text-[11px] leading-snug ${mono ? 'font-mono' : ''}`} style={{ color: accent ?? '#CBD5E1' }}>
+                {value}
+              </div>
+            </div>
+          ))}
+
+          {/* Rationale */}
+          <div
+            className="rounded-lg px-4 py-3"
+            style={{ background: style.bg, border: `1px solid ${style.border}` }}
+          >
+            <div className="flex items-center gap-1.5 text-[9px] font-mono font-bold uppercase tracking-widest mb-1.5"
+              style={{ color: style.color }}
+            >
+              <ShieldCheck className="w-3 h-3" /> Explainability Rationale
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              "{selectedAgent.rationale}"
+            </p>
           </div>
-          <p className="text-slate-200 leading-relaxed font-sans">
-            "{selectedAgent.rationale}"
-          </p>
         </div>
       </div>
     </div>

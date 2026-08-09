@@ -1,52 +1,90 @@
-import React from 'react';
-import { Cpu, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+import { CheckCircle2, AlertTriangle, Cpu, ShieldCheck } from 'lucide-react';
 import { useDemo } from '../../state/DemoContext';
 import type { ActivityLog } from '../../types';
 
+const AGENT_COLORS: Record<string, string> = {
+  supervisor:  '#6366F1',
+  inventory:   '#10B981',
+  procurement: '#F59E0B',
+  finance:     '#EC4899',
+  logistics:   '#8B5CF6',
+  AUDIT:       '#14B8A6',
+  SYSTEM:      '#38BDF8',
+};
+
+function getTypeIcon(type: ActivityLog['type']) {
+  switch (type) {
+    case 'success': return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />;
+    case 'warning': return <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />;
+    case 'error':   return <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />;
+    case 'info':    return <Cpu className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />;
+  }
+}
+
 export const ActivityStream: React.FC = () => {
   const { activityLogs } = useDemo();
+  const listRef = useRef<HTMLDivElement>(null);
 
-  const getTypeIcon = (type: ActivityLog['type']) => {
-    switch (type) {
-      case 'success':
-        return <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />;
-      case 'warning':
-        return <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />;
-      case 'error':
-        return <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />;
-      default:
-        return <Cpu className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />;
+  // Auto-scroll to top when new log arrives (newest first)
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = 0;
     }
-  };
+  }, [activityLogs.length]);
 
   return (
-    <div className="bg-[#111827] border border-[#1E293B] rounded-xl p-5 shadow-xl flex flex-col justify-between min-h-[380px]">
-      <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
-        <h2 className="text-base font-bold text-white tracking-tight">
-          Activity Stream
-        </h2>
-        <span className="text-[11px] font-mono text-slate-400">Real-time Feed</span>
+    <div
+      className="flex flex-col rounded-xl overflow-hidden"
+      style={{
+        background: '#0B1020',
+        border: '1px solid #1E293B',
+        minHeight: '380px'
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#1E293B] shrink-0">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-teal-400" />
+          <h2 className="text-sm font-bold text-white">Activity Stream</h2>
+        </div>
+        <span className="text-[10px] font-mono text-slate-500">{activityLogs.length} events</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 my-3 pr-1 divide-y divide-[#1E293B]/50">
-        {activityLogs.map((log) => (
-          <div key={log.id} className="pt-3 first:pt-0 flex items-start gap-3 text-xs">
+      {/* Feed */}
+      <div
+        ref={listRef}
+        className="flex-1 overflow-y-auto p-4 space-y-2"
+        style={{ maxHeight: '320px' }}
+      >
+        {activityLogs.length === 0 && (
+          <div className="text-center text-slate-600 text-xs py-8">
+            No events yet. Run the demo to begin.
+          </div>
+        )}
+        {activityLogs.map((log, idx) => (
+          <div
+            key={log.id}
+            className="flex items-start gap-2.5 animate-fade-slide"
+            style={{ animationDelay: `${idx * 0.02}s` }}
+          >
             {getTypeIcon(log.type)}
-            <div className="flex-1 space-y-1">
-              <div className="text-slate-200 leading-snug">
-                <span className="font-bold text-white capitalize mr-1">{log.agent}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span
+                  className="text-[11px] font-bold uppercase"
+                  style={{ color: AGENT_COLORS[log.agent] ?? '#94A3B8' }}
+                >
+                  {log.agent}
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">{log.timestamp}</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-snug mt-0.5">
                 {log.message}
-              </div>
-              <div className="text-[10px] text-slate-400 font-mono">
-                {log.timestamp}
-              </div>
+              </p>
             </div>
           </div>
         ))}
-      </div>
-
-      <div className="text-[10px] text-slate-400 font-mono pt-2 border-t border-[#1E293B] text-right">
-        {activityLogs.length} events logged
       </div>
     </div>
   );

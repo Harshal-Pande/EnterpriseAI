@@ -1,60 +1,227 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
+/* ── Design Tokens ─────────────────────────────────── */
 :root {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --bg:          #080C14;
+  --surface:     #0F172A;
+  --card:        #111827;
+  --card-raised: #162032;
+  --border:      #1E293B;
+  --border-mid:  #24334D;
+  --border-soft: #1B2638;
+
+  --cyan:        #38BDF8;
+  --blue:        #2563EB;
+  --indigo:      #6366F1;
+  --emerald:     #10B981;
+  --amber:       #F59E0B;
+  --rose:        #EF4444;
+  --pink:        #EC4899;
+  --purple:      #8B5CF6;
+  --teal:        #14B8A6;
+
+  --text:        #F8FAFC;
+  --text-muted:  #94A3B8;
+  --text-dim:    #64748B;
+
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color-scheme: dark;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* ── Global Reset ──────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #080C14;
-  color: #F8FAFC;
+  height: 100%;
+  background-color: var(--bg);
+  color: var(--text);
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  height: 100%;
+}
+
+/* ── Typography ────────────────────────────────────── */
+.font-mono,
+code, pre, kbd, samp {
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-variant-ligatures: none;
+}
+
+/* Page headings */
+h1, h2, h3, h4 {
+  font-family: 'Inter', sans-serif;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ── Scrollbars ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0A0F1C; }
+::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2D3F5A; }
+
+/* ── SVG Animations ─────────────────────────────────── */
+@keyframes dashFlow {
+  from { stroke-dashoffset: 20; }
+  to   { stroke-dashoffset: 0;  }
 }
 
-::-webkit-scrollbar-track {
-  background: #0F172A;
+@keyframes pulseRing {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.15); }
 }
 
-::-webkit-scrollbar-thumb {
-  background: #24334D;
-  border-radius: 3px;
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #334766;
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-.font-mono {
-  font-family: 'JetBrains Mono', monospace;
+.animate-dash-flow {
+  stroke-dasharray: 6 6;
+  animation: dashFlow 0.9s linear infinite;
 }
 
-@keyframes dashAnimation {
-  from {
-    stroke-dashoffset: 24;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
+/* Legacy alias (some components use this name) */
 .animate-pulse-line {
   stroke-dasharray: 6 6;
-  animation: dashAnimation 1s linear infinite;
+  animation: dashFlow 0.9s linear infinite;
 }
 
-.mesh-glass {
-  background: rgba(22, 32, 50, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.animate-fade-slide {
+  animation: fadeSlideIn 0.25s ease-out forwards;
 }
+
+/* ── Card Variants ──────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.card-raised {
+  background: var(--card-raised);
+  border: 1px solid var(--border-mid);
+  border-radius: 0.75rem;
+}
+
+.card-inset {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+/* ── Section Labels ─────────────────────────────────── */
+.label-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.625rem;    /* 10px */
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Status Dot ─────────────────────────────────────── */
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.status-dot-green  { background: #10B981; }
+.status-dot-amber  { background: #F59E0B; }
+.status-dot-red    { background: #EF4444; }
+.status-dot-cyan   { background: #38BDF8; }
+.status-dot-dim    { background: #475569; }
+
+/* ── Mesh Glass ─────────────────────────────────────── */
+.mesh-glass {
+  background: rgba(22, 32, 50, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* ── Canvas Grid ─────────────────────────────────────── */
+.canvas-grid {
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.canvas-dot-grid {
+  background-image: radial-gradient(circle, #1E293B 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* ── Table Styling ──────────────────────────────────── */
+.ent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  color: #CBD5E1;
+}
+
+.ent-table thead tr {
+  background: #080C14;
+  border-bottom: 1px solid var(--border-mid);
+}
+
+.ent-table thead th {
+  padding: 0.65rem 1rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748B;
+  white-space: nowrap;
+}
+
+.ent-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+
+.ent-table tbody tr:hover {
+  background: #101726;
+}
+
+.ent-table tbody td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+}
+
+/* ── Focus / Interaction ────────────────────────────── */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #38BDF8;
+  outline-offset: 2px;
+}
+
+/* ── Agent Color Classes ────────────────────────────── */
+.agent-supervisor { color: #6366F1; border-color: rgba(99,102,241,0.4); }
+.agent-inventory  { color: #10B981; border-color: rgba(16,185,129,0.4); }
+.agent-procurement{ color: #F59E0B; border-color: rgba(245,158,11,0.4); }
+.agent-finance    { color: #EC4899; border-color: rgba(236,72,153,0.4); }
+.agent-logistics  { color: #8B5CF6; border-color: rgba(139,92,246,0.4); }
