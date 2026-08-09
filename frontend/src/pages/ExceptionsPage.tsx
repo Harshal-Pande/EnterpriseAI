@@ -1,146 +1,142 @@
 import React from 'react';
-import { AlertTriangle, Play, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Play, Square } from 'lucide-react';
 import { useDemo } from '../state/DemoContext';
 import type { DemoScenario } from '../types';
 
 export const ExceptionsPage: React.FC = () => {
-  const { activeScenario, setActiveScenario, runDemoOrder, isSimulating } = useDemo();
+  const { activeScenario, setActiveScenario, runDemoOrder, isSimulating, resetDemo } = useDemo();
 
   const scenarios: {
     id: DemoScenario;
     title: string;
     description: string;
-    flow: string[];
+    borderClass: string;
+    impact: string;
+    mitigation: string;
   }[] = [
     {
       id: 'supplier_unavailable',
-      title: 'Scenario 1 — Primary Supplier Stock Outage',
-      description: 'Primary Supplier A reports 0 inventory. Procurement Agent detects outage and autonomously negotiates with Supplier B.',
-      flow: [
-        'Supplier A stock depleted (0 units)',
-        'Procurement Agent detects outage signal',
-        'Multi-supplier scoring engine re-evaluates Supplier B & C',
-        'Supplier B selected (Score: 94%)',
-        'Supervisor updates global execution graph'
-      ]
+      title: 'Supplier Unavailable',
+      description: 'Simulates total node failure for primary raw material supplier (Tier 1). Procurement Agent detects outage and re-routes.',
+      borderClass: 'border-l-4 border-l-rose-500',
+      impact: '1 Shortage',
+      mitigation: 'Supplier B (Pune)'
     },
     {
       id: 'budget_breach',
-      title: 'Scenario 2 — Financial Budget Cap Breach',
-      description: 'Initial supplier quotation exceeds allocated order budget. Finance Agent rejects quote and forces procurement re-negotiation.',
-      flow: [
-        'Supplier C submits ₹8,88,000 quote',
-        'Finance Agent flags budget breach (Limit ₹8,50,000)',
-        'Finance rejects quote & demands re-negotiation',
-        'Procurement re-routes to Supplier B (₹7,92,000)',
-        'Finance Agent sanctions revised quote'
-      ]
+      title: 'Budget Breach',
+      description: 'Triggers cost anomaly >15% over projected baseline in procurement phase. Finance Agent forces negotiation cycle.',
+      borderClass: 'border-l-4 border-l-amber-500',
+      impact: '+₹38,000 Quote',
+      mitigation: 'Finance Re-negotiation'
     },
     {
       id: 'delivery_delay',
-      title: 'Scenario 3 — Transit Highway Disruption',
-      description: 'Logistics Agent detects weather road block on NH-53 (+48h delay). Automatically re-routes transit via Express Rail Freight.',
-      flow: [
-        'Road weather alert on NH-53 highway (+48h delay)',
-        'Logistics Agent flags SLA violation risk',
-        'Carrier engine evaluates Express Rail Cargo',
-        'Rail transit route approved (2-day SLA guaranteed)',
-        'Supervisor updates dispatch schedule'
-      ]
+      title: 'Delivery Delay',
+      description: 'Simulates +48h road weather delay on primary transit route. Logistics Agent automatically reroutes to rail cargo.',
+      borderClass: 'border-l-4 border-l-cyan-500',
+      impact: '+48h NH-53 Delay',
+      mitigation: 'Express Rail Freight'
     },
     {
       id: 'multi_exception',
-      title: 'Scenario 4 — Compound Multi-Exception Recovery',
-      description: 'Triggers simultaneous supplier stock outage AND road delay. Demonstrates full multi-agent autonomous resilience and recovery.',
-      flow: [
-        'Supplier A offline AND NH-53 highway blocked',
-        'Procurement & Logistics Agents detect dual fault',
-        'Autonomous inter-agent negotiation cycle',
-        'Supplier B selected + Rail Freight re-routed',
-        'Supervisor verifies final multi-agent recovery'
-      ]
+      title: 'Compound Multi-Exception',
+      description: 'Triggers simultaneous supplier outage AND highway delay to test total multi-agent autonomous resilience and recovery.',
+      borderClass: 'border-l-4 border-l-purple-500',
+      impact: 'Dual Node Outage',
+      mitigation: 'Full Agent Mesh Reroute'
     }
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5 text-amber-400" /> Multi-Agent Exception Recovery & Resilience Engine
-        </h2>
-        <p className="text-xs text-slate-400">
-          Simulate supply chain bottlenecks, supplier outages, and budget breaches to demonstrate autonomous agent recovery
-        </p>
+    <div className="space-y-6 font-sans">
+      {/* Header matching Screenshot 1 */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1B2638] pb-5">
+        <div>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">
+            Exception Simulators & Stress Testing
+          </h1>
+          <p className="text-sm text-slate-400 font-medium mt-1">
+            Inject controlled failures to test Mesh routing and recovery.
+          </p>
+        </div>
+
+        <button
+          onClick={resetDemo}
+          className="px-4 py-2 bg-[#162035] hover:bg-[#1E2C4A] text-slate-200 font-semibold rounded-lg text-xs border border-[#233148] shadow transition shrink-0 self-start md:self-auto"
+        >
+          Reset Environment State
+        </button>
       </div>
 
-      {/* Scenarios Grid */}
+      {/* Exception Simulator Cards matching Screenshot 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {scenarios.map(scen => {
+        {scenarios.map((scen) => {
           const isSelected = activeScenario === scen.id;
+          const isActiveSimulating = isSimulating && isSelected;
+
           return (
             <div
               key={scen.id}
-              className={`bg-[#121929] border rounded-2xl p-5 shadow-xl transition-all duration-200 flex flex-col justify-between ${
-                isSelected
-                  ? 'border-amber-500 ring-2 ring-amber-500/30 bg-[#172136]'
-                  : 'border-[#24334D] hover:border-slate-600'
+              className={`bg-[#111827] border border-[#1E293B] ${scen.borderClass} rounded-xl p-5 shadow-xl transition-all space-y-4 ${
+                isSelected ? 'ring-2 ring-cyan-500/30' : ''
               }`}
             >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="px-2.5 py-0.5 text-[10px] font-bold font-mono rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    RESILIENCE TEST
-                  </span>
-                  {isSelected && (
-                    <span className="text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> SELECTED FOR DEMO
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-base text-white">{scen.title}</h3>
+                  {isActiveSimulating && (
+                    <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 text-[10px] font-mono rounded font-bold uppercase animate-pulse">
+                      ACTIVE
                     </span>
                   )}
                 </div>
+                <AlertTriangle className="w-4 h-4 text-slate-400" />
+              </div>
 
-                <h3 className="font-bold text-sm text-white mb-1.5">{scen.title}</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4">{scen.description}</p>
+              <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                {scen.description}
+              </p>
 
-                {/* Step Flow List */}
-                <div className="space-y-1.5 bg-[#0B111E] p-3 rounded-xl border border-[#1E293B] text-[11px]">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                    Recovery Workflow Sequence
-                  </div>
-                  {scen.flow.map((step, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-slate-300">
-                      <span className="w-4 h-4 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-[9px] font-bold shrink-0">
-                        {idx + 1}
-                      </span>
-                      <span className="truncate">{step}</span>
-                    </div>
-                  ))}
+              {/* Impact & Mitigation Stats matching Screenshot 1 */}
+              <div className="p-3 bg-[#090D16] rounded-lg border border-[#1E293B] grid grid-cols-2 gap-2 text-xs font-mono">
+                <div>
+                  <div className="text-[10px] text-slate-500 uppercase font-bold">IMPACTED</div>
+                  <div className="text-white font-bold">{scen.impact}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-slate-500 uppercase font-bold">MITIGATION</div>
+                  <div className="text-emerald-400 font-bold">{scen.mitigation}</div>
                 </div>
               </div>
 
-              <div className="pt-4 mt-4 border-t border-[#1E293B] flex items-center justify-between">
+              {/* Action Buttons matching Screenshot 1 */}
+              <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   onClick={() => setActiveScenario(scen.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    isSelected
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                  }`}
+                  className="px-3.5 py-1.5 bg-[#162035] hover:bg-[#1E2C4A] text-slate-300 rounded-lg text-xs font-medium border border-[#233148] transition"
                 >
-                  {isSelected ? 'Active Scenario' : 'Select Scenario'}
+                  Configure
                 </button>
 
-                <button
-                  onClick={() => {
-                    setActiveScenario(scen.id);
-                    runDemoOrder(scen.id);
-                  }}
-                  disabled={isSimulating}
-                  className="px-4 py-1.5 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white rounded-lg text-xs font-bold shadow-md flex items-center gap-1.5 disabled:opacity-40"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  {isSimulating && activeScenario === scen.id ? 'Running Exception...' : 'Run Scenario'}
-                </button>
+                {isActiveSimulating ? (
+                  <button
+                    onClick={resetDemo}
+                    className="px-4 py-1.5 bg-[#E0F8FF] text-slate-900 font-bold rounded-lg text-xs font-mono shadow flex items-center gap-1.5"
+                  >
+                    <Square className="w-3 h-3 fill-current" /> Halt Simulation
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setActiveScenario(scen.id);
+                      runDemoOrder(scen.id);
+                    }}
+                    className="px-4 py-1.5 bg-[#1A283D] hover:bg-cyan-600 hover:text-white text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-mono font-bold shadow flex items-center gap-1.5 transition"
+                  >
+                    <Play className="w-3 h-3 fill-current" /> Inject
+                  </button>
+                )}
               </div>
             </div>
           );
