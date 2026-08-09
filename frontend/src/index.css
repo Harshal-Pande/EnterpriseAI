@@ -219,6 +219,28 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+/* ── Activity Stream Scrollable Panel ──────────────── */
+.activity-stream-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.activity-stream-scroll::-webkit-scrollbar-track {
+  background: #080C14;
+  border-radius: 2px;
+}
+.activity-stream-scroll::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+.activity-stream-scroll::-webkit-scrollbar-thumb:hover {
+  background: #334766;
+}
+/* Firefox */
+.activity-stream-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #1E293B #080C14;
+}
+
 /* ── Agent Color Classes ────────────────────────────── */
 .agent-supervisor { color: #6366F1; border-color: rgba(99,102,241,0.4); }
 .agent-inventory  { color: #10B981; border-color: rgba(16,185,129,0.4); }
