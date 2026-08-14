@@ -107,11 +107,11 @@ export const LiveAgentMesh: React.FC = () => {
   const { agents, workflowStage, setSelectedAgentId, selectedAgentId } = useDemo();
 
   const getAgent = (id: AgentId) => agents.find(a => a.id === id);
-  const supervisor  = getAgent('supervisor');
-  const inventory   = getAgent('inventory');
+  const supervisor = getAgent('supervisor');
+  const inventory = getAgent('inventory');
   const procurement = getAgent('procurement');
-  const finance     = getAgent('finance');
-  const logistics   = getAgent('logistics');
+  const finance = getAgent('finance');
+  const logistics = getAgent('logistics');
 
   const lineColor = (active?: boolean, color?: string) =>
     active ? (color ?? '#38BDF8') : '#1E293B';
@@ -146,34 +146,36 @@ export const LiveAgentMesh: React.FC = () => {
           className="absolute inset-0 w-full h-full pointer-events-none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          {/* Supervisor → Inventory */}
-          <line x1="50%" y1="42%" x2="20%" y2="75%"
+          {/* Supervisor → Inventory (Center to Top-Left) */}
+          <line x1="50%" y1="50%" x2="25%" y2="25%"
             stroke={lineColor(inventory?.active, '#10B981')}
             strokeWidth={inventory?.active ? '1.5' : '1'}
             className={inventory?.active ? 'animate-dash-flow' : ''}
             strokeDasharray={inventory?.active ? '5 5' : '0'}
           />
-          {/* Supervisor → Procurement */}
-          <line x1="50%" y1="42%" x2="80%" y2="75%"
-            stroke={lineColor(procurement?.active, '#F59E0B')}
-            strokeWidth={procurement?.active ? '1.5' : '1'}
-            className={procurement?.active ? 'animate-dash-flow' : ''}
-            strokeDasharray={procurement?.active ? '5 5' : '0'}
-          />
-          {/* Supervisor → Finance */}
-          <line x1="50%" y1="42%" x2="50%" y2="78%"
+          {/* Supervisor → Finance (Center to Top-Right) */}
+          <line x1="50%" y1="50%" x2="75%" y2="25%"
             stroke={lineColor(finance?.active, '#EC4899')}
             strokeWidth={finance?.active ? '1.5' : '1'}
             className={finance?.active ? 'animate-dash-flow' : ''}
             strokeDasharray={finance?.active ? '5 5' : '0'}
           />
-          {/* Procurement → Logistics */}
-          <line x1="80%" y1="75%" x2="80%" y2="75%"
+          {/* Supervisor → Procurement (Center to Bottom-Left) */}
+          <line x1="50%" y1="50%" x2="25%" y2="75%"
+            stroke={lineColor(procurement?.active, '#F59E0B')}
+            strokeWidth={procurement?.active ? '1.5' : '1'}
+            className={procurement?.active ? 'animate-dash-flow' : ''}
+            strokeDasharray={procurement?.active ? '5 5' : '0'}
+          />
+          {/* Procurement → Logistics (Bottom-Left to Bottom-Right) */}
+          <line x1="25%" y1="75%" x2="75%" y2="75%"
             stroke={lineColor(logistics?.active, '#8B5CF6')}
-            strokeWidth="1"
+            strokeWidth={logistics?.active ? '1.5' : '1'}
+            className={logistics?.active ? 'animate-dash-flow' : ''}
+            strokeDasharray={logistics?.active ? '5 5' : '4 4'}
           />
           {/* Supervisor ring */}
-          <circle cx="50%" cy="42%" r="52"
+          <circle cx="50%" cy="50%" r="65"
             fill="none"
             stroke={supervisor?.active ? 'rgba(99,102,241,0.15)' : 'transparent'}
             strokeWidth="1"
@@ -182,9 +184,9 @@ export const LiveAgentMesh: React.FC = () => {
         </svg>
 
         {/* Node Grid Layout */}
-        <div className="relative w-full max-w-xl" style={{ height: '260px' }}>
-          {/* Supervisor — top center */}
-          <div className="absolute" style={{ top: '0%', left: '50%', transform: 'translateX(-50%)' }}>
+        <div className="relative w-full max-w-2xl" style={{ height: '270px' }}>
+          {/* Supervisor — Center */}
+          <div className="absolute" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10 }}>
             <AgentNode
               id="supervisor"
               isCenter
@@ -194,8 +196,8 @@ export const LiveAgentMesh: React.FC = () => {
             />
           </div>
 
-          {/* Inventory — bottom left */}
-          <div className="absolute" style={{ bottom: '0%', left: '3%' }}>
+          {/* Inventory — Top Left */}
+          <div className="absolute" style={{ top: '0', left: '5%' }}>
             <AgentNode
               id="inventory"
               isSelected={selectedAgentId === 'inventory'}
@@ -204,8 +206,8 @@ export const LiveAgentMesh: React.FC = () => {
             />
           </div>
 
-          {/* Finance — bottom center */}
-          <div className="absolute" style={{ bottom: '0%', left: '50%', transform: 'translateX(-50%)' }}>
+          {/* Finance — Top Right */}
+          <div className="absolute" style={{ top: '0', right: '5%' }}>
             <AgentNode
               id="finance"
               isSelected={selectedAgentId === 'finance'}
@@ -214,8 +216,8 @@ export const LiveAgentMesh: React.FC = () => {
             />
           </div>
 
-          {/* Procurement — bottom right */}
-          <div className="absolute" style={{ bottom: '0%', right: '3%' }}>
+          {/* Procurement — Bottom Left */}
+          <div className="absolute" style={{ bottom: '0', left: '5%' }}>
             <AgentNode
               id="procurement"
               isSelected={selectedAgentId === 'procurement'}
@@ -224,8 +226,8 @@ export const LiveAgentMesh: React.FC = () => {
             />
           </div>
 
-          {/* Logistics — mid right (child of procurement) */}
-          <div className="absolute" style={{ top: '50%', right: '3%', transform: 'translateY(-50%)' }}>
+          {/* Logistics — Bottom Right */}
+          <div className="absolute" style={{ bottom: '0', right: '5%' }}>
             <AgentNode
               id="logistics"
               isSelected={selectedAgentId === 'logistics'}
