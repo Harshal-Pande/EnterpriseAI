@@ -25,9 +25,11 @@ app.include_router(audit.router, prefix="/api/audit_old", tags=["audit"]) # kept
 app.include_router(demo_data.router, prefix="/api", tags=["demo_data"])
 
 from app.db.neo4j_db import get_neo4j, seed_graph
+from app.db.blockchain import init_blockchain
 
 @app.on_event("startup")
 def startup_event():
+    init_blockchain()
     neo4j_db = get_neo4j()
     try:
         neo4j_db.connect()

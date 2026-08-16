@@ -61,7 +61,9 @@ def seed_graph():
     logger.info("Neo4j graph seeded successfully.")
 
 def track_decision(agent_id, decision_type, order_id, details=""):
-    """Track an agent decision in the graph and link it to the order."""
+    """Track an agent decision in the graph and link it to the order, while storing a hash on-chain."""
+    
+    # 1. Log to Neo4j Knowledge Graph
     query = f"""
     MATCH (a:Agent {{id: $agent_id}}), (o:Order {{id: $order_id}})
     CREATE (d:Decision {{id: randomUUID(), type: $decision_type, details: $details, timestamp: timestamp()}})
@@ -69,4 +71,14 @@ def track_decision(agent_id, decision_type, order_id, details=""):
     CREATE (d)-[:FOR_ORDER]->(o)
     RETURN d
     """
-    return neo4j_db.execute_query(query, {"agent_id": agent_id, "decision_type": decision_type, "order_id": order_id, "details": details})
+    result = neo4j_db.execute_query(query, {"agent_id": agent_id, "decision_type": decision_type, "order_id": order_id, "details": details})
+    
+    # 2. Log to Ethereum/Polygon Blockchain via Web3
+    try:
+        from app.db.blockchain import record_audit_event
+        record_audit_event(order_id, decision_type, details, agent_id)
+    except Exception as e:
+        logger.error(f"Failed to record decision on blockchain: {e}")
+        
+    return result
+

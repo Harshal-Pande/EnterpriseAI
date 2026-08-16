@@ -1,0 +1,40 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/Users/omsinghbais/Desktop/EnterpriseAI/blockchain/contracts/EnterpriseAudit.sol": {
+      "lastModificationDate": 1786893601180,
+      "contentHash": "806e3cf444509a1e83ab73e07d7aad4e",
+      "sourceName": "contracts/EnterpriseAudit.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "EnterpriseAudit"
+      ]
+    }
+  }
+}

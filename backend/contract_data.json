@@ -1,0 +1,142 @@
+{
+  "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "abi": [
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "AuditEventRecorded",
+      "inputs": [
+        {
+          "type": "string",
+          "name": "orderId",
+          "indexed": true
+        },
+        {
+          "type": "string",
+          "name": "eventType",
+          "indexed": false
+        },
+        {
+          "type": "string",
+          "name": "eventHash",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "timestamp",
+          "indexed": false
+        },
+        {
+          "type": "string",
+          "name": "actor",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getAuditTrail",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "string",
+          "name": "_orderId"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "tuple[]",
+          "name": "",
+          "components": [
+            {
+              "type": "string",
+              "name": "orderId"
+            },
+            {
+              "type": "string",
+              "name": "eventType"
+            },
+            {
+              "type": "string",
+              "name": "eventHash"
+            },
+            {
+              "type": "uint256",
+              "name": "timestamp"
+            },
+            {
+              "type": "string",
+              "name": "actor"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "orderAuditTrails",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "string",
+          "name": ""
+        },
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "string",
+          "name": "orderId"
+        },
+        {
+          "type": "string",
+          "name": "eventType"
+        },
+        {
+          "type": "string",
+          "name": "eventHash"
+        },
+        {
+          "type": "uint256",
+          "name": "timestamp"
+        },
+        {
+          "type": "string",
+          "name": "actor"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "recordEvent",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "string",
+          "name": "_orderId"
+        },
+        {
+          "type": "string",
+          "name": "_eventType"
+        },
+        {
+          "type": "string",
+          "name": "_eventHash"
+        },
+        {
+          "type": "string",
+          "name": "_actor"
+        }
+      ],
+      "outputs": []
+    }
+  ]
+}
