@@ -7,8 +7,10 @@ pydantic==2.6.4
 langgraph
 neo4j==5.18.0
 pydantic-settings
+pgvector==0.2.5
+sentence-transformers==2.7.0
+scikit-learn
 
-# langgraph==0.0.30
 # langchain==0.1.13
 # neo4j==5.18.0
 # web3==6.15.1

@@ -16,7 +16,7 @@
 | 1 | Frontend prototype | ✅ | React/TypeScript/Vite command center with 11 pages |
 | 2 | FastAPI backend | ✅ | Real routes returning dynamic state, connected to frontend |
 | 3 | LangGraph orchestration | ✅ | Real StateGraph implemented with functional agent nodes |
-| 4 | PostgreSQL/pgvector | 🟡 | Active connection, Alembic migrations, and real CRUD for orders; RAG/pgvector pending |
+| 4 | PostgreSQL/pgvector | ✅ | PostgreSQL + Alembic + pgvector + RAG active |
 | 5 | Neo4j knowledge graph | ✅ | Schema/sample data exists; application integration and agent tracking done |
 | 6 | Blockchain audit | 🟡 | Solidity contract exists; not deployed |
 | 7 | WebSockets/event streaming | 🔵 | Planned |

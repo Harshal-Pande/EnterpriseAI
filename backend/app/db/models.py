@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Float, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import declarative_base
 from datetime import datetime, timezone
 import uuid
+from pgvector.sqlalchemy import Vector
 
 Base = declarative_base()
 
@@ -28,3 +29,12 @@ class WorkflowState(Base):
     state_data = Column(JSON, nullable=True, default=dict)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+class SupplierContext(Base):
+    __tablename__ = "supplier_context"
+    
+    id = Column(String, primary_key=True, default=generate_uuid)
+    supplier_id = Column(String, nullable=False)
+    context_text = Column(String, nullable=False)
+    embedding = Column(Vector(384)) # 384 dims for all-MiniLM-L6-v2
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
