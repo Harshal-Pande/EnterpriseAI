@@ -17,7 +17,7 @@
 | 2 | FastAPI backend | ✅ | Real routes returning dynamic state, connected to frontend |
 | 3 | LangGraph orchestration | ✅ | Real StateGraph implemented with functional agent nodes |
 | 4 | PostgreSQL/pgvector | 🟡 | Active connection, Alembic migrations, and real CRUD for orders; RAG/pgvector pending |
-| 5 | Neo4j knowledge graph | 🟡 | Cypher schema/sample data exist; application integration is pending |
+| 5 | Neo4j knowledge graph | ✅ | Schema/sample data exists; application integration and agent tracking done |
 | 6 | Blockchain audit | 🟡 | Solidity contract exists; not deployed |
 | 7 | WebSockets/event streaming | 🔵 | Planned |
 | 8 | Integration/testing/benchmarking | 🔵 | Planned |
