@@ -1,30 +1,141 @@
-# Enterprise AI Mesh — Architectural Specifications
+# Enterprise AI Mesh — Architecture
 
-## Architectural Principles & Layered Responsibilities
+## 1. Current architecture
 
-### 1. Frontend Layer (`/frontend`)
-- **Technology**: React 18, TypeScript, Tailwind CSS, Lucide Icons, Vite.
-- **Responsibilities**: Command Center UI, interactive SVG Agent Mesh, Knowledge Graph inspection, live activity feed, order registry, exception simulation runner, audit block explorer, benchmarking views.
-- **Contract Boundary**: Consumes data via `frontend/src/services/apiServices.ts` and `frontend/src/state/DemoContext.tsx`.
+```text
+React + TypeScript + Vite
+        |
+        | currently mostly local demo state
+        v
+DemoContext / apiServices
+        |
+        +--> simulated agents/workflow
+        +--> simulated audit ledger
+        +--> simulated benchmark values
 
-### 2. Backend API Layer (`/backend`) — Phase 2
-- **Technology**: Python 3.11+, FastAPI, Pydantic v2, WebSockets.
-- **Responsibilities**: REST API endpoints (`/api/v1/orders`, `/api/v1/agents`, `/api/v1/audit`), authentication, RBAC authorization, WebSocket live event dispatcher.
+FastAPI starter
+        |
+        +--> /api/orders
+        +--> /api/workflow
+        +--> /api/agents
+        +--> /api/audit
 
-### 3. Agent Orchestration Layer (`/agents`) — Phase 3
-- **Technology**: LangGraph, LangChain, OpenAI / Anthropic / Llama-3 LLM adapters.
-- **Agents**:
-  - `Supervisor Agent`: Workflow planner & sub-agent token arbiter.
-  - `Inventory Agent`: PostgreSQL / pgvector stock & reorder signal generator.
-  - `Procurement Agent`: Multi-supplier negotiation scoring matrix.
-  - `Finance Agent`: Budget reserve validation & risk governance.
-  - `Logistics Agent`: Freight route corridor feasibility & SLA verifier.
+Backend starter
+        |
+        +--> SupervisorAgent
+        +--> InventoryAgent
+        +--> ProcurementAgent
+        +--> FinanceAgent
+        +--> LogisticsAgent
+        |
+        +--> WorkflowGraph simulation
 
-### 4. Data Layer (`/database`) — Phase 4
-- **PostgreSQL**: Transactional business records & order state tables.
-- **pgvector**: Semantic vector index for RAG retrieval.
-- **Neo4j**: Graph database for Customer -> Order -> Product -> Supplier -> Warehouse entity relationships.
+Neo4j
+        |
+        +--> schema.cypher
+        +--> sample_data.cypher
 
-### 5. Audit & Smart Contract Layer (`/contracts`) — Phase 5
-- **Solidity**: Immutable audit logging smart contract (`AuditLedger.sol`).
-- **Polygon Network**: Polygon Mumbai / Amoy testnet deployment.
+Blockchain
+        |
+        +--> EnterpriseAudit.sol
+        +--> not deployed
+```
+
+## 2. Target architecture
+
+```text
+                         +----------------------+
+                         | React Command Center |
+                         +----------+-----------+
+                                    |
+                              HTTPS / WS
+                                    |
+                         +----------v-----------+
+                         |     FastAPI API      |
+                         | Auth + RBAC + DTOs   |
+                         +----------+-----------+
+                                    |
+                         +----------v-----------+
+                         | Workflow / LangGraph |
+                         | Supervisor           |
+                         +----+----+----+-------+
+                              |    |    |
+             +----------------+    |    +----------------+
+             v                     v                     v
+        Inventory             Procurement            Finance
+             |                     |                     |
+             +---------------------+---------------------+
+                                   |
+                              Logistics
+                                   |
+                +------------------+------------------+
+                |                  |                  |
+                v                  v                  v
+          PostgreSQL           Neo4j/Graph        pgvector/RAG
+       transactional data    relationships       business knowledge
+                |
+                +------------------+
+                                   |
+                              Audit Service
+                                   |
+                              Solidity Contract
+                                   |
+                              Polygon Testnet
+
+Optional asynchronous layer:
+FastAPI / agents -> Kafka or NATS -> event consumers -> WebSocket updates
+```
+
+## 3. Layer responsibilities
+
+### Frontend
+Only presentation, user actions, local UI state, and API consumption. It must not be the source of truth for audit, inventory, finance, or order state.
+
+### API
+Authentication, authorization, validation, orchestration entry points, query endpoints, WebSocket gateway, and error normalization.
+
+### Orchestration
+LangGraph owns workflow state transitions and agent routing. The Supervisor should make routing decisions but should not duplicate domain validation.
+
+### Agents
+Each agent owns a narrow domain capability and calls deterministic tools/services.
+
+### PostgreSQL
+Transactional source of truth.
+
+### pgvector
+Retrieval index for textual business knowledge and historical decisions.
+
+### Neo4j
+Relationship/dependency queries.
+
+### Blockchain
+Immutable checkpoint/audit evidence.
+
+## 4. Recommended event model
+
+Every significant event should contain:
+
+```text
+event_id
+event_type
+workflow_id
+order_id
+agent_id
+timestamp
+payload
+evidence_refs
+decision_id
+severity
+```
+
+The blockchain should receive a compact hash/anchor of the event, not the entire business payload.
+
+## 5. Important architectural decision
+
+The final system is hybrid:
+
+- deterministic services guarantee correctness for arithmetic, limits, stock calculations, and policy checks;
+- agents coordinate and reason over context;
+- the Supervisor decides which specialist should act next;
+- the audit layer records material decisions.
