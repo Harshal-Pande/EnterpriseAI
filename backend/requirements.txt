@@ -1,8 +1,14 @@
 fastapi==0.110.0
 uvicorn==0.29.0
+sqlalchemy==2.0.29
+psycopg[binary]
+alembic==1.13.1
 pydantic==2.6.4
+langgraph
+neo4j==5.18.0
+pydantic-settings
+
 # langgraph==0.0.30
 # langchain==0.1.13
 # neo4j==5.18.0
-# psycopg2-binary==2.9.9
 # web3==6.15.1

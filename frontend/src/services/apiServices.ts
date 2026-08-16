@@ -1,54 +1,61 @@
 import type { Agent, Order, Supplier, InventoryItem, AuditEvent, GraphNode, GraphEdge } from '../types';
-import {
-  INITIAL_AGENTS,
-  DEFAULT_ORDER,
-  SAMPLE_ORDERS,
-  INITIAL_SUPPLIERS,
-  INITIAL_INVENTORY,
-  INITIAL_AUDIT_EVENTS,
-  INITIAL_GRAPH_NODES,
-  INITIAL_GRAPH_EDGES
-} from '../data/initialDemoData';
+import { DEFAULT_ORDER } from '../data/initialDemoData';
+
+const API_BASE = 'http://127.0.0.1:8000/api';
 
 export const agentService = {
   getAgents: async (): Promise<Agent[]> => {
-    return Promise.resolve(INITIAL_AGENTS);
+    const res = await fetch(`${API_BASE}/agents`);
+    return res.json();
   },
   getAgentById: async (id: string): Promise<Agent | undefined> => {
-    return Promise.resolve(INITIAL_AGENTS.find(a => a.id === id));
+    const res = await fetch(`${API_BASE}/agents/${id}`);
+    return res.json();
   }
 };
 
 export const orderService = {
   getOrders: async (): Promise<Order[]> => {
-    return Promise.resolve(SAMPLE_ORDERS);
+    const res = await fetch(`${API_BASE}/orders`);
+    return res.json();
   },
   getPrimaryOrder: async (): Promise<Order> => {
-    return Promise.resolve(DEFAULT_ORDER);
+    try {
+        const res = await fetch(`${API_BASE}/orders`);
+        const orders = await res.json();
+        if (orders.length > 0) return orders[0];
+    } catch (e) {
+        console.error(e);
+    }
+    return DEFAULT_ORDER;
   }
 };
 
 export const supplierService = {
   getSuppliers: async (): Promise<Supplier[]> => {
-    return Promise.resolve(INITIAL_SUPPLIERS);
+    const res = await fetch(`${API_BASE}/suppliers`);
+    return res.json();
   }
 };
 
 export const inventoryService = {
   getInventory: async (): Promise<InventoryItem[]> => {
-    return Promise.resolve(INITIAL_INVENTORY);
+    const res = await fetch(`${API_BASE}/inventory`);
+    return res.json();
   }
 };
 
 export const auditService = {
   getAuditEvents: async (): Promise<AuditEvent[]> => {
-    return Promise.resolve(INITIAL_AUDIT_EVENTS);
+    const res = await fetch(`${API_BASE}/audit`);
+    return res.json();
   }
 };
 
 export const graphService = {
   getKnowledgeGraph: async (): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> => {
-    return Promise.resolve({ nodes: INITIAL_GRAPH_NODES, edges: INITIAL_GRAPH_EDGES });
+    const res = await fetch(`${API_BASE}/knowledge-graph`);
+    return res.json();
   }
 };
 
@@ -62,12 +69,7 @@ export interface BenchmarkData {
 
 export const benchmarkService = {
   getBenchmarkMetrics: async (): Promise<BenchmarkData> => {
-    return Promise.resolve({
-      latencyMs: { traditional: 4800, agentMesh: 1520 },
-      processingCostRs: { traditional: 1450, agentMesh: 840 },
-      exceptionHandlingRate: { traditional: 18.5, agentMesh: 98.4 },
-      explainabilityScore: { traditional: 12.0, agentMesh: 94.5 },
-      recoveryTimeSec: { traditional: 14400, agentMesh: 8.5 }
-    });
+    const res = await fetch(`${API_BASE}/benchmarks`);
+    return res.json();
   }
 };

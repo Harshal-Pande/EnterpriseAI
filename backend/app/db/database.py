@@ -1,8 +1,15 @@
-"""
-Starter module for database connection.
-PostgreSQL/pgvector connection will be implemented here.
-"""
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://enterprise_user:enterprise_password@localhost:5433/enterprise_ai")
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
-    # TODO: Implement connection pooling and yield session
-    pass
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
