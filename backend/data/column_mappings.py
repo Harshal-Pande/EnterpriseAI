@@ -10,8 +10,8 @@ workbook_inspection.json).  Destination column names match 001_operational_schem
 """
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
-from typing import Any, Callable, Dict, List, Optional
+from datetime import date, datetime, timezone
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -36,6 +36,8 @@ class SheetMapping:
     columns: List[ColumnMapping] = field(default_factory=list)
     required_for_fk: bool = False   # True = must be loaded before FK-dependent sheets
     load_order: int = 0             # lower = loaded first
+    extra_dest_values: Dict[str, Any] = field(default_factory=dict)
+    # Constant destination values applied at import (not present as source columns).
 
 
 # ---------------------------------------------------------------------------
@@ -77,13 +79,15 @@ def _parse_date(v: Any) -> Optional[date]:
 
 
 def _parse_datetime(v: Any) -> Optional[datetime]:
-    """Coerce workbook datetime-string to timezone-naive UTC datetime."""
+    """Coerce workbook datetime-string to timezone-aware UTC datetime."""
     if v is None:
         return None
     if isinstance(v, datetime):
-        return v
+        if v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v.astimezone(timezone.utc)
     if isinstance(v, date):
-        return datetime(v.year, v.month, v.day)
+        return datetime(v.year, v.month, v.day, tzinfo=timezone.utc)
     s = str(v).strip()
     for fmt in (
         "%Y-%m-%dT%H:%M:%S",
@@ -93,10 +97,24 @@ def _parse_datetime(v: Any) -> Optional[datetime]:
         "%Y-%m-%d",
     ):
         try:
-            return datetime.strptime(s, fmt)
+            return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
         except ValueError:
             continue
     return None
+
+
+def _to_int(v: Any) -> Optional[int]:
+    """Cast integer-like values; reject booleans and non-numeric strings."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, int):
+        return v
+    try:
+        return int(float(str(v).strip()))
+    except (TypeError, ValueError):
+        return None
 
 
 def _to_decimal(v: Any) -> Optional[float]:
@@ -204,7 +222,7 @@ SHEET_MAPPINGS: Dict[str, SheetMapping] = {
             ColumnMapping("risk_band",                "risk_band",                "str",     True,  _strip),
             ColumnMapping("historical_on_time_rate",  "historical_on_time_rate",  "float",   False, _to_decimal,
                           "0–1 fraction"),
-            ColumnMapping("default_lead_time_hours",  "default_lead_time_hours",  "int",     False, None),
+            ColumnMapping("default_lead_time_hours",  "default_lead_time_hours",  "int",     False, _to_int),
         ],
     ),
 
@@ -220,7 +238,7 @@ SHEET_MAPPINGS: Dict[str, SheetMapping] = {
             ColumnMapping("item_id",            "item_id",           "str",      True,  _strip,       "FK → products"),
             ColumnMapping("unit_price_inr",     "unit_price_inr",    "decimal",  True,  _to_decimal),
             ColumnMapping("price_uom",          "price_uom",         "str",      True,  _strip),
-            ColumnMapping("lead_time_hours",    "lead_time_hours",   "int",      False, None),
+            ColumnMapping("lead_time_hours",    "lead_time_hours",   "int",      False, _to_int),
             ColumnMapping("max_available_qty",  "max_available_qty", "decimal",  False, _to_decimal),
             ColumnMapping("on_time_rate",       "on_time_rate",      "float",    False, _to_decimal,  "0–1 fraction"),
             ColumnMapping("effective_from",     "effective_from",    "date",     False, _parse_date),
@@ -324,7 +342,7 @@ SHEET_MAPPINGS: Dict[str, SheetMapping] = {
             ColumnMapping("entity_id",        "entity_id",       "str", True,  _strip,  "FK → entities"),
             ColumnMapping("start_local",      "start_local",     "str", True,  _strip,  "Local 24-h time string e.g. '06:00'"),
             ColumnMapping("end_local",        "end_local",       "str", True,  _strip),
-            ColumnMapping("duration_hours",   "duration_hours",  "int", False, None),
+            ColumnMapping("duration_hours",   "duration_hours",  "int", False, _to_int),
             ColumnMapping("status",           "status",          "str", True,  _strip),
         ],
     ),
@@ -638,9 +656,9 @@ SHEET_MAPPINGS: Dict[str, SheetMapping] = {
             ColumnMapping("feed_id",              "feed_id",              "str", True,  _strip),
             ColumnMapping("source_name",           "source_name",          "str", True,  _strip),
             ColumnMapping("last_success_at",       "last_success_at",      "datetime", False, _parse_datetime),
-            ColumnMapping("consecutive_failures",  "consecutive_failures", "int", True,  None),
+            ColumnMapping("consecutive_failures",  "consecutive_failures", "int", True,  _to_int),
             ColumnMapping("health_status",         "health_status",        "str", True,  _strip),
-            ColumnMapping("max_age_seconds",       "max_age_seconds",      "int", False, None),
+            ColumnMapping("max_age_seconds",       "max_age_seconds",      "int", False, _to_int),
         ],
     ),
 
@@ -654,6 +672,7 @@ SHEET_MAPPINGS: Dict[str, SheetMapping] = {
         primary_key_col="scenario_template_id",
         required_for_fk=False,
         load_order=4,
+        extra_dest_values={"linked_reference_id": None, "enabled": True},
         columns=[
             ColumnMapping("scenario_template_id", "scenario_template_id", "str", True,  _strip),
             ColumnMapping("scenario_type",         "scenario_type",        "str", True,  _strip),
@@ -732,3 +751,188 @@ EXCLUDED_SHEETS: Dict[str, str] = {
         "Header-only, 0 data rows. Populated at runtime by Phase 7 blockchain module."
     ),
 }
+
+
+# Import order is the authority for FK-safe loading (masters before dependents).
+LOAD_SEQUENCE: List[str] = [
+    "ref_entities",
+    "ref_departments",
+    "ref_products",
+    "ref_roles",
+    "ref_suppliers",
+    "ref_warehouses",
+    "ref_users",
+    "ref_production_lines",
+    "ref_budgets",
+    "ref_supplier_contracts",
+    "ref_shifts",
+    "ref_supplier_offers",
+    "ref_reorder_policies",
+    "bill_of_materials",
+    "business_rules",
+    "inventory",
+    "orders",
+    "order_lines",
+    "production_batches",
+    "purchase_orders",
+    "goods_receipts",
+    "maintenance_assets",
+    "maintenance_work_orders",
+    "shipments",
+    "carrier_events",
+    "quality_events",
+    "energy_readings",
+    "safety_events",
+    "feed_health",
+    "scenario_templates",
+    "simulation_config",
+]
+
+
+EXPECTED_SOURCE_ROW_COUNTS: Dict[str, int] = {
+    "ref_entities": 4,
+    "ref_departments": 11,
+    "ref_products": 11,
+    "ref_warehouses": 5,
+    "ref_suppliers": 8,
+    "ref_supplier_offers": 6,
+    "ref_roles": 7,
+    "ref_users": 30,
+    "ref_production_lines": 5,
+    "ref_budgets": 4,
+    "ref_supplier_contracts": 4,
+    "ref_shifts": 4,
+    "ref_reorder_policies": 55,
+    "bill_of_materials": 5,
+    "business_rules": 10,
+    "inventory": 150,
+    "orders": 200,
+    "order_lines": 200,
+    "production_batches": 60,
+    "shipments": 120,
+    "purchase_orders": 3,
+    "goods_receipts": 2,
+    "quality_events": 40,
+    "maintenance_assets": 35,
+    "maintenance_work_orders": 50,
+    "energy_readings": 240,
+    "safety_events": 25,
+    "carrier_events": 2,
+    "feed_health": 4,
+    "scenario_templates": 15,
+    "simulation_config": 12,
+}
+
+
+# Observed source values plus future-phase statuses required by CHECK constraints.
+STATUS_ALLOWLISTS: Dict[Tuple[str, str], Set[str]] = {
+    ("ref_entities", "status"): {"ACTIVE", "INACTIVE"},
+    ("ref_products", "status"): {"ACTIVE", "INACTIVE", "OBSOLETE"},
+    ("ref_warehouses", "status"): {"ACTIVE", "INACTIVE", "MAINTENANCE"},
+    ("ref_suppliers", "status"): {"ACTIVE", "INACTIVE", "SUSPENDED"},
+    ("ref_suppliers", "risk_band"): {"LOW", "MEDIUM", "HIGH"},
+    ("ref_supplier_offers", "offer_status"): {"ACTIVE", "EXPIRED", "WITHDRAWN"},
+    ("ref_users", "status"): {"ACTIVE", "INACTIVE", "SUSPENDED"},
+    ("ref_production_lines", "status"): {"RUNNING", "STOPPED", "MAINTENANCE", "IDLE"},
+    ("ref_budgets", "status"): {"ACTIVE", "INACTIVE", "CLOSED"},
+    ("ref_supplier_contracts", "status"): {"ACTIVE", "EXPIRED", "TERMINATED"},
+    ("ref_shifts", "status"): {"ACTIVE", "INACTIVE"},
+    ("ref_reorder_policies", "status"): {"ACTIVE", "INACTIVE"},
+    ("inventory", "stock_signal"): {"NORMAL", "LOW_STOCK", "CRITICAL", "OUT_OF_STOCK", "EXCESS"},
+    ("orders", "status"): {"OPEN", "IN_PROGRESS", "AT_RISK", "COMPLETED", "CANCELLED"},
+    ("orders", "priority"): {"LOW", "MEDIUM", "HIGH", "CRITICAL"},
+    ("production_batches", "status"): {"PLANNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"},
+    ("production_batches", "risk_flag"): {
+        "NORMAL", "MATERIAL_RISK", "DELAY_RISK", "CAPACITY_RISK", "QUALITY_RISK",
+    },
+    ("shipments", "status"): {"PLANNED", "IN_TRANSIT", "AT_RISK", "DELIVERED", "CANCELLED"},
+    ("shipments", "transport_mode"): {"RAIL", "ROAD", "ROAD_RAIL", "SEA", "AIR"},
+    ("shipments", "risk_flag"): {"NORMAL", "DELAY_RISK", "AT_RISK"},
+    ("purchase_orders", "status"): {"DRAFT", "APPROVED", "IN_TRANSIT", "RECEIVED", "CANCELLED"},
+    ("goods_receipts", "inspection_status"): {"PENDING", "ACCEPTED", "QUALITY_HOLD", "REJECTED"},
+    ("quality_events", "severity"): {"LOW", "MEDIUM", "HIGH", "CRITICAL"},
+    ("quality_events", "status"): {"OPEN", "IN_REVIEW", "RELEASED", "REJECTED"},
+    ("maintenance_assets", "health_status"): {"NORMAL", "WARNING", "CRITICAL"},
+    ("maintenance_work_orders", "status"): {"OPEN", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"},
+    ("maintenance_work_orders", "priority"): {"LOW", "MEDIUM", "HIGH", "CRITICAL"},
+    ("energy_readings", "signal"): {"NORMAL", "SPIKE", "HIGH_USAGE", "LOW", "OFFLINE", "ALERT"},
+    ("safety_events", "event_type"): {
+        "NEAR_MISS", "UNSAFE_CONDITION", "EQUIPMENT_GUARD_ALERT",
+        "PPE_NONCOMPLIANCE", "INCIDENT", "FIRE", "SPILL",
+    },
+    ("safety_events", "severity"): {"LOW", "MEDIUM", "HIGH", "CRITICAL"},
+    ("safety_events", "status"): {"OPEN", "INVESTIGATING", "CLOSED", "ESCALATED"},
+    ("business_rules", "severity"): {"LOW", "MEDIUM", "HIGH", "CRITICAL"},
+    ("feed_health", "health_status"): {"HEALTHY", "DEGRADED", "OFFLINE", "UNKNOWN"},
+    ("scenario_templates", "domain"): {
+        "Inventory", "Procurement", "Finance", "Logistics", "Quality",
+        "Maintenance", "Energy", "Safety", "Production", "Cross-functional",
+        "General", "Data Quality",
+    },
+    # DQ-01: workbook column is mislabelled; values are severities.
+    ("scenario_templates", "linked_reference_id"): {"LOW", "MEDIUM", "HIGH", "CRITICAL"},
+}
+
+
+@dataclass(frozen=True)
+class ForeignKeySpec:
+    child_sheet: str
+    fk_col: str
+    parent_sheet: str
+    parent_pk: str
+
+
+FK_SPECS: List[ForeignKeySpec] = [
+    ForeignKeySpec("ref_warehouses", "entity_id", "ref_entities", "entity_id"),
+    ForeignKeySpec("ref_users", "role_id", "ref_roles", "role_id"),
+    ForeignKeySpec("ref_users", "entity_id", "ref_entities", "entity_id"),
+    ForeignKeySpec("ref_production_lines", "entity_id", "ref_entities", "entity_id"),
+    ForeignKeySpec("ref_budgets", "entity_id", "ref_entities", "entity_id"),
+    ForeignKeySpec("ref_supplier_contracts", "supplier_id", "ref_suppliers", "supplier_id"),
+    ForeignKeySpec("ref_shifts", "entity_id", "ref_entities", "entity_id"),
+    ForeignKeySpec("ref_supplier_offers", "supplier_id", "ref_suppliers", "supplier_id"),
+    ForeignKeySpec("ref_supplier_offers", "item_id", "ref_products", "product_id"),
+    ForeignKeySpec("ref_reorder_policies", "item_id", "ref_products", "product_id"),
+    ForeignKeySpec("ref_reorder_policies", "warehouse_id", "ref_warehouses", "warehouse_id"),
+    ForeignKeySpec("bill_of_materials", "output_product_id", "ref_products", "product_id"),
+    ForeignKeySpec("bill_of_materials", "input_item_id", "ref_products", "product_id"),
+    ForeignKeySpec("inventory", "item_id", "ref_products", "product_id"),
+    ForeignKeySpec("inventory", "warehouse_id", "ref_warehouses", "warehouse_id"),
+    ForeignKeySpec("orders", "entity_id", "ref_entities", "entity_id"),
+    ForeignKeySpec("order_lines", "order_id", "orders", "order_id"),
+    ForeignKeySpec("order_lines", "product_id", "ref_products", "product_id"),
+    ForeignKeySpec("production_batches", "production_line_id", "ref_production_lines", "production_line_id"),
+    ForeignKeySpec("production_batches", "output_product_id", "ref_products", "product_id"),
+    ForeignKeySpec("shipments", "order_id", "orders", "order_id"),
+    ForeignKeySpec("shipments", "origin_warehouse_id", "ref_warehouses", "warehouse_id"),
+    ForeignKeySpec("shipments", "destination_warehouse_id", "ref_warehouses", "warehouse_id"),
+    ForeignKeySpec("shipments", "carrier_supplier_id", "ref_suppliers", "supplier_id"),
+    ForeignKeySpec("purchase_orders", "supplier_id", "ref_suppliers", "supplier_id"),
+    ForeignKeySpec("purchase_orders", "item_id", "ref_products", "product_id"),
+    ForeignKeySpec("purchase_orders", "budget_id", "ref_budgets", "budget_id"),
+    ForeignKeySpec("goods_receipts", "po_id", "purchase_orders", "po_id"),
+    ForeignKeySpec("goods_receipts", "supplier_id", "ref_suppliers", "supplier_id"),
+    ForeignKeySpec("goods_receipts", "item_id", "ref_products", "product_id"),
+    ForeignKeySpec("quality_events", "batch_id", "production_batches", "batch_id"),
+    ForeignKeySpec("quality_events", "product_id", "ref_products", "product_id"),
+    ForeignKeySpec("maintenance_assets", "production_line_id", "ref_production_lines", "production_line_id"),
+    ForeignKeySpec("maintenance_work_orders", "asset_id", "maintenance_assets", "asset_id"),
+    ForeignKeySpec("energy_readings", "entity_id", "ref_entities", "entity_id"),
+    ForeignKeySpec("energy_readings", "production_line_id", "ref_production_lines", "production_line_id"),
+    ForeignKeySpec("safety_events", "entity_id", "ref_entities", "entity_id"),
+    ForeignKeySpec("carrier_events", "shipment_id", "shipments", "shipment_id"),
+    ForeignKeySpec("carrier_events", "source_supplier_id", "ref_suppliers", "supplier_id"),
+]
+
+
+TOTAL_WORKBOOK_ROWS = 1677
+MAPPED_IMPORT_ROWS = sum(EXPECTED_SOURCE_ROW_COUNTS.values())  # 1327
+METADATA_EXCLUDED_ROWS = 8 + 37 + 305  # README + data_dictionary + column_dictionary
+EMPTY_RUNTIME_SHEETS = (
+    "scenario_instances",
+    "agent_runs",
+    "decisions",
+    "action_queue",
+    "event_log",
+    "blockchain_anchors",
+)

@@ -312,3 +312,125 @@ def check_referential_integrity(
                 ),
             ))
     return errors
+
+
+def check_arithmetic_identity(
+    sheet_name: str,
+    records: List[dict],
+    left_col: str,
+    minus_col: str,
+    result_col: str,
+    tolerance: float = 0.01,
+) -> List[ValidationError]:
+    """Flag rows where result_col != left_col - minus_col within tolerance."""
+    errors: List[ValidationError] = []
+    for idx, record in enumerate(records, start=1):
+        left = _to_float(record.get(left_col))
+        minus = _to_float(record.get(minus_col))
+        result = _to_float(record.get(result_col))
+        if left is None or minus is None or result is None:
+            continue
+        expected = left - minus
+        if abs(expected - result) > tolerance:
+            errors.append(ValidationError(
+                sheet=sheet_name,
+                row=idx,
+                column=result_col,
+                value=result,
+                rule="arithmetic_identity",
+                severity="CRITICAL",
+                message=(
+                    f"Row {idx}: {result_col}={result} but "
+                    f"{left_col}({left}) - {minus_col}({minus}) = {expected}."
+                ),
+            ))
+    return errors
+
+
+def check_product_identity(
+    sheet_name: str,
+    records: List[dict],
+    qty_col: str,
+    unit_col: str,
+    total_col: str,
+    tolerance: float = 1.0,
+) -> List[ValidationError]:
+    """Flag rows where total_col != qty_col * unit_col within tolerance."""
+    errors: List[ValidationError] = []
+    for idx, record in enumerate(records, start=1):
+        qty = _to_float(record.get(qty_col))
+        unit = _to_float(record.get(unit_col))
+        total = _to_float(record.get(total_col))
+        if qty is None or unit is None or total is None:
+            continue
+        expected = qty * unit
+        if abs(expected - total) > tolerance:
+            errors.append(ValidationError(
+                sheet=sheet_name,
+                row=idx,
+                column=total_col,
+                value=total,
+                rule="product_identity",
+                severity="CRITICAL",
+                message=(
+                    f"Row {idx}: {total_col}={total} but "
+                    f"{qty_col}({qty}) * {unit_col}({unit}) = {expected}."
+                ),
+            ))
+    return errors
+
+
+def check_quantity_lte(
+    sheet_name: str,
+    records: List[dict],
+    lower_col: str,
+    upper_col: str,
+) -> List[ValidationError]:
+    """Flag rows where lower_col > upper_col."""
+    errors: List[ValidationError] = []
+    for idx, record in enumerate(records, start=1):
+        lower = _to_float(record.get(lower_col))
+        upper = _to_float(record.get(upper_col))
+        if lower is None or upper is None:
+            continue
+        if lower > upper:
+            errors.append(ValidationError(
+                sheet=sheet_name,
+                row=idx,
+                column=lower_col,
+                value=lower,
+                rule="quantity_lte",
+                severity="WARNING",
+                message=(
+                    f"Row {idx}: {lower_col}={lower} exceeds {upper_col}={upper}."
+                ),
+            ))
+    return errors
+
+
+def check_date_order(
+    sheet_name: str,
+    records: List[dict],
+    start_col: str,
+    end_col: str,
+) -> List[ValidationError]:
+    """Flag rows where end_col is before start_col."""
+    errors: List[ValidationError] = []
+    for idx, record in enumerate(records, start=1):
+        start = _to_date(record.get(start_col))
+        end = _to_date(record.get(end_col))
+        if start is None or end is None:
+            continue
+        if end < start:
+            errors.append(ValidationError(
+                sheet=sheet_name,
+                row=idx,
+                column=end_col,
+                value=str(end),
+                rule="date_order",
+                severity="WARNING",
+                message=(
+                    f"Row {idx}: {end_col}={end} is before {start_col}={start}."
+                ),
+            ))
+    return errors
