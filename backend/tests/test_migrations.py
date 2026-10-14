@@ -15,6 +15,9 @@ def test_migration_files_are_ordered():
     names = [p.name for p in files]
     assert names[0] == "001_operational_schema.sql"
     assert names[1] == "002_runtime_schema.sql"
+    assert names[2] == "003_workflow_agent_schema.sql"
+    assert names[3] == "004_scheduler_lifecycle_schema.sql"
+    assert names[4] == "005_blockchain_anchoring_schema.sql"
     assert names == sorted(names)
     assert version_of(files[0]) == "001_operational_schema"
 
@@ -61,6 +64,9 @@ def test_migrations_apply_twice(test_database_url, monkeypatch):
             versions = [row[0] for row in cur.fetchall()]
             assert "001_operational_schema" in versions
             assert "002_runtime_schema" in versions
+            assert "003_workflow_agent_schema" in versions
+            assert "004_scheduler_lifecycle_schema" in versions
+            assert "005_blockchain_anchoring_schema" in versions
             cur.execute(
                 "SELECT COUNT(*) FROM information_schema.tables "
                 "WHERE table_schema = 'public' AND table_name = 'orders'"

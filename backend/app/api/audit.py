@@ -11,10 +11,12 @@ from app.models.audit import AuditEvent
 from app.models.blockchain import (
     AnchorEventRequest,
     BlockchainAnchorRecord,
+    BlockchainStatusResponse,
     VerificationResult,
 )
 from app.services.blockchain_service import (
     anchor_audit_event,
+    get_blockchain_service_status,
     verify_anchor_integrity,
 )
 
@@ -88,7 +90,10 @@ def get_audit_trail(
             ba.transaction_hash,
             ba.block_number,
             ba.confirmation_status,
-            ba.verification_status
+            ba.verification_status,
+            ba.explorer_url,
+            ba.confirmed_at,
+            ba.receipt_status
         FROM event_log el
         LEFT JOIN blockchain_anchors ba ON el.event_id::text = ba.event_id_or_batch_id
         {where_sql}
@@ -123,6 +128,9 @@ def get_audit_trail(
         tx_hash = r[15]
         block_num = int(r[16]) if r[16] is not None else None
         chain_status = r[17] if r[17] else ("SIMULATED" if "SIMULATED" in (ev_status or "").upper() else "NOT_SUBMITTED")
+        explorer_url = r[19]
+        confirmed_at_str = r[20].isoformat() if r[20] else None
+        rcpt_status = int(r[21]) if r[21] is not None else None
         details_str = reason or f"Event {ev_type} recorded for {ent_type} {ent_id} by {act_id}."
 
         results.append(
@@ -156,9 +164,20 @@ def get_audit_trail(
                 source_channel=r[14],
                 scenario_id=str(r[5]) if r[5] else None,
                 workflow_run_id=str(r[6]) if r[6] else None,
+                explorer_url=explorer_url,
+                explorerUrl=explorer_url,
+                confirmed_at=confirmed_at_str,
+                confirmedAt=confirmed_at_str,
+                receipt_status=rcpt_status,
             )
         )
     return results
+
+
+@router.get("/blockchain/status", response_model=BlockchainStatusResponse)
+def get_blockchain_status(conn=Depends(get_db)):
+    """Retrieve operational status, active mode, and configuration of the blockchain audit anchor service."""
+    return get_blockchain_service_status(conn)
 
 
 @router.get("/{event_id}", response_model=AuditEvent)
@@ -192,7 +211,10 @@ def get_audit_event_detail(event_id: str, conn=Depends(get_db)):
             ba.transaction_hash,
             ba.block_number,
             ba.confirmation_status,
-            ba.verification_status
+            ba.verification_status,
+            ba.explorer_url,
+            ba.confirmed_at,
+            ba.receipt_status
         FROM event_log el
         LEFT JOIN blockchain_anchors ba ON el.event_id::text = ba.event_id_or_batch_id
         WHERE el.event_id = %s;
@@ -228,6 +250,9 @@ def get_audit_event_detail(event_id: str, conn=Depends(get_db)):
     tx_hash = r[15]
     block_num = int(r[16]) if r[16] is not None else None
     chain_status = r[17] if r[17] else ("SIMULATED" if "SIMULATED" in (ev_status or "").upper() else "NOT_SUBMITTED")
+    explorer_url = r[19]
+    confirmed_at_str = r[20].isoformat() if r[20] else None
+    rcpt_status = int(r[21]) if r[21] is not None else None
     details_str = reason or f"Event {ev_type} recorded for {ent_type} {ent_id} by {act_id}."
 
     return AuditEvent(
@@ -260,6 +285,11 @@ def get_audit_event_detail(event_id: str, conn=Depends(get_db)):
         source_channel=r[14],
         scenario_id=str(r[5]) if r[5] else None,
         workflow_run_id=str(r[6]) if r[6] else None,
+        explorer_url=explorer_url,
+        explorerUrl=explorer_url,
+        confirmed_at=confirmed_at_str,
+        confirmedAt=confirmed_at_str,
+        receipt_status=rcpt_status,
     )
 
 

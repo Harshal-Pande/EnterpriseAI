@@ -34,3 +34,8 @@ class AuditEvent(BaseModel):
     source_channel: Optional[str] = None
     scenario_id: Optional[str] = None
     workflow_run_id: Optional[str] = None
+    explorer_url: Optional[str] = None
+    explorerUrl: Optional[str] = None
+    confirmed_at: Optional[str] = None
+    confirmedAt: Optional[str] = None
+    receipt_status: Optional[int] = None

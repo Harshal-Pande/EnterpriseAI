@@ -1,4 +1,4 @@
-"""Pydantic data models for Blockchain Audit Anchoring (Task 12)."""
+"""Pydantic data models for Blockchain Audit Anchoring (Phase 7)."""
 
 from __future__ import annotations
 
@@ -24,6 +24,11 @@ class BlockchainAnchorRecord(BaseModel):
     transaction_hash: Optional[str] = None
     block_number: Optional[int] = None
     anchored_at: Optional[str] = None
+    confirmed_at: Optional[str] = None
+    receipt_status: Optional[int] = None
+    gas_used: Optional[int] = None
+    explorer_url: Optional[str] = None
+    retry_count: Optional[int] = 0
     confirmation_status: str = Field(..., description="NOT_SUBMITTED, PENDING, CONFIRMED, or FAILED")
     verification_status: str = Field(..., description="NOT_VERIFIED, MATCHED, MISMATCH, or FAILED")
     error_message: Optional[str] = None
@@ -39,4 +44,26 @@ class VerificationResult(BaseModel):
     confirmation_status: Optional[str] = None
     block_number: Optional[int] = None
     transaction_hash: Optional[str] = None
+    explorer_url: Optional[str] = None
+    on_chain_verified: Optional[bool] = False
+    contract_address: Optional[str] = None
     details: str
+
+
+class BlockchainStatusResponse(BaseModel):
+    mode: str = Field(..., description="REAL_NETWORK or SIMULATED")
+    connected: bool
+    chain_name: str
+    network_name: Optional[str] = None
+    chain_id: int
+    contract_address: Optional[str] = None
+    contract_deployed: bool = False
+    signer_address: Optional[str] = None
+    signer_configured: bool = False
+    rpc_configured: bool = False
+    latest_block: Optional[int] = None
+    explorer_tx_url_prefix: Optional[str] = None
+    total_anchors: int = 0
+    total_anchors_tracked: int = 0
+    confirmed_anchors: int = 0
+    pending_anchors: int = 0

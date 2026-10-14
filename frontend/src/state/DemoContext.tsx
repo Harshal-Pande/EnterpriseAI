@@ -24,6 +24,8 @@ import {
   type BackendActionRecord,
   type BackendAuditEvent,
   type BackendAuditVerification,
+  type BackendBlockchainStatus,
+  type BackendAnchorRecord,
   type OrchestrationResult,
 } from '../services/apiClient';
 import {
@@ -73,6 +75,8 @@ interface DemoContextType {
   triggerScheduler: (force?: boolean, templateId?: string, idempotencyKey?: string, seed?: number) => Promise<any>;
   decideApproval: (id: string, decision: 'APPROVED' | 'REJECTED', reason?: string) => Promise<any>;
   executeAction: (id: string) => Promise<any>;
+  blockchainStatus: BackendBlockchainStatus | null;
+  anchorAuditEvent: (eventId: string, payload?: any, forceSimulation?: boolean) => Promise<BackendAnchorRecord>;
   verifyAuditDigest: (eventId: string, payload?: any) => Promise<BackendAuditVerification>;
 
   activeOrder: Order;
@@ -112,6 +116,7 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [liveApprovals, setLiveApprovals] = useState<BackendApprovalRequest[]>([]);
   const [liveActions, setLiveActions] = useState<BackendActionRecord[]>([]);
   const [liveAuditEvents, setLiveAuditEvents] = useState<BackendAuditEvent[]>([]);
+  const [blockchainStatus, setBlockchainStatus] = useState<BackendBlockchainStatus | null>(null);
   const [schedulerStatus, setSchedulerStatus] = useState<BackendSchedulerStatus | null>(null);
   const [wsConnectionState, setWsConnectionState] = useState<WSConnectionState>('DISCONNECTED');
   const [liveScenarios, setLiveScenarios] = useState<BackendScenarioInstance[]>([]);
@@ -474,6 +479,7 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         apprRes,
         actRes,
         auditRes,
+        chainRes,
         schedRes,
         scenRes,
       ] = await Promise.allSettled([
@@ -485,6 +491,7 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         apiClient.getApprovals('PENDING'),
         apiClient.getActions(50),
         apiClient.getAuditEvents(50),
+        apiClient.getBlockchainStatus(),
         apiClient.getSchedulerStatus(),
         apiClient.getSchedulerScenarios(50),
       ]);
@@ -519,6 +526,7 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (apprRes.status === 'fulfilled') setLiveApprovals(apprRes.value);
       if (actRes.status === 'fulfilled') setLiveActions(actRes.value);
       if (auditRes.status === 'fulfilled') setLiveAuditEvents(auditRes.value);
+      if (chainRes.status === 'fulfilled') setBlockchainStatus(chainRes.value);
       if (schedRes.status === 'fulfilled') setSchedulerStatus(schedRes.value);
       if (scenRes.status === 'fulfilled') setLiveScenarios(scenRes.value);
 
@@ -620,6 +628,12 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const verifyAuditDigest = async (eventId: string, payload: any = {}) => {
     return await apiClient.verifyAuditEvent(eventId, payload);
+  };
+
+  const anchorAuditEvent = async (eventId: string, payload: any = {}, forceSimulation = false) => {
+    const res = await apiClient.anchorAuditEvent(eventId, payload, forceSimulation);
+    await refreshLiveData();
+    return res;
   };
 
   // WebSocket Live Event Handling
@@ -728,6 +742,8 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         triggerScheduler,
         decideApproval,
         executeAction,
+        blockchainStatus,
+        anchorAuditEvent,
         verifyAuditDigest,
         activeOrder,
         orders,

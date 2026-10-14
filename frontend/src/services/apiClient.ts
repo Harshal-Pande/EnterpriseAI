@@ -245,6 +245,45 @@ export interface BackendAuditEvent {
   payload_hash?: string;
   created_at?: string;
   event_digest?: string;
+  explorer_url?: string;
+  explorerUrl?: string;
+  confirmed_at?: string;
+  confirmedAt?: string;
+  receipt_status?: number;
+}
+
+export interface BackendBlockchainStatus {
+  enabled: boolean;
+  mode: string;
+  network_name: string;
+  chain_id: number | null;
+  contract_address: string | null;
+  rpc_configured: boolean;
+  signer_configured: boolean;
+  explorer_tx_url_template: string | null;
+  healthy: boolean;
+  details: string;
+  total_anchors_tracked: number;
+}
+
+export interface BackendAnchorRecord {
+  anchor_id: string;
+  event_id_or_batch_id: string;
+  network_name: string;
+  chain_id: number;
+  contract_address: string;
+  payload_hash: string;
+  transaction_hash?: string | null;
+  block_number?: number | null;
+  confirmation_status: string;
+  verification_status: string;
+  gas_used?: number | null;
+  receipt_status?: number | null;
+  explorer_url?: string | null;
+  submitted_at: string;
+  confirmed_at?: string | null;
+  error_details?: string | null;
+  retry_count: number;
 }
 
 export interface BackendAuditVerification {
@@ -258,6 +297,9 @@ export interface BackendAuditVerification {
   confirmation_status?: string;
   block_number?: number;
   transaction_hash?: string;
+  on_chain_verified?: boolean;
+  contract_address?: string | null;
+  explorer_url?: string | null;
   details: string;
 }
 
@@ -403,6 +445,17 @@ export const apiClient = {
   // Audit & Blockchain
   getAuditEvents: (limit = 50) =>
     apiFetch<BackendAuditEvent[]>(`/api/audit/events?limit=${limit}`),
+  getBlockchainStatus: () =>
+    apiFetch<BackendBlockchainStatus>('/api/audit/blockchain/status'),
+  anchorAuditEvent: (eventId: string, payload: Record<string, any> = {}, forceSimulation = false) =>
+    apiFetch<BackendAnchorRecord>('/api/audit/anchor', {
+      method: 'POST',
+      body: JSON.stringify({
+        event_id: eventId,
+        payload,
+        force_simulation: forceSimulation,
+      }),
+    }),
   verifyAuditEvent: (eventId: string, payload: Record<string, any> = {}) =>
     apiFetch<BackendAuditVerification>(`/api/audit/verify/${eventId}`, {
       method: 'POST',
