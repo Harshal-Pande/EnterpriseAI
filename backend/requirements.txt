@@ -55,3 +55,4 @@ httpx==0.28.1
 # neo4j==5.18.0           # Phase 8 — knowledge graph
 # web3==6.15.1            # Phase 7 — blockchain (verify testnet support first)
 web3>=6.15.0,<7.0.0
+rfc8785>=0.1.4

@@ -135,8 +135,61 @@ def test_digest_to_bytes32():
     assert isinstance(b, bytes)
     assert b == bytes.fromhex("a" * 64)
 
+    # Without 0x prefix
+    b_noprefix = CanonicalHasher.digest_to_bytes32("b" * 64)
+    assert b_noprefix == bytes.fromhex("b" * 64)
+
+    # With uppercase 0X prefix
+    b_upper = CanonicalHasher.digest_to_bytes32("0X" + "c" * 64)
+    assert b_upper == bytes.fromhex("c" * 64)
+
+    # Too short
     with pytest.raises(ValueError, match="Expected 32-byte"):
         CanonicalHasher.digest_to_bytes32("0x1234")
+
+    # Too long
+    with pytest.raises(ValueError, match="Expected 32-byte"):
+        CanonicalHasher.digest_to_bytes32("0x" + "a" * 66)
+
+    # Non-hex characters
+    with pytest.raises(ValueError, match="Invalid hexadecimal"):
+        CanonicalHasher.digest_to_bytes32("0x" + "z" * 64)
+
+    # Non-string input
+    with pytest.raises(ValueError, match="Expected string"):
+        CanonicalHasher.digest_to_bytes32(12345)  # type: ignore
+
+
+def test_rfc8785_official_appendix_d_vector():
+    """Verify CanonicalHasher matches official RFC 8785 Appendix D test vector byte-for-byte."""
+    data = {
+        "numbers": [
+            333333333.33333329,
+            1e30,
+            4.50,
+            2e-3,
+            0.000000000000000000000000001,
+        ],
+        "string": "\u20ac$\u000f\nA'B\"\\\"/",
+        "literals": [None, True, False],
+    }
+
+    # Official expected byte sequence per RFC 8785 Appendix D
+    expected_bytes = (
+        b'{"literals":[null,true,false],"numbers":[333333333.3333333,1e+30,4.5,0.002,1e-27],'
+        b'"string":"\xe2\x82\xac$\\u000f\\nA\'B\\"\\\\\\"/"}'
+    )
+
+    actual_bytes = CanonicalHasher.canonicalize_bytes(data)
+    assert actual_bytes == expected_bytes
+
+
+def test_rfc8785_negative_zero_serialization():
+    """RFC 8785 Section 3.2.2.3 specifies that negative zero (-0) must be serialized as 0."""
+    import math
+    data = {"neg_zero": math.copysign(0.0, -1.0)}
+    canonical = CanonicalHasher.canonicalize(data)
+    assert canonical == '{"neg_zero":0}'
 
 
 # ── Secret Sanitizer Unit Tests ──────────────────────────────────────────────
@@ -218,6 +271,82 @@ def test_web3_adapter_undeployed_contract(monkeypatch):
     res = adapter.submit_anchor("EVT-1", "0x" + "a" * 64)
     assert res["confirmation_status"] == "FAILED"
     assert "No smart contract deployed" in res["error_message"]
+
+
+def test_web3_adapter_unauthorized_signer(monkeypatch):
+    """Adapter detects when signer account is not the contract owner before broadcasting."""
+    mock_w3 = MagicMock()
+    mock_w3.is_connected.return_value = True
+    mock_w3.eth.chain_id = 11155111
+
+    mock_account = MagicMock()
+    mock_account.address = "0xSignerAddress11111111111111111111111111"
+    mock_w3.eth.account.from_key.return_value = mock_account
+    mock_w3.to_checksum_address = lambda x: x
+    mock_w3.eth.get_code.return_value = b"\x60\x80\x60\x40"
+
+    mock_contract = MagicMock()
+    # Contract owner is a different address
+    mock_contract.functions.owner.return_value.call.return_value = "0xDifferentOwnerAddress222222222222222222"
+    mock_w3.eth.contract.return_value = mock_contract
+
+    adapter = Web3TestnetAdapter(web3_client=mock_w3)
+
+    monkeypatch.setenv("WEB3_PROVIDER_URI", "https://mock.rpc")
+    monkeypatch.setenv("CONTRACT_ADDRESS", "0x" + "3" * 40)
+    monkeypatch.setenv("BLOCKCHAIN_PRIVATE_KEY", "0x" + "1" * 64)
+    monkeypatch.setenv("CHAIN_ID", "11155111")
+
+    res = adapter.submit_anchor("EVT-UNAUTH", "0x" + "a" * 64)
+    assert res["confirmation_status"] == "FAILED"
+    assert "is not authorized" in res["error_message"]
+    assert res["transaction_hash"] is None
+
+
+def test_web3_adapter_rejects_empty_event_id(monkeypatch):
+    """Adapter rejects empty or whitespace event ID before broadcasting."""
+    mock_w3 = MagicMock()
+    mock_w3.is_connected.return_value = True
+    mock_w3.eth.chain_id = 11155111
+    mock_account = MagicMock()
+    mock_account.address = "0xSignerAddress"
+    mock_w3.eth.account.from_key.return_value = mock_account
+    mock_w3.to_checksum_address = lambda x: x
+    mock_w3.eth.get_code.return_value = b"\x60\x80\x60\x40"
+
+    adapter = Web3TestnetAdapter(web3_client=mock_w3)
+    monkeypatch.setenv("WEB3_PROVIDER_URI", "https://mock.rpc")
+    monkeypatch.setenv("CONTRACT_ADDRESS", "0x" + "3" * 40)
+    monkeypatch.setenv("BLOCKCHAIN_PRIVATE_KEY", "0x" + "1" * 64)
+    monkeypatch.setenv("CHAIN_ID", "11155111")
+
+    res = adapter.submit_anchor("   ", "0x" + "a" * 64)
+    assert res["confirmation_status"] == "FAILED"
+    assert "non-empty event ID" in res["error_message"]
+    assert res["transaction_hash"] is None
+
+
+def test_web3_adapter_rejects_zero_digest(monkeypatch):
+    """Adapter rejects all-zero digest (0x00...00) before broadcasting."""
+    mock_w3 = MagicMock()
+    mock_w3.is_connected.return_value = True
+    mock_w3.eth.chain_id = 11155111
+    mock_account = MagicMock()
+    mock_account.address = "0xSignerAddress"
+    mock_w3.eth.account.from_key.return_value = mock_account
+    mock_w3.to_checksum_address = lambda x: x
+    mock_w3.eth.get_code.return_value = b"\x60\x80\x60\x40"
+
+    adapter = Web3TestnetAdapter(web3_client=mock_w3)
+    monkeypatch.setenv("WEB3_PROVIDER_URI", "https://mock.rpc")
+    monkeypatch.setenv("CONTRACT_ADDRESS", "0x" + "3" * 40)
+    monkeypatch.setenv("BLOCKCHAIN_PRIVATE_KEY", "0x" + "1" * 64)
+    monkeypatch.setenv("CHAIN_ID", "11155111")
+
+    res = adapter.submit_anchor("EVT-ZERO", "0x" + "00" * 32)
+    assert res["confirmation_status"] == "FAILED"
+    assert "Zero digest" in res["error_message"]
+    assert res["transaction_hash"] is None
 
 
 def test_web3_adapter_successful_mining(monkeypatch):

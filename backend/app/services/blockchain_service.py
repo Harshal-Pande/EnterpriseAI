@@ -115,26 +115,40 @@ class CanonicalHasher:
     """RFC 8785 compliant canonical JSON serialization and SHA-256 digest generator."""
 
     @staticmethod
-    def canonicalize(obj: Any) -> str:
-        """Deterministic canonical JSON serialization: sorted keys, no whitespace."""
-        return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+    def canonicalize_bytes(obj: Any) -> bytes:
+        """Deterministic RFC 8785 (JCS) canonical JSON serialization returning UTF-8 bytes."""
+        try:
+            import rfc8785
+            return rfc8785.dumps(obj)
+        except Exception:
+            return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str).encode("utf-8")
+
+    @classmethod
+    def canonicalize(cls, obj: Any) -> str:
+        """Deterministic RFC 8785 (JCS) canonical JSON serialization returning decoded str."""
+        return cls.canonicalize_bytes(obj).decode("utf-8")
 
     @classmethod
     def compute_digest(cls, payload: Dict[str, Any]) -> str:
         """Compute 0x-prefixed SHA-256 hex digest of the canonicalized payload."""
-        canonical_str = cls.canonicalize(payload)
-        digest = hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
+        canonical_bytes = cls.canonicalize_bytes(payload)
+        digest = hashlib.sha256(canonical_bytes).hexdigest()
         return f"0x{digest}"
 
     @staticmethod
     def digest_to_bytes32(digest_hex: str) -> bytes:
         """Convert a 0x-prefixed 64-char hex digest to 32 bytes for EVM contracts."""
+        if not isinstance(digest_hex, str):
+            raise ValueError(f"Expected string hex digest, got {type(digest_hex).__name__}")
         clean = digest_hex.strip()
         if clean.startswith("0x") or clean.startswith("0X"):
             clean = clean[2:]
         if len(clean) != 64:
             raise ValueError(f"Expected 32-byte (64 hex characters) digest, got {len(clean)} characters.")
-        return bytes.fromhex(clean)
+        try:
+            return bytes.fromhex(clean)
+        except ValueError as exc:
+            raise ValueError(f"Invalid hexadecimal digest: {exc}") from exc
 
 
 class BlockchainAdapter(ABC):
@@ -271,8 +285,66 @@ class Web3TestnetAdapter(BlockchainAdapter):
             abi = load_contract_abi()
             contract = w3.eth.contract(address=checksum_contract, abi=abi)
 
+            # Pre-flight access control: verify signer is authorized contract owner
+            if hasattr(contract.functions, "owner"):
+                try:
+                    contract_owner = contract.functions.owner().call()
+                    if isinstance(contract_owner, str) and contract_owner and contract_owner.lower() != account.address.lower():
+                        return {
+                            "confirmation_status": "FAILED",
+                            "transaction_hash": None,
+                            "block_number": None,
+                            "error_message": (
+                                f"Signer account {account.address} is not authorized owner of contract {checksum_contract} "
+                                f"(configured owner is {contract_owner})."
+                            ),
+                            "mode": "REAL_NETWORK",
+                            "chain_id": chain_id,
+                            "contract_address": checksum_contract,
+                            "explorer_url": None,
+                        }
+                except Exception as owner_exc:
+                    logger.warning("Pre-flight owner check failed: %s", sanitize_blockchain_error(owner_exc))
+
+            if not event_id or not event_id.strip():
+                return {
+                    "confirmation_status": "FAILED",
+                    "transaction_hash": None,
+                    "block_number": None,
+                    "error_message": "EnterpriseAudit contract requires a non-empty event ID.",
+                    "mode": "REAL_NETWORK",
+                    "chain_id": chain_id,
+                    "contract_address": checksum_contract,
+                    "explorer_url": None,
+                }
+
             # Convert digest to 32 bytes
-            digest_bytes = CanonicalHasher.digest_to_bytes32(payload_hash)
+            try:
+                digest_bytes = CanonicalHasher.digest_to_bytes32(payload_hash)
+            except ValueError as ve:
+                return {
+                    "confirmation_status": "FAILED",
+                    "transaction_hash": None,
+                    "block_number": None,
+                    "error_message": f"Malformed payload digest: {ve}",
+                    "mode": "REAL_NETWORK",
+                    "chain_id": chain_id,
+                    "contract_address": checksum_contract,
+                    "explorer_url": None,
+                }
+
+            if digest_bytes == b"\x00" * 32:
+                return {
+                    "confirmation_status": "FAILED",
+                    "transaction_hash": None,
+                    "block_number": None,
+                    "error_message": "Zero digest (0x00...00) is rejected by EnterpriseAudit contract.",
+                    "mode": "REAL_NETWORK",
+                    "chain_id": chain_id,
+                    "contract_address": checksum_contract,
+                    "explorer_url": None,
+                }
+
             nonce = w3.eth.get_transaction_count(account.address, "pending")
 
             # Check if recordAnchor exists on contract, else fallback to recordEvent
@@ -819,17 +891,13 @@ def get_blockchain_service_status(conn) -> BlockchainStatusResponse:
         mode="SIMULATED" if mode == "SIMULATED" or not rpc_url else "REAL_NETWORK",
         connected=connected,
         chain_name=chain_name,
-        network_name=chain_name,
         chain_id=chain_id,
         contract_address=contract_addr if contract_addr != UNCONFIGURED_CONTRACT else None,
         contract_deployed=contract_deployed,
         signer_address=signer_address,
-        signer_configured=bool(private_key),
-        rpc_configured=bool(rpc_url),
         latest_block=latest_block,
         explorer_tx_url_prefix=explorer_prefix,
         total_anchors=total_anchors,
-        total_anchors_tracked=total_anchors,
         confirmed_anchors=confirmed_anchors,
         pending_anchors=pending_anchors,
     )
