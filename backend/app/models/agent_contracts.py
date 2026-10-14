@@ -74,3 +74,6 @@ class SupervisorOutput(BaseModel):
     specialists_invoked: List[str]
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     evidence_refs: List[Dict[str, Any]] = Field(default_factory=list)
+    conflicts: List[str] = Field(default_factory=list)
+    missing_evidence: List[str] = Field(default_factory=list)
+    proposed_next_step: Optional[str] = None

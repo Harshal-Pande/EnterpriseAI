@@ -15,7 +15,8 @@ import {
   HelpCircle,
   Settings,
   X,
-  Layers
+  Layers,
+  GitBranch
 } from 'lucide-react';
 import { useDemo } from '../../state/DemoContext';
 
@@ -23,6 +24,7 @@ export type ScreenId =
   | 'overview'
   | 'orders'
   | 'mesh'
+  | 'orchestration'
   | 'inventory'
   | 'procurement'
   | 'finance'
@@ -62,6 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, onNavigate }) =
       badge: isSimulating ? busyAgentCount || undefined : undefined,
       badgeColor: 'cyan'
     },
+    { id: 'orchestration', label: 'Orchestration',   icon: <GitBranch className="w-[15px] h-[15px]" /> },
     { id: 'inventory',   label: 'Inventory',        icon: <Package className="w-[15px] h-[15px]" /> },
     { id: 'procurement', label: 'Procurement',       icon: <Scale className="w-[15px] h-[15px]" /> },
     { id: 'finance',     label: 'Finance',           icon: <CircleDollarSign className="w-[15px] h-[15px]" /> },

@@ -23,19 +23,20 @@ EnterpriseAI/
 
 ---
 
-## Current Architecture & Implementation Status (Phases 0–3.5)
+## Current Architecture & Implementation Status (Phases 0–4)
 
-The repository reflects completed and verified implementations across Phases 0 through 3.5:
+The repository reflects completed and verified implementations across Phases 0 through 4:
 
 ### 1. Implemented & Verified Capabilities
 - **PostgreSQL Operational Foundation**: 1,327 validated operational seed rows spanning orders, inventory, products, warehouses, and suppliers.
-- **REST APIs**: Full PostgreSQL-backed endpoints for Orders, Inventory, Suppliers, Workflows, Approvals, Policies, Actions, and Scheduler.
-- **Multi-Agent Orchestration & Workflow Persistence**: LangGraph-based workflow graph executing Supervisor, Inventory, Procurement, Finance, and Logistics agents, persisting all transitions in `scenario_instances` and `agent_runs`.
+- **REST APIs**: Full PostgreSQL-backed endpoints for Orders, Inventory, Suppliers, Workflows, Approvals, Policies, Actions, Scheduler, and Governed Orchestration.
+- **Governed Multi-Agent Orchestration (Phase 4)**: Typed orchestration pipeline executing Supervisor, Inventory, Procurement, Finance, and Logistics specialists, validating outputs at each step, synthesizing evidence-backed recommendations, and identifying operational conflicts.
+- **Dual-Mode LLM Provider Abstraction**: Local deterministic simulation mode and configured live LLM mode with bounded timeouts, retries, masked credential logs, and zero hallucinated successes on failure.
 - **Persistent Five-Minute Scenario Engine**: Automated 300-second recurring scenario generation with distributed PostgreSQL lease locking, deterministic slot idempotency (`SCHED-<template>-SLOT-<ts>`), active queue capacity limits, operational data grounding, and watchdog orphan recovery.
-- **Deterministic Policy & Approval Engine**: Server-side policy rule evaluation enforcing financial and operational thresholds, human-in-the-loop approvals, and self-approval restrictions.
+- **Deterministic Policy & Approval Engine**: Server-side policy rule evaluation enforcing financial and operational thresholds (> 50M INR single-action approval threshold), human-in-the-loop approvals, and self-approval restrictions.
 - **Cryptographic Audit Log**: Canonical SHA-256 payload hashing and tamper-evident event logging in `event_log`.
 - **Role-Based Access Control (RBAC)**: Server-side API key authentication distinguishing `ADMIN`, `FINANCE_APPROVER`, `SUPPLY_CHAIN_APPROVER`, `OPERATOR`, and `VIEWER`.
-- **Dual-Mode Frontend**: 11-screen React Operations Control Room with seamless switching between interactive Demo Simulation and Live PostgreSQL Backend modes.
+- **Dual-Mode Frontend**: 12-screen React Operations Control Room with seamless switching between interactive Demo Simulation and Live PostgreSQL Backend modes, including dedicated Governed Orchestration view.
 
 ### 2. Simulation Boundaries & Design Targets
 - **Action Execution**: Physical external action execution (ERP updates, payment dispatch, carrier booking) is executed through a safe simulation adapter unless an external enterprise adapter is explicitly configured.

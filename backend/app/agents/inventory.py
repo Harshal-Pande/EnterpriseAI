@@ -45,7 +45,8 @@ class InventoryAgent:
                     ol = cur.fetchone()
                     if ol:
                         item_id = ol[0]
-                        requested_qty = float(ol[1])
+                        if not (state.get("requested_qty") or state.get("quantity")):
+                            requested_qty = float(ol[1])
 
                 # If still not found, get first product from inventory
                 if not item_id:
@@ -109,7 +110,10 @@ class InventoryAgent:
 
         # Calculate shortage deterministically
         effective_item = item_id or "PRD-STEEL-01"
-        shortage = max(0.0, requested_qty - available)
+        if state.get("shortage_qty") is not None:
+            shortage = float(state.get("shortage_qty"))
+        else:
+            shortage = max(0.0, requested_qty - available)
         stock_status = "OK" if shortage == 0.0 else "SHORTAGE"
         action_required = "none" if shortage == 0.0 else "procurement"
 

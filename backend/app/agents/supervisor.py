@@ -50,6 +50,32 @@ class SupervisorAgent:
             decision_code = "DEC-BLOCKED-BUDGET-EXCEEDED"
             approval_status = "PENDING"
 
+        # Identify conflicts between specialist findings
+        conflicts = []
+        if inv_data.get("shortage_qty", 0) > 0 and proc_data.get("procurement_status") == "NO_ACTIVE_OFFERS":
+            conflicts.append("Stock shortage detected but no active suppliers or offers found.")
+        if fin_data.get("finance_status") == "BUDGET_EXCEEDED":
+            conflicts.append("Estimated procurement spend exceeds authorized budget limit.")
+        if log_data.get("logistics_status") in ("BLOCKED", "DELAYED"):
+            conflicts.append(f"Logistics route status is {log_data.get('logistics_status')}.")
+        if state.get("quality_hold") or state.get("safety_alert"):
+            conflicts.append("Active safety or quality hold flagged on order or inventory.")
+
+        # Identify missing evidence
+        missing_evidence = []
+        if not inv_data.get("evidence_refs"):
+            missing_evidence.append("Inventory stock verification evidence is missing.")
+        if inv_data.get("shortage_qty", 0) > 0 and not proc_data.get("evidence_refs"):
+            missing_evidence.append("Procurement supplier offer evidence is missing.")
+
+        # Formulate proposed next step
+        if conflicts:
+            proposed_next_step = "RESOLVE_CONFLICTS_OR_ESCALATE"
+        elif human_approval_required:
+            proposed_next_step = "REQUEST_HUMAN_APPROVAL"
+        else:
+            proposed_next_step = "PROPOSE_AND_EXECUTE_ACTION"
+
         # Formulate recommended action
         recommended_action = {
             "action_type": "CREATE_PURCHASE_ORDER" if inv_data.get("shortage_qty", 0) > 0 else "FULFILL_ORDER",
@@ -81,6 +107,7 @@ class SupervisorAgent:
         ]
 
         # If connected to DB and valid UUID scenario exists, record in decisions table
+        decision_id = str(uuid.uuid4())
         if conn and scenario_id:
             try:
                 val_uuid = uuid.UUID(scenario_id)
@@ -96,7 +123,7 @@ class SupervisorAgent:
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                         """,
                         (
-                            str(uuid.uuid4()),
+                            decision_id,
                             str(val_uuid),
                             str(val_uuid),
                             datetime.now(timezone.utc),
@@ -110,6 +137,7 @@ class SupervisorAgent:
                         ),
                     )
                     conn.commit()
+                    state["decision_id"] = decision_id
             except Exception as exc:
                 logger.warning("Could not persist decision record: %s", exc)
 
@@ -125,5 +153,8 @@ class SupervisorAgent:
             specialists_invoked=specialists,
             confidence=1.0,
             evidence_refs=evidence_refs,
+            conflicts=conflicts,
+            missing_evidence=missing_evidence,
+            proposed_next_step=proposed_next_step,
         )
         return result.model_dump()

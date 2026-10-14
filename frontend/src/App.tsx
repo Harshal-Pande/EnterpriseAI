@@ -6,6 +6,7 @@ import type { ScreenId } from './components/layout/Sidebar';
 import { OverviewPage } from './pages/OverviewPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { AgentMeshPage } from './pages/AgentMeshPage';
+import { OrchestrationPage } from './pages/OrchestrationPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProcurementPage } from './pages/ProcurementPage';
 import { FinancePage } from './pages/FinancePage';
@@ -26,6 +27,8 @@ export const AppContent: React.FC = () => {
         return <OrdersPage />;
       case 'mesh':
         return <AgentMeshPage />;
+      case 'orchestration':
+        return <OrchestrationPage />;
       case 'inventory':
         return <InventoryPage />;
       case 'procurement':

@@ -56,6 +56,20 @@
 **Current status**: **Completed, Hardened & Verified**
 **Definition of completion**: Scheduler concurrency and idempotency defects resolved, orphaned recovery active, lease renewal heartbeat running, truthful frontend connectivity, fail-closed Compose security, and clean regression test suite.
 
+## PHASE 4 — Governed Multi-Agent Intelligence and Orchestration
+**Objective**: Implement grounded multi-agent coordination with typed contracts, deterministic policy gating, approval thresholds, safe action execution, and dual-mode LLM provider abstraction.
+**Major tasks**:
+- Small, typed `LLMProvider` abstraction supporting `SIMULATION` and `LIVE` modes with bounded timeouts, retries, and masked credential logging.
+- `GovernedOrchestrator` coordinating `InventoryAgent`, conditional `ProcurementAgent`, `FinanceAgent`, `LogisticsAgent`, and `SupervisorAgent`.
+- Structured `SupervisorOutput` contract identifying evidence-backed recommendations, operational conflicts, and missing evidence.
+- Deterministic policy evaluation and human-approval gating (> 50M INR single-action threshold) preventing unapproved executions.
+- Safe action simulation with audit trails in `event_log` and state updates across `scenario_instances`, `decisions`, and `action_queue`.
+- Comprehensive `/api/orchestration` endpoints secured with RBAC (`OPERATOR` and `VIEWER` roles).
+- Interactive `OrchestrationPage.tsx` React frontend with real backend consumption and retry/resume controls.
+**Dependencies**: Phase 2 Backend Foundation & Phase 3 Scenario Engine (Completed)
+**Current status**: **Completed, Hardened & Verified** (218/218 backend tests passing, 36/36 orchestration tests passing, 119/119 DB validation checks passing, Frontend build & lint clean).
+**Definition of completion**: Orchestration pipeline executes grounded agents, validates typed contracts, gates actions behind deterministic policies, persists state in PostgreSQL, surfaces truth to the UI, and passes all tests.
+
 ## PHASE 7 — Real-Time Events & WebSockets
 **Objective**: Stream agent workflow progress live to the UI.
 **Major tasks**: Configure WebSockets in FastAPI, update React to listen for state changes.

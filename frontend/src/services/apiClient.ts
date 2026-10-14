@@ -270,6 +270,53 @@ export interface BackendPolicyRule {
   enabled: boolean;
 }
 
+export interface OrchestrationAgentStep {
+  agent_name: string;
+  phase: string;
+  status: string;
+  deterministic_output: Record<string, any>;
+  llm_recommendation?: Record<string, any>;
+  llm_reasoning?: string;
+  llm_confidence?: number;
+  is_simulation: boolean;
+  agent_run_id?: string;
+  duration_ms?: number;
+  evidence_refs: Record<string, any>[];
+  error?: string;
+}
+
+export interface OrchestrationResult {
+  correlation_id: string;
+  workflow_id: string;
+  scenario_id?: string;
+  order_id: string;
+  status: string;
+  provider_mode: string;
+  phases_completed: string[];
+  agent_steps: OrchestrationAgentStep[];
+  governance: Record<string, any>;
+  decision_summary?: string;
+  decision_code?: string;
+  human_approval_required: boolean;
+  recommended_action?: Record<string, any>;
+  action_result?: Record<string, any>;
+  conflicts?: string[];
+  missing_evidence?: string[];
+  proposed_next_step?: string;
+  can_retry?: boolean;
+  total_duration_ms?: number;
+  started_at: string;
+  completed_at?: string;
+  error?: string;
+}
+
+export interface ProviderInfo {
+  mode: string;
+  model_name: string;
+  is_simulation: boolean;
+  description: string;
+}
+
 // ── API Services ───────────────────────────────────────────────────────────
 
 export const apiClient = {
@@ -353,4 +400,33 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  // Governed Orchestration (Phase 4)
+  executeOrchestration: (orderId = 'ORD-1042', templateId = 'TPL-010', severity = 'MEDIUM', idempotencyKey?: string) => {
+    const params = new URLSearchParams({
+      order_id: orderId,
+      template_id: templateId,
+      severity,
+    });
+    if (idempotencyKey) params.append('idempotency_key', idempotencyKey);
+    return apiFetch<OrchestrationResult>(`/api/orchestration/execute?${params.toString()}`, {
+      method: 'POST',
+    });
+  },
+  runOrchestrationForWorkflow: (workflowId: string) =>
+    apiFetch<OrchestrationResult>(`/api/orchestration/${workflowId}/run`, {
+      method: 'POST',
+    }),
+  retryOrchestration: (workflowId: string) =>
+    apiFetch<OrchestrationResult>(`/api/orchestration/${workflowId}/retry`, {
+      method: 'POST',
+    }),
+  getOrchestration: (workflowId: string) =>
+    apiFetch<any>(`/api/orchestration/${workflowId}`),
+  getWorkflowAgents: (workflowId: string) =>
+    apiFetch<any[]>(`/api/orchestration/${workflowId}/agents`),
+  getWorkflowGovernance: (workflowId: string) =>
+    apiFetch<any>(`/api/orchestration/${workflowId}/governance`),
+  getProviderInfo: () =>
+    apiFetch<ProviderInfo>('/api/orchestration/providers'),
 };

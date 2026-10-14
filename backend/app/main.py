@@ -11,6 +11,7 @@ from app.api import (
     audit,
     health,
     inventory,
+    orchestration,
     orders,
     policies,
     scheduler,
@@ -73,6 +74,12 @@ app.include_router(scheduler.router, prefix="/api/scheduler", tags=["scheduler"]
 app.include_router(policies.router, prefix="/api/policies", tags=["policies"], dependencies=viewer_auth)
 app.include_router(approvals.router, prefix="/api/approvals", tags=["approvals"], dependencies=viewer_auth)
 app.include_router(actions.router, prefix="/api/actions", tags=["actions"], dependencies=viewer_auth)
+app.include_router(
+    orchestration.router,
+    prefix="/api/orchestration",
+    tags=["orchestration"],
+    dependencies=[Depends(require_role(UserRole.VIEWER))],
+)
 
 
 @app.get("/")
