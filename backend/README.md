@@ -5,15 +5,20 @@ Starter FastAPI application plus Phase 1 PostgreSQL schema and seed tooling.
 The HTTP API still returns **hardcoded** responses. Phase 1 does **not** connect FastAPI to PostgreSQL.
 
 ## Stack
-- FastAPI (mock API)
+- FastAPI (mock business API + live DB readiness check)
+- PostgreSQL connection foundation (ThreadedConnectionPool, `get_db` dependency)
 - PostgreSQL schema + seed scripts (Phase 1)
 - LangGraph, Neo4j, Web3 (planned; not implemented)
 
-## Running the mock API
+## Running the API
 ```bash
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
+
+- **Liveness probe:** `GET /api/health` -> `200 OK` (independent of database)
+- **Readiness probe:** `GET /api/ready` or `GET /api/health/ready` -> executes `SELECT 1` (returns `200 OK` if connected, `503 Service Unavailable` if unavailable)
+- **Business endpoints:** (e.g. `/api/orders/`, `/api/audit/`) remain mock-backed in Task 1.
 
 ## Phase 1 — schema and seed
 
