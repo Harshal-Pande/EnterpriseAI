@@ -21,6 +21,9 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
+import threading
+import time
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
@@ -293,18 +296,71 @@ def require_role(minimum_role: UserRole):
     return role_checker
 
 
+# Thread-safe in-memory store for short-lived, single-use WebSocket tickets
+_ws_ticket_store: Dict[str, Tuple[AuthUser, float]] = {}
+_ws_ticket_lock = threading.Lock()
+
+
+def create_ws_ticket(user: AuthUser, expires_in_seconds: int = 60) -> str:
+    """Generate a cryptographically secure, single-use, short-lived WebSocket ticket.
+
+    Tickets minimize exposure of persistent API keys in browser history, logs, or query strings.
+    """
+    ticket = secrets.token_urlsafe(32)
+    expires_at = time.time() + max(5, expires_in_seconds)
+
+    with _ws_ticket_lock:
+        # Prune expired tickets
+        now = time.time()
+        expired = [t for t, (_, exp) in _ws_ticket_store.items() if exp < now]
+        for t in expired:
+            _ws_ticket_store.pop(t, None)
+
+        _ws_ticket_store[ticket] = (user, expires_at)
+
+    return ticket
+
+
+def consume_ws_ticket(ticket: str) -> Optional[AuthUser]:
+    """Validate and atomically consume a single-use WebSocket ticket."""
+    if not ticket:
+        return None
+
+    with _ws_ticket_lock:
+        entry = _ws_ticket_store.pop(ticket.strip(), None)
+        if not entry:
+            return None
+        user, expires_at = entry
+        if time.time() > expires_at:
+            return None
+        return user
+
+
 def authenticate_ws_credentials(
     api_key: Optional[str] = None,
     token: Optional[str] = None,
+    ticket: Optional[str] = None,
 ) -> AuthUser:
-    """Authenticate WebSocket client credentials from query parameter or initial frame.
+    """Authenticate WebSocket client credentials from ticket, query parameter, or token.
 
     Security Rules:
-    1. Credentials must match registered server keys in the credential registry.
-    2. In production, missing or unknown credentials immediately fail closed (HTTP 401).
-    3. In development/testing, unauthenticated callers are assigned VIEWER (least privilege).
-    4. Client role claims are derived strictly server-side from registered keys.
+    1. If a short-lived ticket is provided, it is atomically consumed (single use) and validated.
+    2. Otherwise, credentials must match registered server keys in the credential registry.
+    3. In production, missing or unknown credentials immediately fail closed (HTTP 401).
+    4. In development/testing, unauthenticated callers are assigned VIEWER (least privilege).
+    5. Client role claims are derived strictly server-side from registered keys.
     """
+    # 1. Single-use ticket takes priority (browser-safe flow)
+    if ticket:
+        user = consume_ws_ticket(ticket)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired WebSocket connection ticket.",
+            )
+        return user
+
+    # 2. Direct API Key or Bearer Token (script / integration flow)
     effective_key = (api_key or token or "").strip()
     env = (os.environ.get("APP_ENVIRONMENT") or os.environ.get("ENVIRONMENT", "development")).lower()
     registry = get_credential_registry()

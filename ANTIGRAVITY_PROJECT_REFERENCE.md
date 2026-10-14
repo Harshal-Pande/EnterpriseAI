@@ -279,7 +279,7 @@ Acceptance criteria:
 - Disconnecting the backend produces a clear error/stale state, not fabricated live activity.
 - Existing navigation and core screens continue to build.
 
-**Status:** Completed & Verified (238/238 backend tests passing, 11/11 WebSocket tests passing, 119/119 DB checks passing, 4/4 isolation tests passing, Frontend production build passing in 884ms, 0 lint errors).
+**Status:** Completed, Hardened & Verified (246/246 backend tests passing, 19/19 WebSocket tests passing, 119/119 DB checks passing, 4/4 isolation tests passing, Frontend production build passing in 1.32s, 0 lint errors).
 
 ### Phase 7 — Real blockchain audit anchoring
 **Goal:** verify critical audit records on an actual test network.
@@ -365,23 +365,25 @@ For each phase, follow this loop:
 
 ## 10. Current status checklist
 
-| Phase | Status at baseline |
+| Phase | Status |
 |---|---|
 | Phase 0 — Repository baseline | **Complete** — baseline report in `PHASE_0_BASELINE_REPORT.md` |
 | Phase 0.5 — Repository hygiene | **Complete** — checkpoint commit `827143d` |
 | Phase 1 — Domain model and dataset validation | **Complete** — verified against PostgreSQL 18.6: 43 tables, 1,327 seed rows, 119 DB checks pass, 37/37 tests pass |
-| Phase 2 — PostgreSQL persistence and API | Starter only; no active database connection confirmed |
-| Phase 3 — Scenario scheduler | Not implemented as a persistent 300-second scheduler |
-| Phase 4 — Real agent orchestration | Stub/simulation; complete orchestration not implemented |
-| Phase 5 — Policy, approvals, action execution | Not implemented end to end |
-| Phase 6 — Frontend integration/live updates | Frontend exists; most demo state is simulated |
-| Phase 7 — Blockchain audit anchoring | Solidity starter exists; deployment and real transaction integration unverified/not completed |
-| Phase 8 — Knowledge graph | Cypher starter files exist; live integration unverified |
-| Phase 9 — Reliability and delivery | Pending |
+| Phase 2 — PostgreSQL persistence and API | **Complete & Verified** — connection pool lifecycle, operational REST APIs, 165/165 tests pass |
+| Phase 3 — Scenario scheduler | **Complete & Verified** — persistent 300s scheduler, capacity limits, lease locking, 171/171 tests pass |
+| Phase 3.5 — Reliability, Security & Audit Remediation | **Complete & Verified** — mutual exclusion, slot idempotency, orphaned recovery, fail-closed Compose |
+| Phase 4 — Real agent orchestration | **Complete & Verified** — GovernedOrchestrator, dual-mode LLM provider, 218/218 tests pass |
+| Phase 5 — Policy, approvals, action execution | **Complete & Verified** — multi-domain policies, human approval gating, 227/227 tests pass |
+| Phase 6 — Frontend integration and live workflow visibility | **Complete, Hardened & Verified** — authenticated WebSockets, single-use tickets, live Overview, persistent scenario queue, 246/246 tests pass |
+| Phase 7 — Blockchain audit anchoring | **Planned** — Solidity starter exists; live testnet deployment and transaction integration pending |
+| Phase 8 — Knowledge graph | **Planned** — Cypher starter files exist; live Neo4j integration pending if justified by a tested use case |
+| Phase 9 — Reliability, benchmarks, security, and delivery | **Planned** — end-to-end benchmarking and final reproducibility verification |
 
 ## 11. Immediate next task
 
-**Phase 1 is verified and complete.** Proceed to Phase 2 (PostgreSQL Persistence & API Integration).
+**Phase 6 is verified and complete.** Proceed to Phase 7 (Real Blockchain Audit Anchoring on live testnet).
+
 
 ---
 

@@ -437,4 +437,10 @@ export const apiClient = {
     apiFetch<any>(`/api/orchestration/${workflowId}/governance`),
   getProviderInfo: () =>
     apiFetch<ProviderInfo>('/api/orchestration/providers'),
+
+  // WebSocket Authentication Ticket (Phase 6 Hardened)
+  getWsTicket: () =>
+    apiFetch<{ ticket: string; expires_in: number; user_id: string; role: string }>('/api/ws/ticket', {
+      method: 'POST',
+    }),
 };

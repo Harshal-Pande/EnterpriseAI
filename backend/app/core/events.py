@@ -209,22 +209,24 @@ class EventManager:
             }
 
     async def broadcast(self, event: WSEvent):
-        """Broadcast an event to all interested, authorized subscribers."""
+        """Broadcast an event concurrently to all interested, authorized subscribers.
+
+        Ensures slow or failed connections do not block or corrupt other active connections.
+        """
         async with self._lock:
             connections = list(self._connections.values())
 
         if not connections:
             return
 
-        dead_sockets: List[WebSocket] = []
         event_dict = event.model_dump()
 
-        for ctx in connections:
+        async def _deliver_to_client(ctx: ConnectionContext) -> Optional[WebSocket]:
             try:
                 # 1. Channel filter check
                 subbed = ctx.subscribed_channels
                 if EventChannel.ALL.value not in subbed and event.channel not in subbed:
-                    continue
+                    return None
 
                 # 2. Entity filter check
                 if ctx.entity_filter:
@@ -233,16 +235,30 @@ class EventManager:
                         and ctx.entity_filter != event.scenario_id
                         and ctx.entity_filter != event.workflow_id
                     ):
-                        continue
+                        return None
 
-                # 3. Role-based payload filtering
+                # 3. Role-based payload filtering (least privilege)
                 filtered_event = self._filter_event_for_user(event_dict, ctx.user)
 
-                # 4. Transmit
-                await ctx.websocket.send_text(json.dumps(filtered_event))
-            except (WebSocketDisconnect, RuntimeError, Exception) as exc:
-                logger.debug("Failed sending event to client: %s", exc)
-                dead_sockets.append(ctx.websocket)
+                # 4. Transmit with bounded timeout (5.0s) to prevent unbounded blocking
+                await asyncio.wait_for(
+                    ctx.websocket.send_text(json.dumps(filtered_event)),
+                    timeout=5.0,
+                )
+                return None
+            except (WebSocketDisconnect, RuntimeError, asyncio.TimeoutError, Exception) as exc:
+                logger.debug("Failed sending event to client (user=%s): %s", ctx.user.user_id, exc)
+                return ctx.websocket
+
+        # Deliver concurrently to all subscribers
+        results = await asyncio.gather(
+            *[_deliver_to_client(c) for c in connections],
+            return_exceptions=True,
+        )
+
+        dead_sockets: List[WebSocket] = [
+            res for res in results if isinstance(res, WebSocket)
+        ]
 
         if dead_sockets:
             async with self._lock:
@@ -250,21 +266,67 @@ class EventManager:
                     self._connections.pop(ws, None)
 
     def _filter_event_for_user(self, event_dict: Dict[str, Any], user: AuthUser) -> Dict[str, Any]:
-        """Apply least-privilege security filters to outbound event payloads."""
+        """Apply least-privilege security filters to outbound event payloads.
+
+        Recursively masks sensitive tokens and credentials for VIEWER role across
+        payload structures and evidence references.
+        """
         # Admin and Operators see full payload
-        if user.role in {UserRole.ADMIN, UserRole.OPERATOR, UserRole.FINANCE_APPROVER, UserRole.SUPPLY_CHAIN_APPROVER}:
+        if user.role in {
+            UserRole.ADMIN,
+            UserRole.OPERATOR,
+            UserRole.FINANCE_APPROVER,
+            UserRole.SUPPLY_CHAIN_APPROVER,
+        }:
             return event_dict
 
-        # Viewers: Mask raw credentials, database connection strings, or sensitive internal tokens if present
-        payload = dict(event_dict.get("payload", {}))
-        sensitive_keys = {"token", "secret", "password", "api_key", "connection_string", "private_key"}
-        sanitized_payload = {
-            k: ("[REDACTED]" if k.lower() in sensitive_keys else v)
-            for k, v in payload.items()
+        # Viewers: Mask raw credentials, database connection strings, or sensitive internal tokens
+        sensitive_keys = {
+            "token",
+            "secret",
+            "password",
+            "api_key",
+            "connection_string",
+            "private_key",
+            "secret_key",
+            "access_token",
         }
+
+        def _sanitize(val: Any) -> Any:
+            if isinstance(val, dict):
+                return {
+                    k: ("[REDACTED]" if str(k).lower() in sensitive_keys else _sanitize(v))
+                    for k, v in val.items()
+                }
+            elif isinstance(val, list):
+                return [_sanitize(item) for item in val]
+            return val
+
         res = dict(event_dict)
-        res["payload"] = sanitized_payload
+        res["payload"] = _sanitize(event_dict.get("payload", {}))
         return res
+
+    async def publish_async(
+        self,
+        event_type: str,
+        channel: str,
+        entity_id: Optional[str] = None,
+        entity_type: Optional[str] = None,
+        scenario_id: Optional[str] = None,
+        workflow_id: Optional[str] = None,
+        payload: Optional[Dict[str, Any]] = None,
+    ):
+        """Asynchronously publish an event to all subscribers and await completion."""
+        event = WSEvent(
+            event_type=event_type,
+            channel=channel,
+            entity_id=entity_id,
+            entity_type=entity_type,
+            scenario_id=scenario_id,
+            workflow_id=workflow_id,
+            payload=payload or {},
+        )
+        await self.broadcast(event)
 
     def publish(
         self,
@@ -279,7 +341,9 @@ class EventManager:
     ):
         """Synchronously or asynchronously publish an event to the global event bus.
 
-        Safely works from both async FastAPI routes and synchronous services/threads.
+        Safely works from:
+        - Async FastAPI routes (schedules on current loop without deadlock)
+        - Synchronous background threads and scheduler workers (via run_coroutine_threadsafe)
         """
         event = WSEvent(
             event_type=event_type,
@@ -306,8 +370,11 @@ class EventManager:
                     break
 
         if running_loop and running_loop.is_running():
+            # Already on an active event loop: create background task
+            # (Never block the running loop synchronously with fut.result() to avoid deadlocks)
             asyncio.create_task(self.broadcast(event))
         elif target_loop and target_loop.is_running():
+            # Called from a background synchronous thread: schedule on the server event loop
             fut = asyncio.run_coroutine_threadsafe(self.broadcast(event), target_loop)
             if wait:
                 try:
@@ -322,6 +389,7 @@ class EventManager:
         websocket: WebSocket,
         user: AuthUser,
         conn,
+        ctx: Optional[ConnectionContext] = None,
         since_timestamp: Optional[str] = None,
         last_event_id: Optional[str] = None,
         limit: int = DEFAULT_REPLAY_LIMIT,
@@ -332,17 +400,28 @@ class EventManager:
         clauses: List[str] = []
         params: List[Any] = []
 
-        if since_timestamp:
-            clauses.append("event_timestamp > %s")
-            params.append(since_timestamp)
-
+        # Cursor logic: if last_event_id is provided, query strictly after that event
+        clean_last_id = None
         if last_event_id:
+            raw_id = str(last_event_id).strip()
+            if raw_id.upper().startswith("EVT-"):
+                raw_id = raw_id[4:]
             try:
-                uuid.UUID(last_event_id)
-                clauses.append("event_timestamp > (SELECT event_timestamp FROM event_log WHERE event_id = %s)")
-                params.append(last_event_id)
+                uuid.UUID(raw_id)
+                clean_last_id = raw_id
             except ValueError:
                 pass
+
+        if clean_last_id:
+            clauses.append("""
+                (event_timestamp > (SELECT event_timestamp FROM event_log WHERE event_id = %s)
+                 OR (event_timestamp = (SELECT event_timestamp FROM event_log WHERE event_id = %s)
+                     AND event_id > %s))
+            """)
+            params.extend([clean_last_id, clean_last_id, clean_last_id])
+        elif since_timestamp:
+            clauses.append("event_timestamp > %s")
+            params.append(since_timestamp)
 
         where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         sql = f"""
@@ -351,7 +430,7 @@ class EventManager:
                 scenario_id, workflow_run_id, status, reason_code, evidence_refs, source_channel
             FROM event_log
             {where_sql}
-            ORDER BY event_timestamp ASC
+            ORDER BY event_timestamp ASC, event_id ASC
             LIMIT %s;
         """
         params.append(effective_limit)
@@ -364,6 +443,7 @@ class EventManager:
             })
         )
 
+        replayed_count = 0
         try:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
@@ -384,13 +464,6 @@ class EventManager:
                     src_ch,
                 ) = row
 
-                payload = {
-                    "status": status_val,
-                    "reason_code": reason,
-                    "evidence_refs": evidence if isinstance(evidence, (list, dict)) else [],
-                    "source_channel": src_ch,
-                }
-
                 channel = EventChannel.AUDIT.value
                 if "WORKFLOW" in e_type:
                     channel = EventChannel.WORKFLOWS.value
@@ -402,6 +475,27 @@ class EventManager:
                     channel = EventChannel.ACTIONS.value
                 elif "SCHEDULER" in e_type or "SCENARIO" in e_type:
                     channel = EventChannel.SCHEDULER.value
+
+                # Subscription and entity filter check for replaying client
+                if ctx:
+                    subbed = ctx.subscribed_channels
+                    if EventChannel.ALL.value not in subbed and channel not in subbed:
+                        continue
+                    if ctx.entity_filter:
+                        matched = (
+                            ctx.entity_filter == str(ent_id)
+                            or ctx.entity_filter == str(scen_id)
+                            or ctx.entity_filter == str(wf_id)
+                        )
+                        if not matched:
+                            continue
+
+                payload = {
+                    "status": status_val,
+                    "reason_code": reason,
+                    "evidence_refs": evidence if isinstance(evidence, (list, dict)) else [],
+                    "source_channel": src_ch,
+                }
 
                 ws_event = WSEvent(
                     event_id=f"EVT-{str(e_id)[:8]}",
@@ -417,6 +511,7 @@ class EventManager:
                 )
                 filtered = self._filter_event_for_user(ws_event.model_dump(), user)
                 await websocket.send_text(json.dumps(filtered))
+                replayed_count += 1
 
         except Exception as exc:
             logger.error("Failed replaying events from database: %s", exc)
@@ -425,7 +520,7 @@ class EventManager:
             json.dumps({
                 "event_type": EventType.REPLAY_COMPLETE.value,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "payload": {"status": "complete"},
+                "payload": {"status": "complete", "replayed_count": replayed_count},
             })
         )
 

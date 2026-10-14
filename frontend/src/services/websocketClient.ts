@@ -12,6 +12,8 @@
  * - Automatic replay catch-up request on successful reconnect
  */
 
+import { apiClient } from './apiClient';
+
 export type WSConnectionState =
   | 'CONNECTING'
   | 'CONNECTED'
@@ -106,7 +108,7 @@ class WebSocketClientService {
     }
   }
 
-  public connect(): void {
+  public async connect(): Promise<void> {
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
       return;
     }
@@ -121,9 +123,20 @@ class WebSocketClientService {
       (typeof window !== 'undefined' ? localStorage.getItem('ent_api_key') || '' : '');
 
     const params = new URLSearchParams();
-    if (apiKey) {
-      params.append('api_key', apiKey);
+
+    // Prefer short-lived single-use ticket to prevent long-lived key exposure in browser query/history
+    try {
+      const ticketRes = await apiClient.getWsTicket();
+      if (ticketRes?.ticket) {
+        params.append('ticket', ticketRes.ticket);
+      }
+    } catch {
+      // Fallback to direct key if ticket exchange unavailable
+      if (apiKey) {
+        params.append('api_key', apiKey);
+      }
     }
+
     const query = params.toString() ? `?${params.toString()}` : '';
     const fullWsUrl = `${wsUrlBase}/api/ws${query}`;
 
@@ -175,6 +188,10 @@ class WebSocketClientService {
     ws.onclose = (event: CloseEvent) => {
       this.stopHeartbeat();
       if (event.code === 1008 || event.code === 4401 || event.code === 4403) {
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
         this.setState('UNAUTHORIZED', event.reason || 'Invalid API credentials');
         return;
       }

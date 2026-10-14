@@ -93,7 +93,7 @@
 - Add live persistent scenario queue to `ExceptionsPage.tsx` with pagination, loading, status filtering, and error states.
 - End-to-end verification across unit, integration, isolation, and frontend production builds.
 **Dependencies**: Phase 5 Policy Engine & Approvals (Completed)
-**Current status**: **Completed, Hardened & Verified** (238/238 backend tests passing, 11/11 WebSocket tests passing, 119/119 DB checks passing, 4/4 isolation tests passing, Frontend production build passing in 884ms, 0 lint errors).
+**Current status**: **Completed, Hardened & Verified** (246/246 backend tests passing, 19/19 WebSocket tests passing, 119/119 DB checks passing, 4/4 isolation tests passing, Frontend production build passing in 1.32s, 0 lint errors).
 **Definition of completion**: Command Center operates in Live PostgreSQL mode with live multi-agent orchestration, authenticated WebSocket event streaming, and persistent scenario queue.
 
 ## PHASE 7 — Real Blockchain Audit Anchoring

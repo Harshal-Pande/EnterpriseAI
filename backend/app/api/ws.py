@@ -32,6 +32,8 @@ from app.core.security import (
     AuthUser,
     UserRole,
     authenticate_ws_credentials,
+    create_ws_ticket,
+    get_current_user,
     require_role,
 )
 from app.db.database import get_db
@@ -41,17 +43,36 @@ logger = logging.getLogger("enterpriseai.api.ws")
 router = APIRouter()
 
 
+@router.post("/ws/ticket", tags=["websocket"])
+def issue_ws_ticket(
+    current_user: AuthUser = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Issue a cryptographically secure, single-use, 60-second WebSocket connection ticket.
+
+    Enables browsers to establish WebSocket sessions without placing long-lived API keys
+    in URL query strings or browser history.
+    """
+    ticket = create_ws_ticket(current_user, expires_in_seconds=60)
+    return {
+        "ticket": ticket,
+        "expires_in": 60,
+        "user_id": current_user.user_id,
+        "role": current_user.role.value,
+    }
+
+
 @router.websocket("/ws")
 @router.websocket("/ws/events")
 async def websocket_event_stream(
     websocket: WebSocket,
+    ticket: Optional[str] = Query(None, description="Short-lived single-use WebSocket ticket"),
     api_key: Optional[str] = Query(None, description="API Key for authentication"),
     token: Optional[str] = Query(None, description="Bearer token fallback"),
 ):
     """Real-time WebSocket event streaming endpoint.
 
     Workflow:
-    1. Authenticate client via server-side credential registry.
+    1. Authenticate client via single-use ticket or server-side credential registry.
     2. Enforce role-based access control and maximum connection limits.
     3. Accept connection and confirm session establishment.
     4. Handle inbound heartbeats (PING/PONG), channel subscriptions, and replay requests.
@@ -59,7 +80,7 @@ async def websocket_event_stream(
     """
     # 1. Authenticate credentials
     try:
-        user = authenticate_ws_credentials(api_key=api_key, token=token)
+        user = authenticate_ws_credentials(api_key=api_key, token=token, ticket=ticket)
     except HTTPException as exc:
         logger.warning("WebSocket authentication failed: %s", exc.detail)
         await websocket.close(code=1008, reason=str(exc.detail)[:120])
@@ -147,6 +168,7 @@ async def websocket_event_stream(
                         websocket=websocket,
                         user=user,
                         conn=conn,
+                        ctx=ctx,
                         since_timestamp=since_timestamp,
                         last_event_id=last_event_id,
                         limit=limit,
