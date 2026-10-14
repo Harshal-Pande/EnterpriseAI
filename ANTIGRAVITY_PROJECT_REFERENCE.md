@@ -363,7 +363,8 @@ For each phase, follow this loop:
 
 | Phase | Status at baseline |
 |---|---|
-| Phase 0 — Repository baseline | Pending formal baseline report |
+| Phase 0 — Repository baseline | **Complete** — baseline report in `PHASE_0_BASELINE_REPORT.md` |
+| Phase 0.5 — Repository hygiene | **Complete** — checkpoint commit `827143d` |
 | Phase 1 — Domain model and dataset validation | Starter workbook/schema prepared separately; repository integration unverified |
 | Phase 2 — PostgreSQL persistence and API | Starter only; no active database connection confirmed |
 | Phase 3 — Scenario scheduler | Not implemented as a persistent 300-second scheduler |
@@ -389,3 +390,19 @@ The goal is to establish what actually builds and runs today, not to generate mo
 - Clarified the target five-minute scenario loop and the industrial supply-chain domain.
 - Established incremental implementation phases and acceptance criteria.
 - No repository code has been changed by creating this reference document.
+
+### 2026-10-14 — Phase 0.5 hygiene checkpoint (`827143d`)
+- Created root `.gitignore` covering `.env`, `__pycache__/`, venvs, test caches, logs, OS/editor metadata, and frontend build artefacts.
+- `blockchain_service.py`: replaced simulated tx hash with a zero-address placeholder and `status: 'SIMULATED'`; added a docstring explicitly stating no network call is made.
+- `backend/app/api/audit.py`: removed fake `tx_hash` field; added `blockchain_status: 'SIMULATED'` and explanatory `note` field.
+- `AuditTrailPage.tsx`: changed `VERIFIED` badge to `SIMULATED` on all event cards; replaced invented "CONSENSUS / Contract 0x7f83…a91c" summary metric with `NOT DEPLOYED / Phase 7 — pending testnet deployment`.
+- `DemoContext.tsx`: `addAuditEvent` now sets `status: 'SIMULATED'` instead of `'VERIFIED'`.
+- `initialDemoData.ts`: all five seed audit events updated to `status: 'SIMULATED'`.
+- `types/index.ts`: added `'SIMULATED'` to `AuditEvent.status` union with JSDoc explaining each value.
+- `backend/.env.example`: removed deprecated Polygon Mumbai RPC URL; replaced `POLYGON_RPC_URL` with empty `EVM_RPC_URL` placeholder and a comment explaining why Mumbai is gone and what to do in Phase 7.
+- `backend/requirements.txt`: annotated with version-mismatch explanation, `__init__.py` decision rationale, and recommended virtual-environment strategy. Pins left unchanged pending venv setup.
+- Added `ANTIGRAVITY_PROJECT_REFERENCE.md`, `PHASE_0_BASELINE_REPORT.md`, and `project_reference/` starter dataset files to the repository.
+- Frontend build: ✅ exit 0, 328.70 KB JS, 36.10 KB CSS.
+- Frontend lint: ✅ 0 errors, 1 pre-existing warning (`only-export-components` in `DemoContext.tsx`).
+- Backend import: ✅ `from app.main import app` exit 0.
+- Phase 1 has not started.
