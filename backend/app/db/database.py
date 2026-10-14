@@ -15,6 +15,7 @@ from typing import Generator, Optional
 from fastapi import HTTPException, status
 
 try:
+
     from db.connection import get_database_url
 except ImportError:
     from backend.db.connection import get_database_url
