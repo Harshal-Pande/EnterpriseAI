@@ -1,24 +1,29 @@
-"""Security and Authorization Module (Task 15).
+"""Security and Authorization Module (Task 15 Hardened).
 
-Provides authentication and role-based access control (RBAC) boundaries for:
-- Viewers: Read-only access to monitoring and telemetry endpoints.
-- Operators: Ability to manually trigger scheduler cycles and propose actions.
-- Approvers: Domain-specific spending and operational approval authority.
-- Admins: Unrestricted operational and administrative authority.
+Provides server-side authentication and role-based access control (RBAC) boundaries:
+- Roles:
+  * VIEWER: Read-only access to monitoring and telemetry endpoints.
+  * OPERATOR: Ability to manually trigger scheduler cycles and propose actions.
+  * FINANCE_APPROVER: Financial approval authority up to configured threshold limits.
+  * SUPPLY_CHAIN_APPROVER: Supplier, procurement, and logistics routing approvals.
+  * ADMIN: Unrestricted operational and administrative authority.
 
 Enforces:
 - Least privilege principle.
-- Protection on state-changing endpoints (approvals, actions, scheduler triggers).
+- Server-side credential-to-role mapping (client headers X-User-Role/X-User-Id cannot forge privileges).
+- Protection on all state-changing endpoints (approvals, actions, scheduler triggers).
 - Self-approval restrictions (actors cannot approve their own proposed actions).
-- Safe development/test fallbacks when explicit auth headers are omitted.
+- Server-side approval limit enforcement.
+- Fail-closed behavior in production mode when credentials are missing or invalid.
 """
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 from enum import Enum
-from typing import Optional, List, Tuple
+from typing import Dict, List, Optional, Tuple
+
 from fastapi import Header, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 
@@ -43,19 +48,55 @@ ROLE_HIERARCHY = {
     UserRole.ADMIN: 100,
 }
 
+# Standard development and testing credentials (disabled in production)
+DEV_CREDENTIAL_REGISTRY: Dict[str, Tuple[UserRole, str, List[str], Optional[float]]] = {
+    "dev-admin-key": (
+        UserRole.ADMIN,
+        "admin_user",
+        ["FINANCE", "SUPPLY_CHAIN", "PROCUREMENT", "LOGISTICS"],
+        None,
+    ),
+    "dev-finance-key": (
+        UserRole.FINANCE_APPROVER,
+        "finance_approver",
+        ["FINANCE"],
+        60000000.0,
+    ),
+    "dev-supply-key": (
+        UserRole.SUPPLY_CHAIN_APPROVER,
+        "supply_chain_approver",
+        ["SUPPLY_CHAIN", "PROCUREMENT", "LOGISTICS"],
+        None,
+    ),
+    "dev-operator-key": (
+        UserRole.OPERATOR,
+        "operator_user",
+        [],
+        None,
+    ),
+    "dev-viewer-key": (
+        UserRole.VIEWER,
+        "viewer_user",
+        [],
+        None,
+    ),
+}
+
 
 class AuthUser:
-    """Authenticated user context with identity and role."""
+    """Authenticated user context with server-verified identity, role, and permissions."""
 
     def __init__(
         self,
         user_id: str,
         role: UserRole,
         approval_domains: Optional[List[str]] = None,
+        max_approval_amount: Optional[float] = None,
     ):
         self.user_id = user_id
         self.role = role
         self.approval_domains = approval_domains or []
+        self.max_approval_amount = max_approval_amount
 
     def has_role(self, minimum_role: UserRole) -> bool:
         """Check if user role meets or exceeds minimum hierarchy rank."""
@@ -71,9 +112,92 @@ class AuthUser:
             return True
         if self.role == UserRole.FINANCE_APPROVER and domain.upper() == "FINANCE":
             return True
-        if self.role == UserRole.SUPPLY_CHAIN_APPROVER and domain.upper() in {"SUPPLY_CHAIN", "PROCUREMENT", "LOGISTICS"}:
+        if self.role == UserRole.SUPPLY_CHAIN_APPROVER and domain.upper() in {
+            "SUPPLY_CHAIN",
+            "PROCUREMENT",
+            "LOGISTICS",
+            "INVENTORY",
+        }:
             return True
         return domain.upper() in [d.upper() for d in self.approval_domains]
+
+    def can_approve_amount(self, amount: float) -> bool:
+        """Check if user is authorized for a specific expenditure amount."""
+        if self.role == UserRole.ADMIN:
+            return True
+        if self.max_approval_amount is not None:
+            return amount <= self.max_approval_amount
+        return True
+
+
+def get_credential_registry() -> Dict[str, Tuple[UserRole, str, List[str], Optional[float]]]:
+    """Build the active credential-to-role mapping from server environment variables."""
+    registry: Dict[str, Tuple[UserRole, str, List[str], Optional[float]]] = {}
+
+    # Explicit role-specific environment variables
+    admin_key = os.environ.get("ADMIN_API_KEY")
+    if admin_key:
+        registry[admin_key.strip()] = (
+            UserRole.ADMIN,
+            "admin_user",
+            ["FINANCE", "SUPPLY_CHAIN", "PROCUREMENT", "LOGISTICS"],
+            None,
+        )
+
+    fin_key = os.environ.get("FINANCE_API_KEY")
+    if fin_key:
+        registry[fin_key.strip()] = (
+            UserRole.FINANCE_APPROVER,
+            "finance_approver",
+            ["FINANCE"],
+            60000000.0,
+        )
+
+    sc_key = os.environ.get("SUPPLY_CHAIN_API_KEY")
+    if sc_key:
+        registry[sc_key.strip()] = (
+            UserRole.SUPPLY_CHAIN_APPROVER,
+            "supply_chain_approver",
+            ["SUPPLY_CHAIN", "PROCUREMENT", "LOGISTICS"],
+            None,
+        )
+
+    op_key = os.environ.get("OPERATOR_API_KEY")
+    if op_key:
+        registry[op_key.strip()] = (
+            UserRole.OPERATOR,
+            "operator_user",
+            [],
+            None,
+        )
+
+    view_key = os.environ.get("VIEWER_API_KEY")
+    if view_key:
+        registry[view_key.strip()] = (
+            UserRole.VIEWER,
+            "viewer_user",
+            [],
+            None,
+        )
+
+    # Legacy or generic single key fallback
+    generic_key = os.environ.get("API_KEY")
+    if generic_key and generic_key.strip() not in registry:
+        registry[generic_key.strip()] = (
+            UserRole.OPERATOR,
+            "api_key_operator",
+            [],
+            None,
+        )
+
+    # In development or testing, merge default development credentials if not overridden
+    env = (os.environ.get("APP_ENVIRONMENT") or os.environ.get("ENVIRONMENT", "development")).lower()
+    if env != "production":
+        for k, v in DEV_CREDENTIAL_REGISTRY.items():
+            if k not in registry:
+                registry[k] = v
+
+    return registry
 
 
 def get_current_user(
@@ -81,44 +205,79 @@ def get_current_user(
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
     x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
 ) -> AuthUser:
-    """Resolve authenticated user from request headers.
+    """Resolve authenticated user context from server-side credential verification.
 
-    In production: strictly validates API keys or identity headers.
-    In development/test: defaults safely to an OPERATOR/ADMIN context if omitted,
-    preserving seamless testing while securing production deployments.
+    Security Rules:
+    1. Roles and user identity are derived EXCLUSIVELY from verified credentials.
+    2. Client claims in 'X-User-Role' or 'X-User-Id' are NEVER trusted to elevate privileges.
+       If an inconsistent 'X-User-Role' is supplied, the request is rejected with HTTP 403.
+    3. In production: missing credentials or unconfigured server keys trigger HTTP 401 / 500.
+    4. In development: unauthenticated callers are assigned VIEWER (least privilege).
     """
-    env = os.environ.get("ENVIRONMENT", "development").lower()
-    configured_api_key = os.environ.get("API_KEY")
+    env = (os.environ.get("APP_ENVIRONMENT") or os.environ.get("ENVIRONMENT", "development")).lower()
+    registry = get_credential_registry()
 
-    # In production, require valid API key or reject
+    # In production, fail closed
     if env == "production":
-        if not configured_api_key or x_api_key != configured_api_key:
+        if not registry:
+            logger.error("Production security alert: no API keys configured in environment.")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Authentication configuration missing in production environment.",
+            )
+        if not x_api_key:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing or invalid authentication credentials.",
+                detail="Missing authentication credentials.",
+            )
+        clean_key = x_api_key.strip()
+        if clean_key not in registry:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials.",
+            )
+        role, user_id, domains, max_amount = registry[clean_key]
+    else:
+        # Development / Test mode
+        if x_api_key:
+            clean_key = x_api_key.strip()
+            if clean_key not in registry:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid authentication credentials.",
+                )
+            role, user_id, domains, max_amount = registry[clean_key]
+        else:
+            # Unauthenticated callers in development default to VIEWER (least privilege)
+            role = UserRole.VIEWER
+            user_id = "anonymous_viewer"
+            domains = []
+            max_amount = None
+
+    # Anti-Forgery Gate: If client provided an X-User-Role header that does not match authenticated role
+    if x_user_role:
+        client_role_claimed = x_user_role.strip().upper()
+        if client_role_claimed != role.value:
+            logger.warning(
+                "Attempted role forgery blocked: client claimed '%s' but authenticated credential has role '%s'",
+                client_role_claimed,
+                role.value,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Client role claim '{client_role_claimed}' does not match authenticated role '{role.value}'.",
             )
 
-    # Resolve user role
-    role = UserRole.OPERATOR
-    if x_user_role:
-        try:
-            role = UserRole(x_user_role.upper())
-        except ValueError:
-            role = UserRole.VIEWER
-
-    user_id = x_user_id or "system_operator"
-
-    domains = []
-    if role in {UserRole.FINANCE_APPROVER, UserRole.ADMIN}:
-        domains.append("FINANCE")
-    if role in {UserRole.SUPPLY_CHAIN_APPROVER, UserRole.ADMIN}:
-        domains.extend(["PROCUREMENT", "LOGISTICS", "INVENTORY"])
-
-    return AuthUser(user_id=user_id, role=role, approval_domains=domains)
+    return AuthUser(
+        user_id=user_id,
+        role=role,
+        approval_domains=domains,
+        max_approval_amount=max_amount,
+    )
 
 
 def require_role(minimum_role: UserRole):
-    """Dependency factory enforcing minimum user role requirement."""
+    """FastAPI dependency factory enforcing minimum role requirement."""
 
     def role_checker(user: AuthUser = Security(get_current_user)) -> AuthUser:
         if not user.has_role(minimum_role):

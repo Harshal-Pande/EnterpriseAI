@@ -63,6 +63,7 @@ def get_inventory_summary(conn=Depends(get_db)):
 
 
 @router.get("/", response_model=List[InventoryItem])
+@router.get("/items", response_model=List[InventoryItem])
 def list_inventory(
     warehouse_id: Optional[str] = Query(None, description="Filter by warehouse ID"),
     item_id: Optional[str] = Query(None, alias="product_id", description="Filter by item/product ID"),

@@ -267,8 +267,10 @@ def test_rejected_action_cannot_execute(test_conn, parent_scenario: str, action_
 @pytest.mark.integration
 def test_action_api_endpoints(client: TestClient, parent_scenario: str, action_test_tracker):
     """API endpoints for action proposal, listing, detail, and execution."""
+    headers = {"X-API-Key": "dev-operator-key"}
     prop_res = client.post(
         "/api/actions/propose",
+        headers=headers,
         json={
             "scenario_id": parent_scenario,
             "action_type": "CREATE_PURCHASE_ORDER",
@@ -290,7 +292,7 @@ def test_action_api_endpoints(client: TestClient, parent_scenario: str, action_t
     assert len(list_res.json()) >= 1
 
     # Execute endpoint
-    exec_res = client.post(f"/api/actions/{action_id}/execute")
+    exec_res = client.post(f"/api/actions/{action_id}/execute", headers=headers)
     assert exec_res.status_code == 200
     assert exec_res.json()["status"] == "SUCCEEDED"
 

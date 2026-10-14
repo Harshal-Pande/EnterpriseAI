@@ -1,7 +1,7 @@
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
@@ -17,6 +17,7 @@ from app.api import (
     suppliers,
     workflow,
 )
+from app.core.security import UserRole, require_role
 from app.db.database import close_db_pool, init_db_pool
 from app.services.scheduler_service import default_scheduler
 
@@ -59,17 +60,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+viewer_auth = [Depends(require_role(UserRole.VIEWER))]
+
 app.include_router(health.router, prefix="/api", tags=["health"])
-app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
-app.include_router(inventory.router, prefix="/api/inventory", tags=["inventory"])
-app.include_router(suppliers.router, prefix="/api/suppliers", tags=["suppliers"])
-app.include_router(workflow.router, prefix="/api/workflow", tags=["workflow"])
-app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
-app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
-app.include_router(scheduler.router, prefix="/api/scheduler", tags=["scheduler"])
-app.include_router(policies.router, prefix="/api/policies", tags=["policies"])
-app.include_router(approvals.router, prefix="/api/approvals", tags=["approvals"])
-app.include_router(actions.router, prefix="/api/actions", tags=["actions"])
+app.include_router(orders.router, prefix="/api/orders", tags=["orders"], dependencies=viewer_auth)
+app.include_router(inventory.router, prefix="/api/inventory", tags=["inventory"], dependencies=viewer_auth)
+app.include_router(suppliers.router, prefix="/api/suppliers", tags=["suppliers"], dependencies=viewer_auth)
+app.include_router(workflow.router, prefix="/api/workflow", tags=["workflow"], dependencies=viewer_auth)
+app.include_router(agents.router, prefix="/api/agents", tags=["agents"], dependencies=viewer_auth)
+app.include_router(audit.router, prefix="/api/audit", tags=["audit"], dependencies=viewer_auth)
+app.include_router(scheduler.router, prefix="/api/scheduler", tags=["scheduler"], dependencies=viewer_auth)
+app.include_router(policies.router, prefix="/api/policies", tags=["policies"], dependencies=viewer_auth)
+app.include_router(approvals.router, prefix="/api/approvals", tags=["approvals"], dependencies=viewer_auth)
+app.include_router(actions.router, prefix="/api/actions", tags=["actions"], dependencies=viewer_auth)
 
 
 @app.get("/")

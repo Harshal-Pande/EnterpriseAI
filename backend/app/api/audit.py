@@ -24,6 +24,7 @@ router = APIRouter()
 
 
 @router.get("/", response_model=List[AuditEvent])
+@router.get("/events", response_model=List[AuditEvent])
 def get_audit_trail(
     event_type: Optional[str] = Query(None, description="Filter by event type"),
     entity_id: Optional[str] = Query(None, description="Filter by entity ID"),

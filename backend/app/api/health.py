@@ -7,6 +7,8 @@ router = APIRouter()
 
 
 @router.get("/health")
+@router.get("/live")
+@router.get("/health/live")
 def health_check():
     """Liveness probe. Reports whether the application process is running.
 

@@ -100,3 +100,214 @@ def test_error_sanitizer_redacts_credentials():
     assert clean_dict["api_key"] == "***"
     assert clean_dict["nested"]["token"] == "***"
     assert clean_dict["nested"]["item"] == "PRD-01"
+
+
+def test_anti_forgery_guard_rejects_spoofed_role_headers(client: TestClient):
+    """When a client provides a valid key but attempts to spoof an escalated X-User-Role, HTTP 403 is returned."""
+    # Viewer credential with forged ADMIN claim
+    res1 = client.get(
+        "/api/orders/",
+        headers={"X-API-Key": "dev-viewer-key", "X-User-Role": "ADMIN"},
+    )
+    assert res1.status_code == 403
+    assert "does not match authenticated role" in res1.json()["detail"].lower()
+
+    # Operator credential with forged ADMIN claim
+    res2 = client.post(
+        "/api/scheduler/trigger",
+        headers={"X-API-Key": "dev-operator-key", "X-User-Role": "ADMIN"},
+    )
+    assert res2.status_code == 403
+    assert "does not match authenticated role" in res2.json()["detail"].lower()
+
+    # Unauthenticated viewer with forged OPERATOR claim
+    res3 = client.get(
+        "/api/orders/",
+        headers={"X-User-Role": "OPERATOR"},
+    )
+    assert res3.status_code == 403
+    assert "does not match authenticated role" in res3.json()["detail"].lower()
+
+
+def test_unauthenticated_requests_receive_read_only_viewer_role(client: TestClient):
+    """Unauthenticated requests default to VIEWER role: read-only access succeeds, mutating calls fail with 403."""
+    # Read-only endpoints work for unauthenticated viewers
+    res_orders = client.get("/api/orders/?limit=5")
+    assert res_orders.status_code == 200
+
+    res_live = client.get("/api/live")
+    assert res_live.status_code == 200
+
+    # Mutating / privileged endpoints are rejected
+    res_sched = client.post("/api/scheduler/trigger")
+    assert res_sched.status_code == 403
+    assert "requires at least" in res_sched.json()["detail"].lower()
+    assert "operator" in res_sched.json()["detail"].lower()
+
+    res_act = client.post("/api/actions/propose", json={"scenario_id": "00000000-0000-0000-0000-000000000000", "action_type": "DUMMY"})
+    assert res_act.status_code == 403
+    assert "requires at least" in res_act.json()["detail"].lower()
+    assert "operator" in res_act.json()["detail"].lower()
+
+
+def test_production_mode_fails_closed_when_keys_unconfigured(client: TestClient, monkeypatch):
+    """In production mode, if no security keys are configured, the server fails closed with 500."""
+    monkeypatch.setenv("APP_ENVIRONMENT", "production")
+    monkeypatch.delenv("API_KEY", raising=False)
+    monkeypatch.delenv("ADMIN_API_KEY", raising=False)
+    monkeypatch.delenv("FINANCE_API_KEY", raising=False)
+    monkeypatch.delenv("SUPPLY_CHAIN_API_KEY", raising=False)
+    monkeypatch.delenv("OPERATOR_API_KEY", raising=False)
+    monkeypatch.delenv("VIEWER_API_KEY", raising=False)
+
+    res = client.get("/api/orders/")
+    assert res.status_code == 500
+    assert "missing in production" in res.json()["detail"].lower()
+
+
+def test_api_contract_routes_consistency(client: TestClient):
+    """Verify frontend API client contract endpoints exist and return correct shapes."""
+    # Liveness check (used by Docker healthcheck & apiClient.checkLive)
+    res_live = client.get("/api/live")
+    assert res_live.status_code == 200
+    assert res_live.json().get("status") in {"healthy", "alive"}
+
+    # Orders summary (used by apiClient.getOrderSummary)
+    res_summary = client.get("/api/orders/summary")
+    assert res_summary.status_code == 200
+    summary_data = res_summary.json()
+    assert "total_orders" in summary_data
+    assert "processing_count" in summary_data
+    assert "completed_count" in summary_data
+    assert "exception_count" in summary_data
+
+    # Inventory items alias (used by apiClient.getInventoryItems)
+    res_inv = client.get("/api/inventory/items?limit=5")
+    assert res_inv.status_code == 200
+    assert isinstance(res_inv.json(), list)
+
+    # Audit events alias (used by apiClient.getAuditEvents)
+    res_audit = client.get("/api/audit/events?limit=5")
+    assert res_audit.status_code == 200
+    assert isinstance(res_audit.json(), list)
+
+
+def test_self_approval_and_amount_limits_enforced(client: TestClient, test_conn):
+    """Server-side authorization forbids self-approval and enforces financial spending limits."""
+    import uuid
+    scenario_id = str(uuid.uuid4())
+    action_ids = []
+
+    with test_conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO scenario_instances (
+                scenario_id, scenario_template_id, linked_order_id, severity,
+                status, scheduled_at, input_overlay, idempotency_key, created_at, updated_at
+            )
+            VALUES (%s, %s, %s, %s, %s, NOW(), %s, %s, NOW(), NOW());
+            """,
+            (
+                scenario_id,
+                "TPL-010",
+                "ORD-TEST-SEC",
+                "MEDIUM",
+                "RUNNING",
+                '{"note": "security test"}',
+                f"SEC-IDEMP-{scenario_id}",
+            ),
+        )
+    test_conn.commit()
+
+    try:
+        # 1. Propose action using dev-finance-key (identity: finance_approver)
+        prop_res = client.post(
+            "/api/actions/propose",
+            headers={"X-API-Key": "dev-finance-key"},
+            json={
+                "scenario_id": scenario_id,
+                "action_type": "CREATE_PURCHASE_ORDER",
+                "payload": {
+                    "supplier_id": "SUP-001",
+                    "item_id": "MAT-IRON",
+                    "quantity": 100.0,
+                    "estimated_cost": 55000000.0,
+                },
+            },
+        )
+        assert prop_res.status_code == 201
+        action1_id = prop_res.json()["action_id"]
+        action_ids.append(action1_id)
+
+        # Retrieve approval request for action1
+        apprs1 = [a for a in client.get("/api/approvals/?status=PENDING").json() if a.get("action_id") == action1_id]
+        assert len(apprs1) == 1
+        approval1_id = apprs1[0]["approval_id"]
+
+        # Attempt self-approval with dev-finance-key -> MUST FAIL with 403 Forbidden
+        dec_self = client.post(
+            f"/api/approvals/{approval1_id}/decision",
+            headers={"X-API-Key": "dev-finance-key"},
+            json={"status": "APPROVED", "reason": "Attempting self-approval"},
+        )
+        assert dec_self.status_code == 403
+        assert "self-approval is prohibited" in dec_self.json()["detail"].lower()
+
+        # Another user with ADMIN role can approve it
+        dec_admin = client.post(
+            f"/api/approvals/{approval1_id}/decision",
+            headers={"X-API-Key": "dev-admin-key"},
+            json={"status": "APPROVED", "reason": "Admin approval of coworker action"},
+        )
+        assert dec_admin.status_code == 200
+
+        # 2. Propose a high-value action (> ₹60M threshold) with dev-operator-key
+        prop_high = client.post(
+            "/api/actions/propose",
+            headers={"X-API-Key": "dev-operator-key"},
+            json={
+                "scenario_id": scenario_id,
+                "action_type": "CREATE_PURCHASE_ORDER",
+                "payload": {
+                    "supplier_id": "SUP-001",
+                    "item_id": "MAT-IRON",
+                    "quantity": 100.0,
+                    "estimated_cost": 62000000.0,
+                },
+            },
+        )
+        assert prop_high.status_code == 201
+        action2_id = prop_high.json()["action_id"]
+        action_ids.append(action2_id)
+
+        apprs2 = [a for a in client.get("/api/approvals/?status=PENDING").json() if a.get("action_id") == action2_id]
+        assert len(apprs2) == 1
+        approval2_id = apprs2[0]["approval_id"]
+
+        # Finance approver attempts approval for ₹62M -> exceeds ₹60M limit -> 403 Forbidden
+        dec_fin_limit = client.post(
+            f"/api/approvals/{approval2_id}/decision",
+            headers={"X-API-Key": "dev-finance-key"},
+            json={"status": "APPROVED", "reason": "Approving high value order"},
+        )
+        assert dec_fin_limit.status_code == 403
+        assert "exceeds approval limit" in dec_fin_limit.json()["detail"].lower()
+
+        # Admin approves the high value order -> 200 OK
+        dec_adm_high = client.post(
+            f"/api/approvals/{approval2_id}/decision",
+            headers={"X-API-Key": "dev-admin-key"},
+            json={"status": "APPROVED", "reason": "Admin authorized high value order"},
+        )
+        assert dec_adm_high.status_code == 200
+
+    finally:
+        # Clean up created test entities in strict reverse dependency order
+        with test_conn.cursor() as cur:
+            if action_ids:
+                cur.execute("DELETE FROM approval_requests WHERE action_id::text = ANY(%s);", (action_ids,))
+                cur.execute("DELETE FROM policy_evaluations WHERE action_id::text = ANY(%s);", (action_ids,))
+                cur.execute("DELETE FROM action_queue WHERE action_id::text = ANY(%s);", (action_ids,))
+            cur.execute("DELETE FROM decisions WHERE scenario_id = %s;", (scenario_id,))
+            cur.execute("DELETE FROM scenario_instances WHERE scenario_id = %s;", (scenario_id,))
+        test_conn.commit()

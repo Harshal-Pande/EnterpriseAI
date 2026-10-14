@@ -155,6 +155,35 @@ def list_orders(
     return results
 
 
+@router.get("/summary")
+def get_orders_summary(conn=Depends(get_db)):
+    """Retrieve operational orders aggregation summary."""
+    sql = """
+        SELECT
+            COUNT(*) AS total_orders,
+            COUNT(*) FILTER (WHERE status IN ('OPEN', 'IN_PROGRESS', 'CONFIRMED', 'PROCESSING')) AS processing_count,
+            COUNT(*) FILTER (WHERE status IN ('COMPLETED', 'SHIPPED', 'DELIVERED')) AS completed_count,
+            COUNT(*) FILTER (WHERE status IN ('AT_RISK', 'EXCEPTION', 'CANCELLED')) AS exception_count
+        FROM orders;
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            r = cur.fetchone()
+            return {
+                "total_orders": int(r[0]) if r and r[0] is not None else 0,
+                "processing_count": int(r[1]) if r and r[1] is not None else 0,
+                "completed_count": int(r[2]) if r and r[2] is not None else 0,
+                "exception_count": int(r[3]) if r and r[3] is not None else 0,
+            }
+    except Exception as exc:
+        logger.error("Database query failed in get_orders_summary: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database query failed while retrieving orders summary",
+        ) from exc
+
+
 @router.get("/{order_id}", response_model=Order)
 def get_order(order_id: str, conn=Depends(get_db)):
     """Retrieve a single order by ID along with its constituent order lines."""

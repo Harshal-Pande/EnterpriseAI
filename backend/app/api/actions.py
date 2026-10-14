@@ -40,6 +40,9 @@ def propose_new_action(
     conn=Depends(get_db),
 ):
     """Propose a supply-chain action, evaluate policy, and queue for execution or approval."""
+    if req.payload is None:
+        req.payload = {}
+    req.payload["proposed_by"] = current_user.user_id
     return propose_action(conn, req)
 
 
@@ -75,4 +78,4 @@ def execute_queued_action(
     conn=Depends(get_db),
 ):
     """Execute an action after re-evaluating policy gates, approvals, and preconditions."""
-    return execute_action(conn, action_id)
+    return execute_action(conn, action_id, caller_id=current_user.user_id)

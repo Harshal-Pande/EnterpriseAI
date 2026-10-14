@@ -239,7 +239,7 @@ def test_scheduler_api_status_and_trigger(client: TestClient, scheduler_test_tra
     assert "total_runs" in data
 
     # Trigger cycle
-    res_trigger = client.post("/api/scheduler/trigger")
+    res_trigger = client.post("/api/scheduler/trigger", headers={"X-API-Key": "dev-operator-key"})
     assert res_trigger.status_code == 200
     trig_data = res_trigger.json()
     assert "executed" in trig_data

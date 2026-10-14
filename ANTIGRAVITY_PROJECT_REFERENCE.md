@@ -383,6 +383,15 @@ For each phase, follow this loop:
 
 ## Development log
 
+### 2026-10-14 — Phase 2 Security Hardening & Contract Alignment Gate Passed
+- **Authentication & Anti-Forgery**: Enforced server-side credential-to-role mapping (`ADMIN_API_KEY`, `FINANCE_API_KEY`, `SUPPLY_CHAIN_API_KEY`, `OPERATOR_API_KEY`, `VIEWER_API_KEY`). Built Anti-Forgery Guard rejecting spoofed client role headers (`X-User-Role: ADMIN` with non-admin keys -> HTTP 403 Forbidden).
+- **Least-Privilege Defaults & Fail-Closed Security**: In development, unauthenticated requests receive read-only `VIEWER` role; in production, missing credentials fail closed with HTTP 500/401.
+- **Human Approval & Identity Enforcement**: Backend strictly stamps `decided_by = current_user.user_id` and `proposed_by = current_user.user_id`. Prohibits self-approval (HTTP 403). Enforces financial spending threshold limits (`FINANCE_APPROVER` capped at ₹60,000,000 INR; higher amounts require `ADMIN`).
+- **Frontend Credential Decoupling**: Documented client bundle visibility in `frontend/.env.example`. Removed privileged secret assumptions from browser bundle.
+- **API Contract Alignment**: Added missing route contracts (`/api/live` for container healthchecks & UI live checks, `/api/orders/summary`, `/api/inventory/items`, `/api/audit/events`). Added fallback canonical verification for unanchored local audit events in `verify_anchor_integrity()`.
+- **Docker Compose Cleanliness**: Removed obsolete `version: '3.8'` line from `docker-compose.yml`; verified clean syntax with `docker compose config`.
+- **Regression Outcomes**: 165/165 passing Pytest tests (+5 new security tests), 119/119 passing database integrity checks, 0 rows in runtime tables, clean frontend production build (1.53s) and lint.
+
 ### 2026-10-14 — Phase 2 Full Implementation & Verification Passed (Tasks 1–20)
 - **Task 1–5**: PostgreSQL connection pool lifecycle (`init_db_pool`, `get_db`, `close_db_pool`), parameterized operational APIs (`/api/orders`, `/api/inventory`, `/api/suppliers`), and audit event logging.
 - **Task 6–7**: Workflow and specialist-agent run persistence (`workflow_instances`, `agent_runs`, `agent_findings`, `decisions`).

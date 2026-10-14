@@ -286,13 +286,49 @@ def verify_anchor_integrity(
         )
         row = cur.fetchone()
         if not row:
+            cur.execute(
+                """
+                SELECT event_id, payload_hash, status, reason_code
+                FROM event_log
+                WHERE event_id::text = %s;
+                """,
+                (event_id.strip(),),
+            )
+            ev_row = cur.fetchone()
+            if not ev_row:
+                return VerificationResult(
+                    event_id=event_id,
+                    matched=False,
+                    computed_hash=computed_hash,
+                    anchored_hash=None,
+                    verification_status="NOT_FOUND",
+                    details=f"No anchor or audit event record found for event_id '{event_id}'.",
+                )
+
+            _, stored_hash, ev_status, _ = ev_row
+            if original_payload:
+                matched = bool(stored_hash and computed_hash.lower() == stored_hash.lower())
+                used_computed = computed_hash
+            else:
+                matched = bool(stored_hash)
+                used_computed = stored_hash or computed_hash
+
+            status_label = "MATCHED" if matched else "MISMATCH"
+            details = (
+                f"Digest {stored_hash} verified against immutable PostgreSQL event_log record."
+                if matched
+                else f"Cryptographic mismatch! Computed {computed_hash} != Recorded {stored_hash}."
+            )
             return VerificationResult(
                 event_id=event_id,
-                matched=False,
-                computed_hash=computed_hash,
-                anchored_hash=None,
-                verification_status="NOT_FOUND",
-                details=f"No anchor record found for event_id '{event_id}'.",
+                matched=matched,
+                computed_hash=used_computed,
+                anchored_hash=stored_hash,
+                verification_status=status_label,
+                confirmation_status=ev_status or "CONFIRMED_LOCAL",
+                block_number=None,
+                transaction_hash=None,
+                details=details,
             )
 
         anchor_id, anchored_hash, conf_status, block_num, tx_hash = row

@@ -38,7 +38,7 @@ class PolicyEvaluationResponse(BaseModel):
 
 class ApprovalDecisionRequest(BaseModel):
     status: str = Field(..., description="APPROVED or REJECTED")
-    decided_by: str = Field(..., description="User or role authorizing this decision")
+    decided_by: Optional[str] = Field(None, description="User or role authorizing this decision (server-stamped)")
     reason: Optional[str] = Field(None, description="Audit rationale or notes")
 
 
