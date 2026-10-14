@@ -7,40 +7,30 @@
 **Current status**: **Completed** (Prototype phase)
 **Definition of completion**: Fully navigable UI with simulated data demonstrating the intended user experience.
 
-## PHASE 2 — Backend Foundation
-**Objective**: Establish a Python backend using FastAPI to serve the frontend.
-**Major tasks**: API router setup, Pydantic models, Database schema planning.
-**Dependencies**: Frontend
-**Current status**: **Starter Implementation Created**
-**Definition of completion**: FastAPI serving mock/starter data to all major frontend views.
+## PHASE 2 — Production Backend Foundation & Governance Pipeline
+**Objective**: Build persistent PostgreSQL-backed operational APIs, multi-agent workflows, deterministic policy evaluation, human-in-the-loop approvals, controlled simulation action execution, and blockchain audit anchoring.
+**Major tasks**:
+- Database connection pool lifecycle (`init_db_pool`, `get_db`, `close_db_pool`, `/api/health`, `/api/live`).
+- Operational REST APIs backed by PostgreSQL (`/api/orders`, `/api/inventory`, `/api/suppliers`).
+- Workflow persistence and state transitions (`/api/workflow`).
+- Specialist-agent run persistence and findings (`/api/agents`).
+- Scenario scheduler with distributed lease locking (`/api/scheduler`).
+- Deterministic policy evaluation & approval engine (`/api/policies`, `/api/approvals`).
+- Controlled action execution via safe simulation adapter (`/api/actions`).
+- Audit logging & canonical SHA-256 blockchain anchoring (`/api/audit`).
+- Role-based access control (RBAC), CORS middleware, and API key authentication.
+- Centralized typed frontend API client with Demo Mode and Live PostgreSQL Mode switcher.
+- Docker Compose and containerization (`docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`).
+**Dependencies**: PostgreSQL, FastAPI, React Frontend
+**Current status**: **Completed & Verified** (160/160 Pytest tests passing, 119/119 DB validation checks passing, Frontend production build passing with 0 errors).
+**Definition of completion**: Fully integrated end-to-end lifecycle verified from scenario generation to blockchain digest anchoring with live UI controls.
 
-## PHASE 3 — Real Multi-Agent Orchestration
-**Objective**: Replace simulated agent logic with actual LangGraph orchestration.
-**Major tasks**: Compile StateGraph, implement LLM integration for Supervisor, define agent tools.
-**Dependencies**: Backend Foundation
-**Current status**: **Starter Implementation Created**
+## PHASE 3 — Advanced LangGraph Multi-Agent Orchestration
+**Objective**: Enhance multi-agent routing with dynamic LLM supervisor integration and graph state memory.
+**Major tasks**: Deepen LangGraph StateGraph conditional routing, fine-tune tool schemas, and add automated scenario variations.
+**Dependencies**: Phase 2 Backend Foundation (Completed)
+**Current status**: **Phase 2 foundation complete; ready for advanced graph enhancements**
 **Definition of completion**: Agents can autonomously pass state and route tasks based on real LLM/logic decisions.
-
-## PHASE 4 — Database & Persistent State
-**Objective**: Integrate PostgreSQL / pgvector.
-**Major tasks**: Connect database, run migrations, store order and inventory state, implement vector search.
-**Dependencies**: Backend Foundation
-**Current status**: **Phase 1 schema/seed/validation completed and verified against live PostgreSQL (Antigravity Phase 1). FastAPI remains mock-backed pending Phase 2 / Phase 4 API integration.**
-**Definition of completion**: API reads and writes accurately to PostgreSQL without mock data.
-
-## PHASE 5 — Neo4j Knowledge Graph
-**Objective**: Bring the graph database online for semantic queries.
-**Major tasks**: Spin up Neo4j instance, ingest base schema and nodes, connect via API.
-**Dependencies**: Database & Persistent State
-**Current status**: **Starter Cypher Scripts Created**
-**Definition of completion**: Agents can query Neo4j to understand supplier/product dependencies.
-
-## PHASE 6 — Blockchain Audit Integration
-**Objective**: Deploy smart contracts and log audit events immutably.
-**Major tasks**: Deploy EnterpriseAudit to Polygon Mumbai/Testnet, integrate Web3.py.
-**Dependencies**: Backend Foundation
-**Current status**: **Contract Starter Created**
-**Definition of completion**: Completed workflows emit verifiable tx_hashes recorded on the testnet.
 
 ## PHASE 7 — Real-Time Events & WebSockets
 **Objective**: Stream agent workflow progress live to the UI.

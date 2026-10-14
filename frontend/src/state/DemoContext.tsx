@@ -13,6 +13,18 @@ import type {
   GraphEdge
 } from '../types';
 import {
+  apiClient,
+  type BackendOrder,
+  type BackendInventoryItem,
+  type BackendInventorySummary,
+  type BackendSupplier,
+  type BackendSchedulerStatus,
+  type BackendApprovalRequest,
+  type BackendActionRecord,
+  type BackendAuditEvent,
+  type BackendAuditVerification,
+} from '../services/apiClient';
+import {
   INITIAL_AGENTS,
   DEFAULT_ORDER,
   SAMPLE_ORDERS,
@@ -24,7 +36,29 @@ import {
   INITIAL_GRAPH_EDGES
 } from '../data/initialDemoData';
 
+export type DataMode = 'demo' | 'live';
+
 interface DemoContextType {
+  dataMode: DataMode;
+  isLiveConnected: boolean;
+  liveLoading: boolean;
+  liveError: string | null;
+  liveOrders: BackendOrder[];
+  liveInventory: BackendInventoryItem[];
+  liveInventorySummary: BackendInventorySummary | null;
+  liveSuppliers: BackendSupplier[];
+  liveApprovals: BackendApprovalRequest[];
+  liveActions: BackendActionRecord[];
+  liveAuditEvents: BackendAuditEvent[];
+  schedulerStatus: BackendSchedulerStatus | null;
+  liveSchedulerStatus: BackendSchedulerStatus | null;
+  toggleDataMode: () => void;
+  refreshLiveData: () => Promise<void>;
+  triggerScheduler: () => Promise<any>;
+  decideApproval: (id: string, decision: 'APPROVED' | 'REJECTED', reason?: string) => Promise<any>;
+  executeAction: (id: string) => Promise<any>;
+  verifyAuditDigest: (eventId: string, payload?: any) => Promise<BackendAuditVerification>;
+
   activeOrder: Order;
   orders: Order[];
   agents: Agent[];
@@ -50,6 +84,21 @@ interface DemoContextType {
 const DemoContext = createContext<DemoContextType | undefined>(undefined);
 
 export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Live Backend State
+  const [dataMode, setDataMode] = useState<DataMode>('demo');
+  const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
+  const [liveLoading, setLiveLoading] = useState<boolean>(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [liveOrders, setLiveOrders] = useState<BackendOrder[]>([]);
+  const [liveInventory, setLiveInventory] = useState<BackendInventoryItem[]>([]);
+  const [liveInventorySummary, setLiveInventorySummary] = useState<BackendInventorySummary | null>(null);
+  const [liveSuppliers, setLiveSuppliers] = useState<BackendSupplier[]>([]);
+  const [liveApprovals, setLiveApprovals] = useState<BackendApprovalRequest[]>([]);
+  const [liveActions, setLiveActions] = useState<BackendActionRecord[]>([]);
+  const [liveAuditEvents, setLiveAuditEvents] = useState<BackendAuditEvent[]>([]);
+  const [schedulerStatus, setSchedulerStatus] = useState<BackendSchedulerStatus | null>(null);
+
+  // Demo Simulation State
   const [activeOrder, setActiveOrder] = useState<Order>(DEFAULT_ORDER);
   const [orders, setOrders] = useState<Order[]>(SAMPLE_ORDERS);
   const [agents, setAgents] = useState<Agent[]>(INITIAL_AGENTS);
@@ -390,6 +439,89 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshLiveData = async () => {
+    setLiveLoading(true);
+    setLiveError(null);
+    try {
+      const [
+        ordersRes,
+        invItemsRes,
+        invSummaryRes,
+        suppRes,
+        apprRes,
+        actRes,
+        auditRes,
+        schedRes,
+      ] = await Promise.allSettled([
+        apiClient.getOrders(100),
+        apiClient.getInventoryItems(100),
+        apiClient.getInventorySummary(),
+        apiClient.getSuppliers(100),
+        apiClient.getApprovals('PENDING'),
+        apiClient.getActions(50),
+        apiClient.getAuditEvents(50),
+        apiClient.getSchedulerStatus(),
+      ]);
+
+      if (ordersRes.status === 'fulfilled') setLiveOrders(ordersRes.value);
+      if (invItemsRes.status === 'fulfilled') setLiveInventory(invItemsRes.value);
+      if (invSummaryRes.status === 'fulfilled') setLiveInventorySummary(invSummaryRes.value);
+      if (suppRes.status === 'fulfilled') setLiveSuppliers(suppRes.value);
+      if (apprRes.status === 'fulfilled') setLiveApprovals(apprRes.value);
+      if (actRes.status === 'fulfilled') setLiveActions(actRes.value);
+      if (auditRes.status === 'fulfilled') setLiveAuditEvents(auditRes.value);
+      if (schedRes.status === 'fulfilled') setSchedulerStatus(schedRes.value);
+
+      setIsLiveConnected(true);
+    } catch (err: any) {
+      setLiveError(err.message || 'Failed to refresh live data');
+      setIsLiveConnected(false);
+    } finally {
+      setLiveLoading(false);
+    }
+  };
+
+  const toggleDataMode = () => {
+    const nextMode = dataMode === 'demo' ? 'live' : 'demo';
+    setDataMode(nextMode);
+    if (nextMode === 'live') {
+      refreshLiveData();
+    }
+  };
+
+  const triggerScheduler = async () => {
+    const res = await apiClient.triggerScheduler();
+    await refreshLiveData();
+    return res;
+  };
+
+  const decideApproval = async (
+    id: string,
+    decision: 'APPROVED' | 'REJECTED',
+    reason?: string
+  ) => {
+    const res = await apiClient.decideApproval(id, decision, 'control_room_operator', reason);
+    await refreshLiveData();
+    return res;
+  };
+
+  const executeAction = async (id: string) => {
+    const res = await apiClient.executeAction(id);
+    await refreshLiveData();
+    return res;
+  };
+
+  const verifyAuditDigest = async (eventId: string, payload: any = {}) => {
+    return await apiClient.verifyAuditEvent(eventId, payload);
+  };
+
+  useEffect(() => {
+    apiClient
+      .checkLive()
+      .then(() => setIsLiveConnected(true))
+      .catch(() => setIsLiveConnected(false));
+  }, []);
+
   useEffect(() => {
     return () => {
       if (simulationTimerRef.current) clearTimeout(simulationTimerRef.current);
@@ -399,6 +531,25 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <DemoContext.Provider
       value={{
+        dataMode,
+        isLiveConnected,
+        liveLoading,
+        liveError,
+        liveOrders,
+        liveInventory,
+        liveInventorySummary,
+        liveSuppliers,
+        liveApprovals,
+        liveActions,
+        liveAuditEvents,
+        schedulerStatus,
+        liveSchedulerStatus: schedulerStatus,
+        toggleDataMode,
+        refreshLiveData,
+        triggerScheduler,
+        decideApproval,
+        executeAction,
+        verifyAuditDigest,
         activeOrder,
         orders,
         agents,

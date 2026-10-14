@@ -55,23 +55,54 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, value, icon, accent = 'n
 };
 
 export const OverviewPage: React.FC = () => {
-  const { orders, agents, activityLogs, runDemoOrder, isSimulating } = useDemo();
+  const {
+    orders,
+    agents,
+    activityLogs,
+    runDemoOrder,
+    isSimulating,
+    dataMode,
+    liveOrders,
+    liveApprovals,
+    liveAuditEvents,
+    liveSchedulerStatus
+  } = useDemo();
 
-  const activeOrdersCount  = orders.filter(o => ['Processing', 'Approved', 'Awaiting Procurement', 'Finance Review'].includes(o.status)).length;
-  const agentsOnlineCount  = agents.filter(a => a.status === 'ONLINE' || a.status === 'BUSY').length;
-  const exceptionsCount    = orders.filter(o => o.status === 'Exception').length;
-  const eventsTodayCount   = activityLogs.length + 48;
+  const isLive = dataMode === 'live';
+
+  const activeOrdersCount = isLive
+    ? liveOrders.filter(o => ['PROCESSING', 'PENDING', 'OPEN', 'CONFIRMED'].includes((o.status || o.order_status || '').toUpperCase())).length || liveOrders.length
+    : orders.filter(o => ['Processing', 'Approved', 'Awaiting Procurement', 'Finance Review'].includes(o.status)).length;
+
+  const agentsOnlineCount = agents.filter(a => a.status === 'ONLINE' || a.status === 'BUSY').length;
+
+  const exceptionsCount = isLive
+    ? liveApprovals.filter(a => a.status === 'PENDING').length
+    : orders.filter(o => o.status === 'Exception').length;
+
+  const eventsTodayCount = isLive
+    ? liveAuditEvents.length
+    : activityLogs.length + 48;
 
   return (
     <div className="space-y-6 max-w-none">
       {/* ── Page Header ─────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[#1E293B]">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight leading-none">
-            Command Center Overview
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-extrabold text-white tracking-tight leading-none">
+              Command Center Overview
+            </h1>
+            {isLive && (
+              <span className="text-[10px] bg-blue-900/60 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded font-mono">
+                LIVE POSTGRESQL MESH
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-500 mt-1.5">
-            Autonomous Order Fulfilment & Decision Intelligence
+            {isLive
+              ? `Connected to PostgreSQL backend — Scheduler: ${liveSchedulerStatus?.is_running ? 'Active' : 'Standby'}, Orders: ${liveOrders.length}, Audit Logs: ${liveAuditEvents.length}`
+              : 'Autonomous Order Fulfilment & Decision Intelligence'}
           </p>
         </div>
 
@@ -103,19 +134,19 @@ export const OverviewPage: React.FC = () => {
           accent={agentsOnlineCount < 5 ? 'warning' : 'normal'}
         />
         <MetricCard
-          label="Active Orders"
+          label={isLive ? "Live Orders" : "Active Orders"}
           value={activeOrdersCount}
           icon={<ShoppingBag className="w-5 h-5" />}
           accent={isSimulating ? 'active' : 'normal'}
         />
         <MetricCard
-          label="Attention"
-          value={exceptionsCount || 2}
+          label={isLive ? "Pending Approvals" : "Attention"}
+          value={exceptionsCount}
           icon={<AlertTriangle className="w-5 h-5" />}
-          accent="warning"
+          accent={exceptionsCount > 0 ? 'warning' : 'normal'}
         />
         <MetricCard
-          label="Events (24h)"
+          label={isLive ? "Audit Log Events" : "Events (24h)"}
           value={eventsTodayCount}
           icon={<Activity className="w-5 h-5" />}
           accent={isSimulating ? 'active' : 'normal'}

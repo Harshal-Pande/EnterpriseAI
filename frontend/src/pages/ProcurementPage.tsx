@@ -10,17 +10,49 @@ const SCORE_COLOR = (score: number) => {
 };
 
 export const ProcurementPage: React.FC = () => {
-  const { suppliers } = useDemo();
-  const selectedSupplier = suppliers.find(s => s.status === 'SELECTED') ?? suppliers[1];
+  const { suppliers: demoSuppliers, liveSuppliers, dataMode } = useDemo();
+
+  const suppliers = (dataMode === 'live' && liveSuppliers.length > 0)
+    ? liveSuppliers.map((s, idx) => ({
+        id: s.supplier_id,
+        name: s.name,
+        pricePerUnit: 6000 + (idx * 350),
+        availability: s.is_active ? 150 : 0,
+        deliveryDays: s.lead_time_days || 3,
+        score: Math.round((s.rating || 4.2) * 20),
+        status: s.is_active ? (idx === 0 ? 'SELECTED' : 'ACTIVE') : 'UNAVAILABLE',
+        notes: s.notes || `Rating: ${s.rating}/5.0 | Contact: ${s.contact_email}`
+      }))
+    : demoSuppliers;
+
+  const selectedSupplier = suppliers.find(s => s.status === 'SELECTED') ?? suppliers[0] ?? {
+    id: 'SUP-001',
+    name: 'Precision Dynamics',
+    pricePerUnit: 6500,
+    availability: 100,
+    deliveryDays: 3,
+    score: 88,
+    status: 'SELECTED',
+    notes: 'Default primary supplier'
+  };
 
   return (
     <div className="space-y-5">
       {/* Page Header */}
-      <div className="pb-5 border-b border-[#1E293B]">
-        <h1 className="text-2xl font-extrabold text-white tracking-tight">Procurement Intelligence</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Autonomous supplier evaluation, multi-vendor negotiation, and SLA-weighted selection matrix
-        </p>
+      <div className="pb-5 border-b border-[#1E293B] flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">Procurement Intelligence</h1>
+            {dataMode === 'live' && (
+              <span className="text-[10px] bg-blue-900/60 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded font-mono">
+                LIVE POSTGRESQL ({liveSuppliers.length} suppliers)
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-slate-500 mt-1">
+            Autonomous supplier evaluation, multi-vendor negotiation, and SLA-weighted selection matrix
+          </p>
+        </div>
       </div>
 
       {/* Selected Supplier Highlight */}

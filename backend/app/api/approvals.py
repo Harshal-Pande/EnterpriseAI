@@ -13,6 +13,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.core.security import AuthUser, UserRole, require_role
 from app.db.database import get_db
 from app.models.policy import ApprovalDecisionRequest, ApprovalRequestRecord
 from app.services.approval_service import (
@@ -55,7 +56,21 @@ def get_approval_detail(approval_id: str, conn=Depends(get_db)):
 def submit_approval_decision(
     approval_id: str,
     req: ApprovalDecisionRequest,
+    current_user: AuthUser = Depends(require_role(UserRole.OPERATOR)),
     conn=Depends(get_db),
 ):
     """Authorize or reject an approval request idempotently."""
+    approval_rec = get_approval(conn, approval_id)
+    if not approval_rec:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Approval request '{approval_id}' not found.",
+        )
+
+    if approval_rec.required_domain and not current_user.can_approve_domain(approval_rec.required_domain):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"User '{current_user.user_id}' with role '{current_user.role.value}' is not authorized to decide {approval_rec.required_domain} approvals.",
+        )
+
     return decide_approval_request(conn, approval_id, req)

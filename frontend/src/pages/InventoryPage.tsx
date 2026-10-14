@@ -3,28 +3,54 @@ import { Package, AlertTriangle } from 'lucide-react';
 import { useDemo } from '../state/DemoContext';
 import { StatusBadge } from '../components/common/StatusBadge';
 
-export const InventoryPage: React.FC = () => {
-  const { inventory } = useDemo();
+import type { InventoryItem } from '../types';
 
-  const criticalItems = inventory.filter(i => i.status === 'REORDER_REQUIRED');
-  const lowItems      = inventory.filter(i => i.status === 'LOW_STOCK');
+export const InventoryPage: React.FC = () => {
+  const { inventory, dataMode, liveInventory, liveInventorySummary } = useDemo();
+
+  const activeInventory: InventoryItem[] = dataMode === 'live' && liveInventory.length > 0
+    ? liveInventory.map(li => ({
+        id: li.item_id,
+        productName: li.item_name,
+        currentStock: li.available_qty,
+        reorderThreshold: li.reorder_point_qty,
+        required: li.safety_stock_qty,
+        shortage: Math.max(0, li.reorder_point_qty - li.available_qty),
+        status: li.stock_status,
+      }))
+    : inventory;
+
+  const criticalItems = activeInventory.filter(i => i.status === 'REORDER_REQUIRED');
+  const lowItems      = activeInventory.filter(i => i.status === 'LOW_STOCK');
+
+  const criticalCount = dataMode === 'live' && liveInventorySummary ? liveInventorySummary.reorder_required_count : criticalItems.length;
+  const lowCount      = dataMode === 'live' && liveInventorySummary ? liveInventorySummary.low_stock_count : lowItems.length;
 
   return (
     <div className="space-y-5">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#1E293B]">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Inventory Telemetry</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">Inventory Telemetry</h1>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+              dataMode === 'live'
+                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                : 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
+            }`}>
+              {dataMode === 'live' ? `LIVE POSTGRESQL (${liveInventory.length} items)` : 'DEMO SCRIPT'}
+            </span>
+          </div>
           <p className="text-sm text-slate-500 mt-1">Real-time stock balances, reorder thresholds, and shortage detection</p>
         </div>
         <div className="flex items-center gap-2 text-[11px] font-mono">
           <span className="px-3 py-1.5 rounded-lg text-rose-300 font-bold"
             style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-            {criticalItems.length} Reorder Required
+            {criticalCount} Reorder Required
           </span>
           <span className="px-3 py-1.5 rounded-lg text-amber-300 font-bold"
             style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}>
-            {lowItems.length} Low Stock
+            {lowCount} Low Stock
           </span>
         </div>
       </div>

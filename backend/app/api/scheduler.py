@@ -12,6 +12,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, status
 
+from app.core.security import AuthUser, UserRole, require_role
 from app.db.database import get_db
 from app.services.scheduler_service import default_scheduler
 
@@ -27,6 +28,9 @@ def get_scheduler_status(conn=Depends(get_db)) -> Dict[str, Any]:
 
 
 @router.post("/trigger", status_code=status.HTTP_200_OK)
-def trigger_scheduler_cycle(conn=Depends(get_db)) -> Dict[str, Any]:
+def trigger_scheduler_cycle(
+    current_user: AuthUser = Depends(require_role(UserRole.OPERATOR)),
+    conn=Depends(get_db),
+) -> Dict[str, Any]:
     """Manually trigger a scheduler cycle to execute the next eligible scenario."""
     return default_scheduler.run_cycle(conn, force=True)

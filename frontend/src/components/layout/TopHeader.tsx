@@ -16,6 +16,11 @@ const SCENARIOS: { id: DemoScenario; label: string; tag: string }[] = [
 
 export const TopHeader: React.FC = () => {
   const {
+    dataMode,
+    toggleDataMode,
+    isLiveConnected,
+    liveLoading,
+    refreshLiveData,
     isSimulating,
     workflowStage,
     activeScenario,
@@ -73,6 +78,43 @@ export const TopHeader: React.FC = () => {
       {/* Right: Controls */}
       <div className="flex items-center gap-2 shrink-0">
 
+        {/* Mode Switcher: LIVE vs DEMO */}
+        <div className="flex items-center gap-1.5 p-1 rounded-lg border border-[#1E293B] bg-[#0A0F1D]">
+          <button
+            id="toggle-data-mode"
+            onClick={toggleDataMode}
+            className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition-all flex items-center gap-1.5 ${
+              dataMode === 'live'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+            }`}
+            title="Toggle between Live PostgreSQL Backend and Demo Script"
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                dataMode === 'live'
+                  ? isLiveConnected
+                    ? 'bg-emerald-400 animate-pulse'
+                    : 'bg-rose-500'
+                  : 'bg-indigo-400'
+              }`}
+            />
+            <span>{dataMode === 'live' ? (isLiveConnected ? 'LIVE BACKEND' : 'BACKEND OFFLINE') : 'DEMO MODE'}</span>
+          </button>
+
+          {dataMode === 'live' && (
+            <button
+              id="refresh-live-data"
+              onClick={() => refreshLiveData()}
+              disabled={liveLoading}
+              className="p-1 text-slate-400 hover:text-white transition disabled:opacity-50"
+              title="Refresh Live Data from Backend"
+            >
+              <RotateCcw className={`w-3 h-3 ${liveLoading ? 'animate-spin text-cyan-400' : ''}`} />
+            </button>
+          )}
+        </div>
+
         {/* System Status Badge */}
         <div
           className="hidden md:flex items-center gap-2 px-3 h-7 rounded-md text-[11px] font-medium"
@@ -86,7 +128,7 @@ export const TopHeader: React.FC = () => {
             className={`w-1.5 h-1.5 rounded-full ${isSimulating ? 'bg-cyan-400 animate-ping' : 'bg-emerald-400'}`}
           />
           <span className="font-mono text-[10px]">
-            {isSimulating ? (stageLabel[workflowStage] ?? workflowStage) : 'System Status: Optimal'}
+            {isSimulating ? (stageLabel[workflowStage] ?? workflowStage) : (dataMode === 'live' ? 'Database: Active' : 'System Status: Optimal')}
           </span>
         </div>
 

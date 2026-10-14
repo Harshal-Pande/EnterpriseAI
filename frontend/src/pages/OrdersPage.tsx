@@ -14,12 +14,34 @@ const PRIORITY_COLORS: Record<string, string> = {
 const STATUS_FILTERS: (OrderStatus | 'All')[] = ['All', 'Processing', 'Approved', 'Awaiting Procurement', 'Finance Review', 'Exception', 'Completed'];
 
 export const OrdersPage: React.FC = () => {
-  const { orders } = useDemo();
+  const { orders, dataMode, liveOrders, liveLoading } = useDemo();
   const [searchQuery, setSearchQuery]     = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [statusFilter, setStatusFilter]   = useState<OrderStatus | 'All'>('All');
 
-  const filtered = orders.filter(o => {
+  const activeOrdersList: Order[] = dataMode === 'live' && liveOrders.length > 0
+    ? liveOrders.map(lo => ({
+        id: lo.order_id,
+        customer: lo.customer_name,
+        product: 'Industrial Assembly',
+        quantity: 1,
+        destination: 'Fulfillment Center',
+        budget: lo.total_amount_inr || 50000,
+        estimatedCost: lo.total_amount_inr || 48000,
+        status: (lo.order_status === 'SHIPPED' || lo.order_status === 'DELIVERED'
+          ? 'Completed'
+          : lo.order_status === 'PROCESSING' || lo.order_status === 'CONFIRMED'
+          ? 'Processing'
+          : lo.order_status === 'EXCEPTION'
+          ? 'Exception'
+          : 'Approved') as OrderStatus,
+        priority: (lo.priority === 'CRITICAL' ? 'Critical' : lo.priority === 'HIGH' ? 'High' : lo.priority === 'MEDIUM' ? 'Medium' : 'Low') as any,
+        currentAgent: 'supervisor',
+        createdAt: lo.order_date || '2026-10-14',
+      }))
+    : orders;
+
+  const filtered = activeOrdersList.filter(o => {
     const matchesSearch = !searchQuery ||
       o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -33,7 +55,16 @@ export const OrdersPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#1E293B]">
         <div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Order Management</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">Order Management</h1>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+              dataMode === 'live'
+                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                : 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
+            }`}>
+              {dataMode === 'live' ? (liveLoading ? 'LOADING LIVE DATA...' : `LIVE POSTGRESQL (${liveOrders.length} records)`) : 'DEMO SCRIPT'}
+            </span>
+          </div>
           <p className="text-sm text-slate-500 mt-1">Real-time fulfilment registry & agent dispatch tracking</p>
         </div>
 

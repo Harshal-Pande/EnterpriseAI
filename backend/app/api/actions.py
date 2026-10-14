@@ -14,6 +14,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.core.security import AuthUser, UserRole, require_role
 from app.db.database import get_db
 from app.models.action import (
     ActionDetailResponse,
@@ -35,6 +36,7 @@ router = APIRouter()
 @router.post("/propose", response_model=ActionRecord, status_code=status.HTTP_201_CREATED)
 def propose_new_action(
     req: ActionProposeRequest,
+    current_user: AuthUser = Depends(require_role(UserRole.OPERATOR)),
     conn=Depends(get_db),
 ):
     """Propose a supply-chain action, evaluate policy, and queue for execution or approval."""
@@ -69,6 +71,7 @@ def get_action_detail(action_id: str, conn=Depends(get_db)):
 @router.post("/{action_id}/execute", response_model=ActionRecord)
 def execute_queued_action(
     action_id: str,
+    current_user: AuthUser = Depends(require_role(UserRole.OPERATOR)),
     conn=Depends(get_db),
 ):
     """Execute an action after re-evaluating policy gates, approvals, and preconditions."""
