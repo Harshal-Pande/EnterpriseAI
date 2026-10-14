@@ -1,0 +1,61 @@
+"""Approval Management API endpoints.
+
+Provides:
+- GET /api/approvals/ : List pending and decided approval requests with filtering
+- GET /api/approvals/{approval_id} : Retrieve approval request details by UUID
+- POST /api/approvals/{approval_id}/decision : Authorize or reject an approval request idempotently
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from app.db.database import get_db
+from app.models.policy import ApprovalDecisionRequest, ApprovalRequestRecord
+from app.services.approval_service import (
+    decide_approval_request,
+    get_approval,
+    list_approvals,
+)
+
+logger = logging.getLogger("enterpriseai.api.approvals")
+
+router = APIRouter()
+
+
+@router.get("/", response_model=List[ApprovalRequestRecord])
+def get_approvals(
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status (PENDING, APPROVED, REJECTED)"),
+    domain: Optional[str] = Query(None, description="Filter by required domain (FINANCE, QUALITY, etc.)"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    conn=Depends(get_db),
+):
+    """List persistent approval requests with deterministic ordering."""
+    records, _ = list_approvals(conn, status_filter=status_filter, domain=domain, limit=limit, offset=offset)
+    return records
+
+
+@router.get("/{approval_id}", response_model=ApprovalRequestRecord)
+def get_approval_detail(approval_id: str, conn=Depends(get_db)):
+    """Retrieve detailed approval request record by UUID."""
+    record = get_approval(conn, approval_id)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Approval request '{approval_id}' not found.",
+        )
+    return record
+
+
+@router.post("/{approval_id}/decision", response_model=ApprovalRequestRecord)
+def submit_approval_decision(
+    approval_id: str,
+    req: ApprovalDecisionRequest,
+    conn=Depends(get_db),
+):
+    """Authorize or reject an approval request idempotently."""
+    return decide_approval_request(conn, approval_id, req)

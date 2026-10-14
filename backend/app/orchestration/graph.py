@@ -77,11 +77,11 @@ class WorkflowGraph:
 
         state["status"] = "running"
         pipeline = [
-            ("SupervisorAgent", self.supervisor),
             ("InventoryAgent", self.inventory),
             ("ProcurementAgent", self.procurement),
             ("FinanceAgent", self.finance),
             ("LogisticsAgent", self.logistics),
+            ("SupervisorAgent", self.supervisor),
         ]
 
         for agent_name, agent_instance in pipeline:
@@ -108,8 +108,11 @@ class WorkflowGraph:
                     logger.warning("Could not persist agent start for %s: %s", agent_name, exc)
 
             try:
-                # Execute specialist agent logic
-                step_output = agent_instance.run(state)
+                # Execute specialist agent logic with database grounding
+                try:
+                    step_output = agent_instance.run(state, conn=conn)
+                except TypeError:
+                    step_output = agent_instance.run(state)
                 state.update(step_output)
                 state["agent_outputs"][agent_name] = step_output
                 state["audit_trail"].append(f"{agent_name} executed successfully")

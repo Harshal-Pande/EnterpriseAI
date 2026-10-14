@@ -58,10 +58,26 @@ def agent_test_tracker(test_conn) -> Generator[dict, None, None]:
     try:
         if tracker["agent_run_ids"]:
             cur.execute(
+                "DELETE FROM agent_findings WHERE agent_run_id::text = ANY(%s);",
+                (tracker["agent_run_ids"],),
+            )
+            cur.execute(
                 "DELETE FROM agent_runs WHERE agent_run_id::text = ANY(%s);",
                 (tracker["agent_run_ids"],),
             )
         if tracker["scenario_ids"]:
+            cur.execute(
+                "DELETE FROM policy_evaluations WHERE decision_id IN (SELECT decision_id FROM decisions WHERE scenario_id::text = ANY(%s));",
+                (tracker["scenario_ids"],),
+            )
+            cur.execute(
+                "DELETE FROM decisions WHERE scenario_id::text = ANY(%s);",
+                (tracker["scenario_ids"],),
+            )
+            cur.execute(
+                "DELETE FROM agent_findings WHERE scenario_id::text = ANY(%s) OR agent_run_id IN (SELECT agent_run_id FROM agent_runs WHERE scenario_id::text = ANY(%s));",
+                (tracker["scenario_ids"], tracker["scenario_ids"]),
+            )
             cur.execute(
                 "DELETE FROM agent_runs WHERE scenario_id::text = ANY(%s);",
                 (tracker["scenario_ids"],),
@@ -75,8 +91,9 @@ def agent_test_tracker(test_conn) -> Generator[dict, None, None]:
                 (tracker["scenario_ids"],),
             )
         test_conn.commit()
-    except Exception:
+    except Exception as exc:
         test_conn.rollback()
+        raise exc
 
 
 @pytest.fixture

@@ -8,6 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.db.database import get_db
 from app.models.audit import AuditEvent
+from app.models.blockchain import (
+    AnchorEventRequest,
+    BlockchainAnchorRecord,
+    VerificationResult,
+)
+from app.services.blockchain_service import (
+    anchor_audit_event,
+    verify_anchor_integrity,
+)
 
 logger = logging.getLogger("enterpriseai.audit")
 
@@ -251,3 +260,22 @@ def get_audit_event_detail(event_id: str, conn=Depends(get_db)):
         scenario_id=str(r[5]) if r[5] else None,
         workflow_run_id=str(r[6]) if r[6] else None,
     )
+
+
+@router.post("/anchor", response_model=BlockchainAnchorRecord, status_code=status.HTTP_201_CREATED)
+def anchor_event_digest(
+    req: AnchorEventRequest,
+    conn=Depends(get_db),
+):
+    """Canonicalize audit event payload, compute SHA-256 digest, and anchor to blockchain or simulation."""
+    return anchor_audit_event(conn, req)
+
+
+@router.post("/verify/{event_id}", response_model=VerificationResult)
+def verify_event_anchor(
+    event_id: str,
+    payload: dict,
+    conn=Depends(get_db),
+):
+    """Verify an audit event payload by recomputing its canonical hash against stored anchor digest."""
+    return verify_anchor_integrity(conn, event_id, payload)
