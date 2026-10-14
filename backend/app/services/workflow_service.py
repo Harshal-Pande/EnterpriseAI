@@ -146,37 +146,58 @@ def create_workflow(conn, req: WorkflowCreateRequest) -> WorkflowInstance:
         severity = req.severity.upper() if req.severity else tpl[1]
         sanitized_overlay = sanitize_dict(req.input_overlay or {})
 
-        cur.execute(
-            """
-            INSERT INTO scenario_instances (
-                scenario_id, scenario_template_id, scheduled_at, created_at,
-                status, severity, linked_order_id, linked_batch_id,
-                input_overlay, workflow_run_id, idempotency_key, data_mode, updated_at
+        try:
+            cur.execute(
+                """
+                INSERT INTO scenario_instances (
+                    scenario_id, scenario_template_id, scheduled_at, created_at,
+                    status, severity, linked_order_id, linked_batch_id,
+                    input_overlay, workflow_run_id, idempotency_key, data_mode, updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING
+                    scenario_id, scenario_template_id, scheduled_at, created_at,
+                    status, severity, linked_order_id, linked_batch_id,
+                    input_overlay, workflow_run_id, resolved_at, resolution_summary,
+                    idempotency_key, data_mode, updated_at;
+                """,
+                (
+                    str(scenario_id),
+                    req.scenario_template_id,
+                    now,
+                    now,
+                    "QUEUED",
+                    severity,
+                    req.linked_order_id,
+                    req.linked_batch_id,
+                    json.dumps(sanitized_overlay),
+                    str(workflow_run_id),
+                    idempotency_key,
+                    req.data_mode.upper(),
+                    now,
+                ),
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING
-                scenario_id, scenario_template_id, scheduled_at, created_at,
-                status, severity, linked_order_id, linked_batch_id,
-                input_overlay, workflow_run_id, resolved_at, resolution_summary,
-                idempotency_key, data_mode, updated_at;
-            """,
-            (
-                str(scenario_id),
-                req.scenario_template_id,
-                now,
-                now,
-                "QUEUED",
-                severity,
-                req.linked_order_id,
-                req.linked_batch_id,
-                json.dumps(sanitized_overlay),
-                str(workflow_run_id),
-                idempotency_key,
-                req.data_mode.upper(),
-                now,
-            ),
-        )
-        row = cur.fetchone()
+            row = cur.fetchone()
+        except Exception as exc:
+            if "idempotency_key" in str(exc).lower() or "unique constraint" in str(exc).lower():
+                conn.rollback()
+                with conn.cursor() as retry_cur:
+                    retry_cur.execute(
+                        """
+                        SELECT
+                            scenario_id, scenario_template_id, scheduled_at, created_at,
+                            status, severity, linked_order_id, linked_batch_id,
+                            input_overlay, workflow_run_id, resolved_at, resolution_summary,
+                            idempotency_key, data_mode, updated_at
+                        FROM scenario_instances
+                        WHERE idempotency_key = %s;
+                        """,
+                        (idempotency_key,),
+                    )
+                    existing_row = retry_cur.fetchone()
+                    if existing_row:
+                        return _row_to_workflow_instance(existing_row)
+            raise
 
         # Record audit event in event_log
         event_id = uuid.uuid4()

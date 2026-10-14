@@ -35,7 +35,7 @@ TERMINAL_STATUSES: Set[str] = {
 
 # Explicit validated transition graph
 VALID_TRANSITIONS: Dict[str, Set[str]] = {
-    "QUEUED": {"RUNNING", "CANCELLED", "TRIAGED"},
+    "QUEUED": {"RUNNING", "CANCELLED", "TRIAGED", "FAILED", "FAILED_SAFE"},
     "CREATED": {"TRIAGED", "RUNNING", "CANCELLED"},
     "TRIAGED": {"INVESTIGATING", "RUNNING", "CANCELLED"},
     "INVESTIGATING": {

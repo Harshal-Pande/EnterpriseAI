@@ -311,3 +311,75 @@ def test_self_approval_and_amount_limits_enforced(client: TestClient, test_conn)
             cur.execute("DELETE FROM decisions WHERE scenario_id = %s;", (scenario_id,))
             cur.execute("DELETE FROM scenario_instances WHERE scenario_id = %s;", (scenario_id,))
         test_conn.commit()
+
+
+# ── Phase 3.5 Security Hardening Tests (FIND-06) ───────────────────────────
+
+def test_find06_docker_compose_mandatory_interpolation():
+    """FIND-06: docker-compose.yml must not contain predictable default credentials and must use mandatory interpolation."""
+    import os
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    compose_path = os.path.join(repo_root, "docker-compose.yml")
+    assert os.path.isfile(compose_path), "docker-compose.yml must exist at repository root"
+
+    with open(compose_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # Reject hardcoded predictable fallbacks
+    assert "prod-admin-secure-key" not in content, "Predictable admin key fallback must not exist in docker-compose.yml"
+    assert "enterprise_ai_password" not in content, "Hardcoded database password must not exist in docker-compose.yml"
+
+    # Verify mandatory interpolation syntax ${VAR:?...}
+    assert "${POSTGRES_PASSWORD:?" in content, "POSTGRES_PASSWORD must use mandatory interpolation"
+    assert "${ADMIN_API_KEY:?" in content, "ADMIN_API_KEY must use mandatory interpolation"
+    assert "${FINANCE_API_KEY:?" in content, "FINANCE_API_KEY must use mandatory interpolation"
+
+    # Verify frontend build args do not expose secrets
+    frontend_section = content.split("frontend:")[1] if "frontend:" in content else ""
+    assert "POSTGRES" not in frontend_section, "Database credentials must not be passed to frontend build"
+    assert "API_KEY" not in frontend_section, "Backend API keys must not be passed to frontend build"
+
+
+def test_find06_production_mode_fails_closed_without_keys(monkeypatch):
+    """FIND-06: In production mode, missing server keys trigger HTTP 500/401 and fail closed."""
+    from fastapi import HTTPException
+    from app.core.security import get_current_user
+
+    monkeypatch.setenv("APP_ENVIRONMENT", "production")
+    monkeypatch.delenv("ADMIN_API_KEY", raising=False)
+    monkeypatch.delenv("FINANCE_API_KEY", raising=False)
+    monkeypatch.delenv("SUPPLY_CHAIN_API_KEY", raising=False)
+    monkeypatch.delenv("OPERATOR_API_KEY", raising=False)
+    monkeypatch.delenv("VIEWER_API_KEY", raising=False)
+    monkeypatch.delenv("API_KEY", raising=False)
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_current_user(x_api_key="any-arbitrary-key")
+    assert exc_info.value.status_code == 500
+    assert "Authentication configuration missing" in exc_info.value.detail
+
+
+def test_find06_root_env_example_template():
+    """FIND-06: Root .env.example must exist with documented variables and safe placeholders."""
+    import os
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    example_path = os.path.join(repo_root, ".env.example")
+    assert os.path.isfile(example_path), "Root .env.example must exist"
+
+    with open(example_path, "r", encoding="utf-8") as f:
+        lines = f.read()
+
+    required_vars = [
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+        "POSTGRES_DB",
+        "APP_ENVIRONMENT",
+        "ADMIN_API_KEY",
+        "FINANCE_API_KEY",
+        "SUPPLY_CHAIN_API_KEY",
+        "OPERATOR_API_KEY",
+        "VIEWER_API_KEY",
+        "SCHEDULER_INTERVAL_SECONDS",
+    ]
+    for var in required_vars:
+        assert f"{var}=" in lines, f"Variable {var} must be documented in .env.example"

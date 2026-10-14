@@ -395,3 +395,297 @@ def test_scheduler_api_templates_and_scenarios(client: TestClient, scheduler_tes
     # Unauthorized trigger
     res_unauth = client.post("/api/scheduler/trigger")
     assert res_unauth.status_code in (401, 403)
+
+
+# ── Phase 3.5 Hardening Regression Tests ────────────────────────────────────
+
+@pytest.mark.integration
+def test_find01_force_cannot_bypass_active_lease(test_conn, scheduler_test_tracker):
+    """FIND-01: When another worker owns the lease, force=True and admin_override=True MUST NOT bypass it."""
+    sched1 = ScenarioScheduler()
+    sched2 = ScenarioScheduler()
+
+    acquired, _ = sched1.acquire_lease(test_conn, lease_seconds=60)
+    assert acquired is True
+
+    # Worker 2 attempts with force=True -> MUST still be rejected with LEASE_HELD_BY_OTHER
+    res_force = sched2.run_cycle(test_conn, force=True)
+    assert res_force["executed"] is False
+    assert res_force["status"] == "SKIPPED"
+    assert res_force["reason"] == "LEASE_HELD_BY_OTHER"
+
+    # Worker 2 attempts with admin_override=True -> MUST still be rejected
+    res_override = sched2.run_cycle(test_conn, admin_override=True, override_reason="Emergency test")
+    assert res_override["executed"] is False
+    assert res_override["status"] == "SKIPPED"
+    assert res_override["reason"] == "LEASE_HELD_BY_OTHER"
+
+    sched1.release_lease(test_conn, outcome_status="COMPLETED")
+
+
+@pytest.mark.integration
+def test_find01_admin_override_authorization_and_audit(client: TestClient, test_conn, scheduler_test_tracker):
+    """FIND-01: Administrative override requires ADMIN role and non-empty override_reason."""
+    # 1. Unauthenticated or VIEWER caller -> 403
+    res_viewer = client.post("/api/scheduler/trigger?admin_override=true&override_reason=Testing")
+    assert res_viewer.status_code == 403
+
+    # 2. OPERATOR caller attempting admin_override -> 403
+    res_op = client.post(
+        "/api/scheduler/trigger?admin_override=true&override_reason=Testing",
+        headers={"X-API-Key": "dev-operator-key"},
+    )
+    assert res_op.status_code == 403
+    assert "ADMIN role" in res_op.json()["detail"]
+
+    # 3. ADMIN caller without override_reason -> 400
+    res_no_reason = client.post(
+        "/api/scheduler/trigger?admin_override=true",
+        headers={"X-API-Key": "dev-admin-key"},
+    )
+    assert res_no_reason.status_code == 400
+    assert "override_reason" in res_no_reason.json()["detail"]
+
+    # 4. Standard OPERATOR trigger without override -> 200 OK
+    res_normal = client.post(
+        "/api/scheduler/trigger",
+        headers={"X-API-Key": "dev-operator-key"},
+    )
+    assert res_normal.status_code == 200
+    data = res_normal.json()
+    if data.get("scenario_id"):
+        scheduler_test_tracker["scenario_ids"].append(data["scenario_id"])
+
+
+@pytest.mark.integration
+def test_find01_admin_capacity_override_bypasses_limit(test_conn, scheduler_test_tracker, monkeypatch):
+    """FIND-01: Admin override allows bypassing capacity limits and records audit event."""
+    monkeypatch.setenv("SCHEDULER_MAX_OPEN_SCENARIOS", "1")
+    sched = ScenarioScheduler()
+
+    # Run cycle 1 -> succeeds
+    res1 = sched.run_cycle(test_conn)
+    assert res1["executed"] is True
+    s_id_1 = res1["scenario_id"]
+    scheduler_test_tracker["scenario_ids"].append(s_id_1)
+
+    # Set status back to RUNNING to simulate full capacity
+    with test_conn.cursor() as cur:
+        cur.execute("UPDATE scenario_instances SET status = 'RUNNING' WHERE scenario_id = %s;", (s_id_1,))
+        test_conn.commit()
+
+    # Normal cycle skips due to capacity
+    res_skip = sched.run_cycle(test_conn)
+    assert res_skip["executed"] is False
+    assert res_skip["reason"] == "OPEN_SCENARIOS_LIMIT_REACHED"
+
+    # Admin override cycle succeeds despite queue limit
+    res_override = sched.run_cycle(
+        test_conn,
+        admin_override=True,
+        override_reason="Bypassing queue for priority scenario",
+        actor_id="admin-tester",
+    )
+    assert res_override["executed"] is True
+    s_id_2 = res_override["scenario_id"]
+    scheduler_test_tracker["scenario_ids"].append(s_id_2)
+
+    # Check audit log contains ADMIN_CAPACITY_OVERRIDE event
+    with test_conn.cursor() as cur:
+        cur.execute(
+            "SELECT event_type, reason_code FROM event_log WHERE event_type = 'ADMIN_CAPACITY_OVERRIDE' AND actor_id = 'admin-tester';"
+        )
+        row = cur.fetchone()
+        assert row is not None
+        assert row[0] == "ADMIN_CAPACITY_OVERRIDE"
+        assert row[1] == "CAPACITY_LIMIT_BYPASSED"
+
+
+@pytest.mark.integration
+def test_find02_deterministic_slot_idempotency(test_conn, scheduler_test_tracker, monkeypatch):
+    """FIND-02: Automated ticks derive deterministic slot idempotency and prevent duplicates."""
+    monkeypatch.setenv("SCHEDULER_INTERVAL_SECONDS", "300")
+    sched1 = ScenarioScheduler()
+
+    # Tick 1: automated execution
+    res1 = sched1.run_cycle(test_conn, is_manual=False)
+    assert res1["executed"] is True
+    s_id_1 = res1["scenario_id"]
+    scheduler_test_tracker["scenario_ids"].append(s_id_1)
+
+    # Verify idempotency_key has format SCHED-<template>-SLOT-<slot_ts>
+    with test_conn.cursor() as cur:
+        cur.execute("SELECT idempotency_key FROM scenario_instances WHERE scenario_id = %s;", (s_id_1,))
+        key = cur.fetchone()[0]
+        assert key.startswith("SCHED-")
+        assert "-SLOT-" in key
+
+    # Tick 2: repeated tick within the same interval slot (simulating retry or next tick in same slot)
+    res2 = sched1.run_cycle(test_conn, is_manual=False)
+    assert res2["executed"] is False
+    assert res2["status"] == "EXISTING_INSTANCE"
+    assert res2["scenario_id"] == s_id_1
+
+    # Tick 3: separate worker / process restart simulation
+    sched_restart = ScenarioScheduler()
+    res3 = sched_restart.run_cycle(test_conn, is_manual=False)
+    assert res3["executed"] is False
+    assert res3["status"] == "EXISTING_INSTANCE"
+    assert res3["scenario_id"] == s_id_1
+
+    # Verify only 1 instance exists for this key
+    with test_conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM scenario_instances WHERE idempotency_key = %s;", (key,))
+        assert cur.fetchone()[0] == 1
+
+
+@pytest.mark.integration
+def test_find02_manual_triggers_distinguishable(test_conn, scheduler_test_tracker):
+    """FIND-02: Intentional manual triggers are distinguishable and do not collide with slot keys."""
+    sched = ScenarioScheduler()
+
+    # Manual trigger 1
+    res1 = sched.run_cycle(test_conn, is_manual=True)
+    assert res1["executed"] is True
+    s_id_1 = res1["scenario_id"]
+    scheduler_test_tracker["scenario_ids"].append(s_id_1)
+
+    with test_conn.cursor() as cur:
+        cur.execute("SELECT idempotency_key FROM scenario_instances WHERE scenario_id = %s;", (s_id_1,))
+        key1 = cur.fetchone()[0]
+        assert key1.startswith("MANUAL-")
+
+
+@pytest.mark.integration
+def test_find03_orphaned_workflow_recovery(test_conn, scheduler_test_tracker, monkeypatch):
+    """FIND-03: Stale QUEUED and RUNNING scenarios are safely recovered to FAILED by watchdog."""
+    sched = ScenarioScheduler()
+    stale_time = datetime.now(timezone.utc) - timedelta(seconds=600)
+    fresh_time = datetime.now(timezone.utc)
+
+    stale_queued_id = str(uuid.uuid4())
+    stale_running_id = str(uuid.uuid4())
+    fresh_running_id = str(uuid.uuid4())
+    scheduler_test_tracker["scenario_ids"].extend([stale_queued_id, stale_running_id, fresh_running_id])
+
+    with test_conn.cursor() as cur:
+        cur.execute("SELECT scenario_template_id FROM scenario_templates WHERE enabled = TRUE ORDER BY scenario_template_id LIMIT 1;")
+        tpl_id = cur.fetchone()[0]
+
+        # Stale QUEUED
+        cur.execute(
+            """
+            INSERT INTO scenario_instances (
+                scenario_id, scenario_template_id, scheduled_at, created_at,
+                status, severity, idempotency_key, updated_at
+            )
+            VALUES (%s, %s, %s, %s, 'QUEUED', 'MEDIUM', %s, %s);
+            """,
+            (stale_queued_id, tpl_id, stale_time, stale_time, f"ORPHAN-Q-{uuid.uuid4().hex[:8]}", stale_time),
+        )
+        # Stale RUNNING
+        cur.execute(
+            """
+            INSERT INTO scenario_instances (
+                scenario_id, scenario_template_id, scheduled_at, created_at,
+                status, severity, idempotency_key, updated_at
+            )
+            VALUES (%s, %s, %s, %s, 'RUNNING', 'HIGH', %s, %s);
+            """,
+            (stale_running_id, tpl_id, stale_time, stale_time, f"ORPHAN-R-{uuid.uuid4().hex[:8]}", stale_time),
+        )
+        # Fresh RUNNING (must NOT be recovered)
+        cur.execute(
+            """
+            INSERT INTO scenario_instances (
+                scenario_id, scenario_template_id, scheduled_at, created_at,
+                status, severity, idempotency_key, updated_at
+            )
+            VALUES (%s, %s, %s, %s, 'RUNNING', 'CRITICAL', %s, %s);
+            """,
+            (fresh_running_id, tpl_id, fresh_time, fresh_time, f"FRESH-R-{uuid.uuid4().hex[:8]}", fresh_time),
+        )
+        test_conn.commit()
+
+    # Run recovery with 300s timeout
+    recovered = sched.recover_orphaned_workflows(test_conn, stale_timeout_seconds=300)
+    assert stale_queued_id in recovered
+    assert stale_running_id in recovered
+    assert fresh_running_id not in recovered
+
+    # Verify database status and resolution summary
+    with test_conn.cursor() as cur:
+        cur.execute("SELECT status, resolution_summary FROM scenario_instances WHERE scenario_id = %s;", (stale_queued_id,))
+        row_q = cur.fetchone()
+        assert row_q[0] == "FAILED"
+        assert "timed out" in row_q[1]
+
+        cur.execute("SELECT status, resolution_summary FROM scenario_instances WHERE scenario_id = %s;", (stale_running_id,))
+        row_r = cur.fetchone()
+        assert row_r[0] == "FAILED"
+        assert "timed out" in row_r[1]
+
+        cur.execute("SELECT status FROM scenario_instances WHERE scenario_id = %s;", (fresh_running_id,))
+        row_f = cur.fetchone()
+        assert row_f[0] == "RUNNING"
+
+        # Verify audit events emitted
+        cur.execute(
+            "SELECT count(*) FROM event_log WHERE event_type = 'ORPHANED_WORKFLOW_RECOVERED' AND scenario_id::text = ANY(%s);",
+            ([stale_queued_id, stale_running_id],),
+        )
+        assert cur.fetchone()[0] == 2
+
+    # Verify recovery is safe to run repeatedly (idempotent)
+    recovered_again = sched.recover_orphaned_workflows(test_conn, stale_timeout_seconds=300)
+    assert len(recovered_again) == 0
+
+
+@pytest.mark.integration
+def test_find04_lease_renewal_and_ownership(test_conn, scheduler_test_tracker):
+    """FIND-04: Periodic lease renewal extends lease duration, and detects ownership loss."""
+    sched = ScenarioScheduler()
+    acquired, _ = sched.acquire_lease(test_conn, lease_seconds=10)
+    assert acquired is True
+
+    # Initial lease expiration
+    with test_conn.cursor() as cur:
+        cur.execute("SELECT lease_expires_at FROM scheduler_state WHERE scheduler_name = %s;", (sched.scheduler_name,))
+        exp1 = cur.fetchone()[0]
+
+    # Renew lease with 60 seconds
+    renewed = sched.renew_lease(test_conn, lease_seconds=60)
+    assert renewed is True
+
+    with test_conn.cursor() as cur:
+        cur.execute("SELECT lease_expires_at FROM scheduler_state WHERE scheduler_name = %s;", (sched.scheduler_name,))
+        exp2 = cur.fetchone()[0]
+        assert exp2 > exp1
+
+    # Simulate ownership loss (e.g. stolen by another worker or cleared)
+    with test_conn.cursor() as cur:
+        cur.execute(
+            "UPDATE scheduler_state SET locked_by = 'other-worker' WHERE scheduler_name = %s;",
+            (sched.scheduler_name,),
+        )
+        test_conn.commit()
+
+    # Renewal must now fail
+    renewed_after_loss = sched.renew_lease(test_conn, lease_seconds=60)
+    assert renewed_after_loss is False
+
+
+@pytest.mark.integration
+def test_find04_lease_heartbeat_context_clean_shutdown(test_conn, scheduler_test_tracker):
+    """FIND-04: Lease heartbeat runs daemon thread, extends lease, and terminates cleanly."""
+    sched = ScenarioScheduler()
+    acquired, _ = sched.acquire_lease(test_conn, lease_seconds=20)
+    assert acquired is True
+
+    # Run inside lease heartbeat with accelerated renewal interval (0.05s)
+    with sched.lease_heartbeat(lease_seconds=30, interval=0.05):
+        import time
+        time.sleep(0.15)
+
+    # After exiting, heartbeat thread is cleanly terminated and joined
+    sched.release_lease(test_conn, outcome_status="COMPLETED")

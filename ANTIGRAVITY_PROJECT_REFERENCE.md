@@ -383,6 +383,15 @@ For each phase, follow this loop:
 
 ## Development log
 
+### 2026-10-14 — Phase 3.5 Reliability, Security & Audit Remediation Verified & Complete
+- **FIND-01 Concurrency & Mutual Exclusion**: Enforced absolute lease mutual exclusion in `ScenarioScheduler.run_cycle`. Neither `force=True` nor administrative overrides can bypass an active lease owned by another worker. Administrative capacity overrides restricted to `ADMIN` role with mandatory reason code and audit event.
+- **FIND-02 Deterministic Slot Idempotency**: Automated scheduled ticks derive deterministic generation identity `SCHED-<template>-SLOT-<ts>` from the configured interval and UTC epoch slot. Distinct manual keys (`MANUAL-<template>-<uuid>`) prevent collision with scheduled slots.
+- **FIND-03 Orphaned Workflow Watchdog**: Implemented `recover_orphaned_workflows` using `FOR UPDATE SKIP LOCKED` to safely transition stale `QUEUED` and `RUNNING` scenarios to `FAILED` with `STALE_WORKFLOW_TIMEOUT` audit logs.
+- **FIND-04 Lease Renewal Heartbeat**: Added background renewal thread in `lease_heartbeat` context manager with clean daemon termination and ownership loss detection during workflow execution.
+- **FIND-05 Truthful Frontend Connectivity**: Updated `DemoContext.tsx` to verify backend live probes and operational endpoints; marks offline or degraded connections transparently.
+- **FIND-06 Docker Deployment Hardening**: Replaced predictable fallback credentials with mandatory variable interpolation (`${VAR:?...}`); added root `.env.example`.
+- **FIND-07 & FIND-08 Transparency**: Reconciled stale documentation in READMEs and roadmap; added architectural design target disclaimer to `BenchmarksPage.tsx`.
+
 ### 2026-10-14 — Phase 3 Persistent Five-Minute Scenario Engine Verified & Complete
 - **Interval Configuration & Precedence**: Implemented strict precedence rule: `SCENARIO_SCHEDULER_INTERVAL_SECONDS` takes precedence over `SCHEDULER_INTERVAL_SECONDS`, defaulting safely to 300 seconds (5 minutes). Startup validation rejects negative, zero, or invalid values.
 - **Operational Data Grounding**: Scenarios bind dynamically to real entities in PostgreSQL operational tables (`orders`, `inventory`, `suppliers`, `budgets`) rather than fabricating synthetic identifiers.

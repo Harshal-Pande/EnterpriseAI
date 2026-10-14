@@ -301,6 +301,21 @@ export const BenchmarksPage: React.FC = () => {
         </button>
       </div>
 
+      {/* ── Architectural Target Disclaimer (FIND-08) ── */}
+      <div
+        className="flex items-start gap-3 px-4 py-3 rounded-lg text-xs font-mono leading-relaxed"
+        style={{
+          background: 'rgba(245, 158, 11, 0.08)',
+          border: '1px solid rgba(245, 158, 11, 0.25)',
+          color: '#FCD34D'
+        }}
+      >
+        <Activity className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+        <div>
+          <strong className="font-semibold text-amber-300">Architectural Target Notice:</strong> Displayed comparison metrics (latency, MTTR, throughput) represent illustrative design targets and model projections, not independently measured production benchmark results. Action execution and ledger submission remain simulated unless real adapters are configured.
+        </div>
+      </div>
+
       {/* ══════════════════════════════════════════
           SECTION 1 — PERFORMANCE COMPARISON
       ══════════════════════════════════════════ */}

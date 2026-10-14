@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.security import AuthUser, UserRole, require_role
 from app.db.database import get_db
@@ -31,7 +31,9 @@ def get_scheduler_status(conn=Depends(get_db)) -> Dict[str, Any]:
 
 @router.post("/trigger", status_code=status.HTTP_200_OK)
 def trigger_scheduler_cycle(
-    force: bool = Query(False, description="Whether to force execution and bypass lease lock"),
+    force: bool = Query(False, description="Administrative override to bypass queue capacity (ADMIN only)"),
+    admin_override: bool = Query(False, description="Explicit administrative override to bypass queue capacity (ADMIN only)"),
+    override_reason: Optional[str] = Query(None, description="Mandatory audit justification when admin_override or force is requested"),
     template_id: Optional[str] = Query(None, description="Specific scenario template ID to trigger"),
     idempotency_key: Optional[str] = Query(None, description="Optional idempotency key"),
     seed: Optional[int] = Query(None, description="Deterministic seed for template selection"),
@@ -39,13 +41,44 @@ def trigger_scheduler_cycle(
     conn=Depends(get_db),
 ) -> Dict[str, Any]:
     """Manually trigger a scheduler cycle to execute the next eligible scenario."""
+    is_override = admin_override or force
+    if is_override:
+        if current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Administrative override requires ADMIN role.",
+            )
+        if not override_reason or not override_reason.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Administrative override requires a non-empty override_reason.",
+            )
+
     return default_scheduler.run_cycle(
         conn,
         force=force,
+        admin_override=admin_override,
+        override_reason=override_reason,
         template_id=template_id,
         idempotency_key=idempotency_key,
         seed=seed,
+        is_manual=True,
+        actor_id=current_user.user_id,
     )
+
+
+@router.post("/recover", status_code=status.HTTP_200_OK)
+def recover_stale_scenarios(
+    timeout_seconds: Optional[int] = Query(None, ge=1, description="Stale timeout threshold in seconds"),
+    current_user: AuthUser = Depends(require_role(UserRole.OPERATOR)),
+    conn=Depends(get_db),
+) -> Dict[str, Any]:
+    """Trigger manual recovery of orphaned or stale queued/running scenarios."""
+    recovered_ids = default_scheduler.recover_orphaned_workflows(conn, stale_timeout_seconds=timeout_seconds)
+    return {
+        "recovered_count": len(recovered_ids),
+        "recovered_scenario_ids": recovered_ids,
+    }
 
 
 @router.get("/templates")

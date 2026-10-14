@@ -1,86 +1,75 @@
 # Enterprise AI Mesh Backend
 
-Starter FastAPI application plus Phase 1 PostgreSQL schema and seed tooling.
+FastAPI application providing PostgreSQL-backed operational APIs, multi-agent workflow orchestration, deterministic policy governance, and persistent scenario scheduling.
 
-The HTTP API still returns **hardcoded** responses. Phase 1 does **not** connect FastAPI to PostgreSQL.
+---
 
-## Stack
-- FastAPI (mock business API + live DB readiness check)
-- PostgreSQL connection foundation (ThreadedConnectionPool, `get_db` dependency)
-- PostgreSQL schema + seed scripts (Phase 1)
-- LangGraph, Neo4j, Web3 (planned; not implemented)
+## Architecture & Capabilities
 
-## Running the API
-```bash
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+- **PostgreSQL Connection Foundation**: ThreadedConnectionPool with connection lifecycle management, health probes (`/api/health`, `/api/live`), and safe error handling.
+- **Operational Data APIs**: PostgreSQL-backed endpoints querying validated operational tables:
+  - `GET /api/orders/`, `GET /api/orders/summary`, `GET /api/orders/{id}`
+  - `GET /api/inventory/items`, `GET /api/inventory/summary`
+  - `GET /api/suppliers/`, `GET /api/suppliers/{id}`
+- **Workflow & Agent Persistence**: State transitions persisted in `scenario_instances` and `agent_runs` (`/api/workflow/`, `/api/agents/`).
+- **Persistent Five-Minute Scenario Engine**: Recurring 300-second execution cycle (`/api/scheduler/`):
+  - Distributed PostgreSQL lease locking (`scheduler_state`) with stale lock recovery.
+  - Active renewal heartbeat to prevent lease expiration during agent execution.
+  - Deterministic slot idempotency (`SCHED-<template>-SLOT-<ts>`) and safe handling of concurrent retries.
+  - Watchdog recovery of orphaned `QUEUED`/`RUNNING` workflows after worker interruption.
+  - Queue capacity limits (`SCHEDULER_MAX_OPEN_SCENARIOS`) with administrative override restricted to `ADMIN`.
+- **Policy & Approval Engine**: Server-side deterministic policy evaluation and human-in-the-loop approval workflows (`/api/policies/`, `/api/approvals/`).
+- **Controlled Action Execution**: Simulation adapter recording proposals and simulated executions (`/api/actions/`). Note: Physical ERP/warehouse execution is simulated.
+- **Cryptographic Audit Log**: Canonical SHA-256 payload hashing and tamper-evident event logging in `event_log` (`/api/audit/`). Note: Polygon blockchain anchoring calculates real state roots and Merkle verification locally.
+- **Security & Authorization**: Server-side credential validation with least-privilege role hierarchy (`ADMIN`, `FINANCE_APPROVER`, `SUPPLY_CHAIN_APPROVER`, `OPERATOR`, `VIEWER`). Fails closed in production mode.
 
-- **Liveness probe:** `GET /api/health` -> `200 OK` (independent of database)
-- **Readiness probe:** `GET /api/ready` or `GET /api/health/ready` -> executes `SELECT 1` (returns `200 OK` if connected, `503 Service Unavailable` if unavailable)
-- **Business endpoints:** (e.g. `/api/orders/`, `/api/audit/`) remain mock-backed in Task 1.
+---
 
-## Phase 1 — schema and seed
+## Local Setup & Execution
 
-The single migration entry point is `backend/db/migrate.py`. `apply_migrations.py` is a thin wrapper that calls the same `main()`.
+### 1. Requirements
+- Python 3.10+
+- PostgreSQL 13+
 
-### 1. Create local databases (once)
+### 2. Environment Configuration
+Create a `.env` file in `backend/` (or set environment variables):
 
-PostgreSQL 13+ (tested target: PostgreSQL 18). Use a superuser shell (`psql -U postgres`):
-
-```sql
-CREATE USER eas_user WITH PASSWORD 'eas_dev_pass';
-CREATE DATABASE eas_dev OWNER eas_user;
-CREATE DATABASE eas_test OWNER eas_user;
-```
-
-Copy `backend/.env.example` to `backend/.env` and set:
-
-```
+```env
 DATABASE_URL=postgresql://eas_user:eas_dev_pass@localhost:5432/eas_dev
 TEST_DATABASE_URL=postgresql://eas_user:eas_dev_pass@localhost:5432/eas_test
+APP_ENVIRONMENT=development
+SCHEDULER_ENABLED=false
 ```
 
-Never commit `.env`. Integration tests skip unless the test database name contains `test`.
-
-### 2. Workbook validation (no PostgreSQL)
-
+### 3. Migrations & Seed Data
 ```bash
-python backend/data/inspect_workbook.py
-python backend/data/run_validation.py
+# Apply schema migrations (001_core, 002_runtime, 003_workflow)
+python db/migrate.py
+
+# Load operational seed data (1,327 source rows)
+python data/load_seed_data.py
+
+# Verify operational database consistency (119 checks)
+python data/validate_seed_data.py --database-url-var DATABASE_URL
 ```
 
-Writes `backend/data/workbook_inspection.json` and `backend/data/workbook_validation_report.json`. Mode is `workbook_only`; `database_queried` is false.
-
-### 3. Apply migrations
-
+### 4. Running the API
 ```bash
-python backend/db/migrate.py --dry-run
-python backend/db/migrate.py
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 ```
 
-Dry-run does not CREATE tracking tables or apply SQL. Applied files are tracked in `_schema_migrations` with a SHA-256 checksum. Editing an already-applied file fails instead of being skipped silently.
+- **Health Probe**: `GET /api/health`
+- **Live Readiness Probe**: `GET /api/live`
+- **Interactive Documentation**: `http://localhost:8000/docs`
 
-### 4. Load seed data
-
+### 5. Running Tests
 ```bash
-python backend/data/load_seed_data.py --dry-run
-python backend/data/load_seed_data.py
-```
+# Fast unit & integration tests:
+pytest -q
 
-Uses `column_mappings.py`. Existing rows are skipped (`ON CONFLICT DO NOTHING`), never updated. One transaction per run; any rejected row rolls the run back.
-
-### 5. Database validation (requires a real connection)
-
-```bash
-python backend/data/validate_seed_data.py
-```
-
-Writes `backend/data/validation_report.json` only after querying PostgreSQL (`database_queried: true`).
-
-### 6. Tests
-
-```bash
-python -m pytest backend/tests -c backend/pytest.ini -m "not integration" -v
-python -m pytest backend/tests -c backend/pytest.ini -m integration -v
+# Specific test suites:
+pytest backend/tests/test_scheduler.py -v
+pytest backend/tests/test_security.py -v
+pytest backend/tests/test_e2e_lifecycle.py -v
 ```

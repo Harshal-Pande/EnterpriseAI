@@ -41,6 +41,21 @@
 **Current status**: **Completed, Hardened & Verified** (171/171 Pytest tests passing, 119/119 DB validation checks passing, Frontend production build passing with 0 errors, Docker Compose configuration verified).
 **Definition of completion**: Scenario scheduler runs every 300s, grounds against real PostgreSQL data, enforces open limits, supports idempotent manual triggers, persists all state before processing, and updates frontend truth.
 
+## PHASE 3.5 — Reliability, Security & Audit Remediation
+**Objective**: Resolve all confirmed findings from the independent Phase 0–3 audit, add regression tests, verify the existing system, and harden deployment security.
+**Major tasks**:
+- **FIND-01**: Hardened scheduler force and concurrency safeguards. Lease mutual exclusion is absolute; `force=true` and administrative overrides cannot bypass active leases. Admin overrides require `ADMIN` role with recorded justification and audit event.
+- **FIND-02**: Deterministic scheduled idempotency derived from UTC schedule slots (`SCHED-<template>-SLOT-<ts>`) and configured intervals. Manual triggers remain distinguishable.
+- **FIND-03**: Orphaned workflow recovery using `FOR UPDATE SKIP LOCKED` for stale `QUEUED`/`RUNNING` scenarios, transitioning to `FAILED` with audit events.
+- **FIND-04**: Background scheduler lease renewal heartbeat preventing lease expiration during execution with clean shutdown and ownership loss detection.
+- **FIND-05**: Truthful frontend live connectivity: `DemoContext.tsx` checks live probe and operational endpoints, marking offline or degraded states transparently.
+- **FIND-06**: Hardened Docker Compose configuration failing closed on missing production credentials and secrets. Root `.env.example` template provided.
+- **FIND-07**: Harmonized documentation across READMEs, roadmap, and project references, accurately reflecting PostgreSQL persistence and Phase 0–3.5 capabilities.
+- **FIND-08**: Added architectural design target disclaimer to `BenchmarksPage.tsx`.
+**Dependencies**: Phase 3 Persistent Five-Minute Scenario Engine (Completed)
+**Current status**: **Completed, Hardened & Verified**
+**Definition of completion**: Scheduler concurrency and idempotency defects resolved, orphaned recovery active, lease renewal heartbeat running, truthful frontend connectivity, fail-closed Compose security, and clean regression test suite.
+
 ## PHASE 7 — Real-Time Events & WebSockets
 **Objective**: Stream agent workflow progress live to the UI.
 **Major tasks**: Configure WebSockets in FastAPI, update React to listen for state changes.

@@ -14,10 +14,12 @@ Manages recurring autonomous scenario execution with:
 from __future__ import annotations
 
 import asyncio
+from contextlib import contextmanager
 import hashlib
 import json
 import logging
 import os
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -34,6 +36,7 @@ SCHEDULER_NAME = "scenario-generator"
 DEFAULT_INTERVAL_SECONDS = 300
 DEFAULT_LEASE_SECONDS = 60
 DEFAULT_MAX_OPEN_SCENARIOS = 10
+DEFAULT_STALE_TIMEOUT_SECONDS = 300
 
 
 def get_configured_interval() -> int:
@@ -85,6 +88,37 @@ def get_lease_duration_seconds() -> int:
         except ValueError:
             pass
     return DEFAULT_LEASE_SECONDS
+
+
+def get_workflow_stale_timeout_seconds() -> int:
+    """Retrieve configurable stale timeout in seconds for orphaned workflows.
+    Defaults to 300 seconds. Accepts >= 1 for accelerated tests.
+    """
+    raw = os.environ.get("WORKFLOW_STALE_TIMEOUT_SECONDS") or os.environ.get("SCHEDULER_STALE_TIMEOUT_SECONDS")
+    if raw is not None and raw.strip():
+        try:
+            val = int(raw.strip())
+            if val >= 1:
+                return val
+        except ValueError:
+            pass
+    return DEFAULT_STALE_TIMEOUT_SECONDS
+
+
+def get_lease_renewal_interval_seconds() -> float:
+    """Retrieve lease renewal heartbeat interval in seconds.
+    Defaults to 1/4 of the lease duration (e.g. 15s for 60s lease).
+    Accepts >= 0.05 for tests.
+    """
+    raw = os.environ.get("SCHEDULER_LEASE_RENEWAL_INTERVAL_SECONDS")
+    if raw is not None and raw.strip():
+        try:
+            val = float(raw.strip())
+            if val >= 0.05:
+                return val
+        except ValueError:
+            pass
+    return max(1.0, get_lease_duration_seconds() / 4.0)
 
 
 def is_scheduler_enabled() -> bool:
@@ -364,6 +398,163 @@ class ScenarioScheduler:
             )
             conn.commit()
 
+    def renew_lease(
+        self,
+        conn,
+        lease_seconds: int = DEFAULT_LEASE_SECONDS,
+    ) -> bool:
+        """Renew the currently held lease if still owned by this worker.
+
+        Returns True if renewed, False if lease was lost, expired, or reassigned.
+        """
+        now = datetime.now(timezone.utc)
+        sql = """
+            UPDATE scheduler_state
+            SET
+                lease_expires_at = %s + (%s || ' seconds')::interval,
+                updated_at = %s
+            WHERE scheduler_name = %s
+              AND locked_by = %s
+              AND enabled = TRUE
+            RETURNING locked_by;
+        """
+        with conn.cursor() as cur:
+            cur.execute(
+                sql,
+                (
+                    now,
+                    str(lease_seconds),
+                    now,
+                    self.scheduler_name,
+                    self.worker_id,
+                ),
+            )
+            row = cur.fetchone()
+            if row:
+                conn.commit()
+                return True
+            conn.rollback()
+            return False
+
+    @contextmanager
+    def lease_heartbeat(
+        self,
+        lease_seconds: Optional[int] = None,
+        interval: Optional[float] = None,
+    ):
+        """Context manager running a periodic background renewal heartbeat while workflow executes.
+
+        Ensures lease does not expire during long-running execution, detects ownership loss,
+        and shuts down cleanly without leaking threads.
+        """
+        effective_lease_sec = lease_seconds or get_lease_duration_seconds()
+        renewal_interval = interval or get_lease_renewal_interval_seconds()
+        stop_event = threading.Event()
+        self._lease_lost = False
+
+        def _worker():
+            while not stop_event.is_set():
+                if stop_event.wait(timeout=renewal_interval):
+                    break
+                try:
+                    with get_db_connection() as heartbeat_conn:
+                        renewed = self.renew_lease(heartbeat_conn, lease_seconds=effective_lease_sec)
+                        if not renewed:
+                            logger.warning(
+                                "Worker %s failed to renew scheduler lease; ownership lost or expired.",
+                                self.worker_id,
+                            )
+                            self._lease_lost = True
+                            break
+                except Exception as exc:
+                    logger.warning("Error during lease heartbeat renewal: %s", exc)
+
+        t = threading.Thread(target=_worker, daemon=True, name=f"lease-heartbeat-{self.worker_id}")
+        t.start()
+        try:
+            yield
+        finally:
+            stop_event.set()
+            t.join(timeout=2.0)
+
+        if getattr(self, "_lease_lost", False):
+            raise RuntimeError(f"Scheduler lease ownership was lost during execution by {self.worker_id}")
+
+    def recover_orphaned_workflows(
+        self,
+        conn,
+        stale_timeout_seconds: Optional[int] = None,
+    ) -> List[str]:
+        """Safely recover scenarios left in QUEUED or RUNNING states after a worker or process crash.
+
+        Uses FOR UPDATE SKIP LOCKED to ensure concurrent recovery passes cannot conflict.
+        Transitions orphans to 'FAILED' with reason 'STALE_WORKFLOW_TIMEOUT'.
+        Returns list of recovered scenario IDs.
+        """
+        timeout_sec = stale_timeout_seconds or get_workflow_stale_timeout_seconds()
+        now = datetime.now(timezone.utc)
+        recovered_ids: List[str] = []
+
+        try:
+            sql_select = """
+                SELECT scenario_id, status, scenario_template_id, linked_order_id, updated_at
+                FROM scenario_instances
+                WHERE status IN ('QUEUED', 'RUNNING')
+                  AND updated_at < %s - (%s || ' seconds')::interval
+                ORDER BY updated_at ASC
+                FOR UPDATE SKIP LOCKED;
+            """
+            with conn.cursor() as cur:
+                cur.execute(sql_select, (now, str(timeout_sec)))
+                rows = cur.fetchall()
+                if not rows:
+                    return []
+
+                sql_update = """
+                    UPDATE scenario_instances
+                    SET
+                        status = 'FAILED',
+                        resolved_at = %s,
+                        resolution_summary = %s,
+                        updated_at = %s
+                    WHERE scenario_id = %s;
+                """
+                for r in rows:
+                    scen_id, prev_status, tpl_id, order_id, updated_at = r
+                    summary = f"Orphaned workflow recovered by watchdog: status '{prev_status}' timed out after {timeout_sec}s"
+                    cur.execute(sql_update, (now, summary, now, scen_id))
+                    recovered_ids.append(str(scen_id))
+
+                    log_scheduler_event(
+                        conn,
+                        event_type="ORPHANED_WORKFLOW_RECOVERED",
+                        status="FAILED",
+                        entity_id=str(scen_id),
+                        scenario_id=str(scen_id),
+                        reason_code="STALE_WORKFLOW_TIMEOUT",
+                        evidence_refs={
+                            "previous_status": prev_status,
+                            "stale_timeout_seconds": timeout_sec,
+                            "scenario_template_id": tpl_id,
+                            "linked_order_id": order_id,
+                            "last_updated_at": updated_at.isoformat() if updated_at else None,
+                        },
+                        actor_id="scheduler-watchdog",
+                    )
+            conn.commit()
+            if recovered_ids:
+                logger.warning(
+                    "Recovered %d orphaned workflows exceeding %ds timeout: %s",
+                    len(recovered_ids),
+                    timeout_sec,
+                    recovered_ids,
+                )
+        except Exception as exc:
+            conn.rollback()
+            logger.error("Failed during orphaned workflow recovery: %s", exc)
+
+        return recovered_ids
+
     def find_eligible_scenario(
         self,
         conn,
@@ -425,14 +616,32 @@ class ScenarioScheduler:
         self,
         conn,
         force: bool = False,
+        admin_override: bool = False,
+        override_reason: Optional[str] = None,
         template_id: Optional[str] = None,
         idempotency_key: Optional[str] = None,
         seed: Optional[int] = None,
+        is_manual: bool = False,
+        actor_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Execute one complete scheduler cycle with lease locking, limit gating, grounding, and persistence."""
+        """Execute one complete scheduler cycle with lease locking, limit gating, grounding, and persistence.
+
+        Hardened Guarantees:
+        - Safe recovery of stale/orphaned workflows is performed before work execution.
+        - Mutual exclusion is absolute: force/override CANNOT bypass an active lease held by another worker.
+        - Automated scheduled ticks derive deterministic slot idempotency from configured interval.
+        - Background lease renewal heartbeat prevents lease expiration during execution.
+        - Administrative override allows bypassing queue capacity ONLY when explicitly authorized with audit reason.
+        """
+        # Always run recovery of stale orphaned workflows first
+        self.recover_orphaned_workflows(conn)
+
         lease_sec = get_lease_duration_seconds()
         acquired, db_interval = self.acquire_lease(conn, lease_seconds=lease_sec)
-        if not acquired and not force:
+        effective_interval = db_interval or get_configured_interval()
+
+        # FIND-01 Fix: Never allow force or admin_override to bypass lease mutual exclusion
+        if not acquired:
             logger.info("Scheduler lease currently held by another worker; skipping cycle.")
             self._last_skip_reason = "LEASE_HELD_BY_OTHER"
             log_scheduler_event(
@@ -441,8 +650,12 @@ class ScenarioScheduler:
                 status="SKIPPED",
                 entity_id=self.scheduler_name,
                 reason_code="LEASE_HELD_BY_OTHER",
-                evidence_refs={"worker_id": self.worker_id},
-                actor_id=self.worker_id,
+                evidence_refs={
+                    "worker_id": self.worker_id,
+                    "force": force,
+                    "admin_override": admin_override,
+                },
+                actor_id=actor_id or self.worker_id,
             )
             return {
                 "executed": False,
@@ -456,47 +669,70 @@ class ScenarioScheduler:
             event_type="SCHEDULER_CYCLE_STARTED",
             status="IN_PROGRESS",
             entity_id=self.scheduler_name,
-            evidence_refs={"worker_id": self.worker_id, "forced": force},
-            actor_id=self.worker_id,
+            evidence_refs={
+                "worker_id": self.worker_id,
+                "force": force,
+                "admin_override": admin_override,
+                "is_manual": is_manual,
+            },
+            actor_id=actor_id or self.worker_id,
         )
 
         try:
             # 1. Enforce active open scenarios limit
             open_count = count_open_scenarios(conn)
             max_open = get_max_open_scenarios()
-            if open_count >= max_open and not force:
-                logger.info(
-                    "Open scenario queue capacity reached (%d/%d); skipping generation.",
-                    open_count,
-                    max_open,
-                )
-                self._last_skip_reason = "OPEN_SCENARIOS_LIMIT_REACHED"
-                self.release_lease(
-                    conn,
-                    outcome_status="SKIPPED",
-                    scenario_id=None,
-                    next_interval=db_interval,
-                    skip_reason="OPEN_SCENARIOS_LIMIT_REACHED",
-                )
-                log_scheduler_event(
-                    conn,
-                    event_type="SCENARIO_GENERATION_SKIPPED",
-                    status="SKIPPED",
-                    entity_id=self.scheduler_name,
-                    reason_code="OPEN_SCENARIOS_LIMIT_REACHED",
-                    evidence_refs={"open_count": open_count, "max_open": max_open},
-                    actor_id=self.worker_id,
-                )
-                return {
-                    "executed": False,
-                    "status": "SKIPPED",
-                    "reason": "OPEN_SCENARIOS_LIMIT_REACHED",
-                    "open_count": open_count,
-                    "max_open": max_open,
-                    "worker_id": self.worker_id,
-                }
+            can_override_capacity = admin_override or (force and bool(override_reason and override_reason.strip()))
 
-            # 2. Check idempotency if key provided
+            if open_count >= max_open:
+                if not can_override_capacity:
+                    logger.info(
+                        "Open scenario queue capacity reached (%d/%d); skipping generation.",
+                        open_count,
+                        max_open,
+                    )
+                    self._last_skip_reason = "OPEN_SCENARIOS_LIMIT_REACHED"
+                    self.release_lease(
+                        conn,
+                        outcome_status="SKIPPED",
+                        scenario_id=None,
+                        next_interval=effective_interval,
+                        skip_reason="OPEN_SCENARIOS_LIMIT_REACHED",
+                    )
+                    log_scheduler_event(
+                        conn,
+                        event_type="SCENARIO_GENERATION_SKIPPED",
+                        status="SKIPPED",
+                        entity_id=self.scheduler_name,
+                        reason_code="OPEN_SCENARIOS_LIMIT_REACHED",
+                        evidence_refs={"open_count": open_count, "max_open": max_open},
+                        actor_id=actor_id or self.worker_id,
+                    )
+                    return {
+                        "executed": False,
+                        "status": "SKIPPED",
+                        "reason": "OPEN_SCENARIOS_LIMIT_REACHED",
+                        "open_count": open_count,
+                        "max_open": max_open,
+                        "worker_id": self.worker_id,
+                    }
+                else:
+                    log_scheduler_event(
+                        conn,
+                        event_type="ADMIN_CAPACITY_OVERRIDE",
+                        status="OVERRIDDEN",
+                        entity_id=self.scheduler_name,
+                        reason_code="CAPACITY_LIMIT_BYPASSED",
+                        evidence_refs={
+                            "open_count": open_count,
+                            "max_open": max_open,
+                            "override_reason": override_reason or "Admin override",
+                            "actor_id": actor_id or self.worker_id,
+                        },
+                        actor_id=actor_id or self.worker_id,
+                    )
+
+            # 2. Check explicit caller-provided idempotency key if present
             if idempotency_key:
                 with conn.cursor() as cur:
                     cur.execute(
@@ -518,7 +754,7 @@ class ScenarioScheduler:
                             conn,
                             outcome_status="IDEMPOTENT_HIT",
                             scenario_id=str(existing[0]),
-                            next_interval=db_interval,
+                            next_interval=effective_interval,
                         )
                         return {
                             "executed": False,
@@ -546,7 +782,7 @@ class ScenarioScheduler:
                     conn,
                     outcome_status="NO_WORK",
                     scenario_id=None,
-                    next_interval=db_interval,
+                    next_interval=effective_interval,
                     skip_reason="NO_ELIGIBLE_TEMPLATES",
                 )
                 log_scheduler_event(
@@ -556,7 +792,7 @@ class ScenarioScheduler:
                     entity_id=self.scheduler_name,
                     reason_code="NO_ELIGIBLE_TEMPLATES",
                     evidence_refs={"worker_id": self.worker_id},
-                    actor_id=self.worker_id,
+                    actor_id=actor_id or self.worker_id,
                 )
                 return {
                     "executed": False,
@@ -571,7 +807,48 @@ class ScenarioScheduler:
             # 4. Ground against real operational entities in PostgreSQL
             linked_order_id, grounded_data = ground_operational_reference(conn, sel_template_id, scenario_type)
 
-            cycle_idemp = idempotency_key or f"SCHED-{sel_template_id}-{uuid.uuid4().hex[:12]}"
+            # FIND-02 Fix: Deterministic scheduled idempotency derived from UTC slot & template
+            if idempotency_key:
+                cycle_idemp = idempotency_key
+            elif is_manual:
+                cycle_idemp = f"MANUAL-{sel_template_id}-{uuid.uuid4().hex[:12]}"
+            else:
+                now_ts = int(datetime.now(timezone.utc).timestamp())
+                slot_ts = (now_ts // effective_interval) * effective_interval
+                cycle_idemp = f"SCHED-{sel_template_id}-SLOT-{slot_ts}"
+
+            # Precheck deterministic cycle idempotency before creating instance
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT scenario_id, status, linked_order_id, scenario_template_id
+                    FROM scenario_instances
+                    WHERE idempotency_key = %s;
+                    """,
+                    (cycle_idemp,),
+                )
+                existing_slot = cur.fetchone()
+                if existing_slot:
+                    logger.info(
+                        "Slot idempotency hit for key '%s'; returning existing scenario %s.",
+                        cycle_idemp,
+                        existing_slot[0],
+                    )
+                    self.release_lease(
+                        conn,
+                        outcome_status="IDEMPOTENT_HIT",
+                        scenario_id=str(existing_slot[0]),
+                        next_interval=effective_interval,
+                    )
+                    return {
+                        "executed": False,
+                        "status": "EXISTING_INSTANCE",
+                        "scenario_id": str(existing_slot[0]),
+                        "template_id": existing_slot[3],
+                        "order_id": existing_slot[2],
+                        "reason": "IDEMPOTENT_EXISTING",
+                        "worker_id": self.worker_id,
+                    }
 
             # 5. Persist workflow and scenario instance atomically
             create_req = WorkflowCreateRequest(
@@ -587,6 +864,7 @@ class ScenarioScheduler:
                         "grounded_operational_data": True,
                         "template_id": sel_template_id,
                         "generated_at": datetime.now(timezone.utc).isoformat(),
+                        "is_manual": is_manual,
                     },
                 },
                 idempotency_key=cycle_idemp,
@@ -608,27 +886,29 @@ class ScenarioScheduler:
                     "idempotency_key": cycle_idemp,
                     "grounded_data": grounded_data,
                 },
-                actor_id=self.worker_id,
+                actor_id=actor_id or self.worker_id,
             )
 
-            # 6. Execute specialist agents
-            graph = WorkflowGraph()
-            initial_state = {
-                "workflow_id": workflow.workflow_id,
-                "scenario_id": workflow.scenario_id,
-                "order_id": workflow.linked_order_id,
-                "current_agent": "SupervisorAgent",
-                "status": "queued",
-                "audit_trail": [],
-            }
-            res_state = graph.run_workflow(initial_state, conn=conn)
+            # 6. Execute specialist agents with active lease renewal heartbeat (FIND-04 Fix)
+            with self.lease_heartbeat(lease_seconds=lease_sec):
+                graph = WorkflowGraph()
+                initial_state = {
+                    "workflow_id": workflow.workflow_id,
+                    "scenario_id": workflow.scenario_id,
+                    "order_id": workflow.linked_order_id,
+                    "current_agent": "SupervisorAgent",
+                    "status": "queued",
+                    "audit_trail": [],
+                }
+                res_state = graph.run_workflow(initial_state, conn=conn)
+
             final_status = "COMPLETED" if res_state.get("status") == "completed" else "FAILED"
 
             self.release_lease(
                 conn,
                 outcome_status=final_status,
                 scenario_id=workflow.scenario_id,
-                next_interval=db_interval,
+                next_interval=effective_interval,
             )
 
             log_scheduler_event(
@@ -638,7 +918,7 @@ class ScenarioScheduler:
                 entity_id=self.scheduler_name,
                 scenario_id=workflow.scenario_id,
                 evidence_refs={"final_status": final_status, "scenario_id": workflow.scenario_id},
-                actor_id=self.worker_id,
+                actor_id=actor_id or self.worker_id,
             )
 
             self._last_skip_reason = None
@@ -656,7 +936,7 @@ class ScenarioScheduler:
             logger.error("Error during scheduler cycle: %s", exc)
             self._last_skip_reason = str(exc)
             try:
-                self.release_lease(conn, outcome_status="FAILED", scenario_id=None, next_interval=db_interval)
+                self.release_lease(conn, outcome_status="FAILED", scenario_id=None, next_interval=effective_interval)
                 log_scheduler_event(
                     conn,
                     event_type="SCENARIO_GENERATION_FAILED",
@@ -664,7 +944,7 @@ class ScenarioScheduler:
                     entity_id=self.scheduler_name,
                     reason_code=str(exc)[:100],
                     evidence_refs={"error": str(exc), "worker_id": self.worker_id},
-                    actor_id=self.worker_id,
+                    actor_id=actor_id or self.worker_id,
                 )
             except Exception:
                 pass

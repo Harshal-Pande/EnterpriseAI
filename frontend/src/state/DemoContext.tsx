@@ -444,6 +444,7 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLiveError(null);
     try {
       const [
+        liveCheckRes,
         ordersRes,
         invItemsRes,
         invSummaryRes,
@@ -453,6 +454,7 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         auditRes,
         schedRes,
       ] = await Promise.allSettled([
+        apiClient.checkLive(),
         apiClient.getOrders(100),
         apiClient.getInventoryItems(100),
         apiClient.getInventorySummary(),
@@ -463,6 +465,24 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         apiClient.getSchedulerStatus(),
       ]);
 
+      const isLiveProbeOk = liveCheckRes.status === 'fulfilled';
+      const essentialResults = [
+        { name: 'orders', res: ordersRes },
+        { name: 'inventory', res: invItemsRes },
+        { name: 'suppliers', res: suppRes },
+      ];
+      const fulfilledEssentialCount = essentialResults.filter(
+        item => item.res.status === 'fulfilled'
+      ).length;
+
+      // If live probe fails and all essential operational endpoints failed, mark disconnected
+      if (!isLiveProbeOk && fulfilledEssentialCount === 0) {
+        setIsLiveConnected(false);
+        setLiveError('Backend offline: unable to connect to essential operational endpoints');
+        return;
+      }
+
+      // Update state for successful queries
       if (ordersRes.status === 'fulfilled') setLiveOrders(ordersRes.value);
       if (invItemsRes.status === 'fulfilled') setLiveInventory(invItemsRes.value);
       if (invSummaryRes.status === 'fulfilled') setLiveInventorySummary(invSummaryRes.value);
@@ -472,7 +492,25 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (auditRes.status === 'fulfilled') setLiveAuditEvents(auditRes.value);
       if (schedRes.status === 'fulfilled') setSchedulerStatus(schedRes.value);
 
+      // Connection is active
       setIsLiveConnected(true);
+
+      // Report degraded connection if non-essential or partial endpoints failed
+      const failedNames: string[] = [];
+      if (ordersRes.status === 'rejected') failedNames.push('orders');
+      if (invItemsRes.status === 'rejected') failedNames.push('inventory items');
+      if (invSummaryRes.status === 'rejected') failedNames.push('inventory summary');
+      if (suppRes.status === 'rejected') failedNames.push('suppliers');
+      if (apprRes.status === 'rejected') failedNames.push('approvals');
+      if (actRes.status === 'rejected') failedNames.push('actions');
+      if (auditRes.status === 'rejected') failedNames.push('audit events');
+      if (schedRes.status === 'rejected') failedNames.push('scheduler status');
+
+      if (failedNames.length > 0) {
+        setLiveError(`Degraded live connection: failed to refresh ${failedNames.join(', ')}`);
+      } else {
+        setLiveError(null);
+      }
     } catch (err: any) {
       setLiveError(err.message || 'Failed to refresh live data');
       setIsLiveConnected(false);

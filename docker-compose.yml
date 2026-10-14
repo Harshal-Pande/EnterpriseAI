@@ -4,9 +4,9 @@ services:
     container_name: enterpriseai-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: enterprise_ai
-      POSTGRES_PASSWORD: enterprise_ai_password
-      POSTGRES_DB: enterprise_ai
+      POSTGRES_USER: ${POSTGRES_USER:-enterprise_ai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be configured in environment}
+      POSTGRES_DB: ${POSTGRES_DB:-enterprise_ai}
     ports:
       - "5432:5432"
     volumes:
@@ -29,16 +29,16 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://enterprise_ai:enterprise_ai_password@db:5432/enterprise_ai
-      APP_ENVIRONMENT: production
-      ADMIN_API_KEY: ${ADMIN_API_KEY:-prod-admin-secure-key}
-      FINANCE_API_KEY: ${FINANCE_API_KEY:-prod-finance-secure-key}
-      SUPPLY_CHAIN_API_KEY: ${SUPPLY_CHAIN_API_KEY:-prod-supply-secure-key}
-      OPERATOR_API_KEY: ${OPERATOR_API_KEY:-prod-operator-secure-key}
-      VIEWER_API_KEY: ${VIEWER_API_KEY:-prod-viewer-secure-key}
-      SCHEDULER_ENABLED: "true"
-      SCHEDULER_INTERVAL_SECONDS: "300"
-      SIMULATE_BLOCKCHAIN: "true"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-enterprise_ai}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be configured in environment}@db:5432/${POSTGRES_DB:-enterprise_ai}
+      APP_ENVIRONMENT: ${APP_ENVIRONMENT:-production}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?ADMIN_API_KEY must be configured in environment}
+      FINANCE_API_KEY: ${FINANCE_API_KEY:?FINANCE_API_KEY must be configured in environment}
+      SUPPLY_CHAIN_API_KEY: ${SUPPLY_CHAIN_API_KEY:?SUPPLY_CHAIN_API_KEY must be configured in environment}
+      OPERATOR_API_KEY: ${OPERATOR_API_KEY:?OPERATOR_API_KEY must be configured in environment}
+      VIEWER_API_KEY: ${VIEWER_API_KEY:?VIEWER_API_KEY must be configured in environment}
+      SCHEDULER_ENABLED: "${SCHEDULER_ENABLED:-true}"
+      SCHEDULER_INTERVAL_SECONDS: "${SCHEDULER_INTERVAL_SECONDS:-300}"
+      SIMULATE_BLOCKCHAIN: "${SIMULATE_BLOCKCHAIN:-true}"
     ports:
       - "8000:8000"
     healthcheck:

@@ -2,7 +2,7 @@
 
 ### A Hybrid Multi-Agent System for Order Fulfilment with Blockchain-Audited Coordination
 
-**Enterprise AI Mesh** is a major academic project demonstrating autonomous multi-agent coordination, decision intelligence, supply chain exception recovery, and blockchain audit logging.
+**Enterprise AI Mesh** is a resilient supply chain control room demonstrating autonomous multi-agent coordination, decision intelligence, supply chain exception recovery, and blockchain audit logging.
 
 ---
 
@@ -10,66 +10,98 @@
 
 ```text
 EnterpriseAI/
-├── frontend/             # React + TypeScript + Tailwind Command Center UI
-├── backend/              # FastAPI REST & WebSocket APIs (Phase 2)
-├── agents/               # LangGraph Multi-Agent Orchestration (Phase 3)
-├── services/             # Background & Event Services (NATS/Kafka) (Phase 4)
-├── contracts/            # Solidity Smart Contracts (Polygon Testnet) (Phase 5)
-├── database/             # PostgreSQL / pgvector / Neo4j Schemas & Migrations (Phase 6)
-├── infra/                # Docker Compose & K8s Configuration
-├── docs/                 # System Architecture & Documentation
+├── frontend/             # React 19 + TypeScript + Vite + Tailwind Control Room UI
+├── backend/              # FastAPI Backend (PostgreSQL, APIs, Governance, Scheduler)
+│   ├── app/              # Application source (API routers, DB connection, models, services)
+│   ├── data/             # Operational seed dataset & validation scripts (1,327 source rows)
+│   ├── db/               # PostgreSQL schema migrations (001_core, 002_runtime, 003_workflow)
+│   └── tests/            # Automated Pytest test suite (unit & integration tests)
+├── docker-compose.yml    # Containerized orchestration (PostgreSQL, FastAPI, React)
+├── docs/                 # System Architecture, roadmaps, and audit reports
 └── README.md
 ```
 
 ---
 
-## Current status (honest)
+## Current Architecture & Implementation Status (Phases 0–3.5)
 
-- **Frontend**: interactive command-center prototype with **simulated** data. It does not call the backend.
-- **Backend API**: FastAPI starter; endpoints return **hardcoded** JSON.
-- **Phase 1 (data/schema)**: workbook validation, PostgreSQL migrations, and seed scripts live under `backend/data` and `backend/db`. See `PHASE_1_DATA_AUDIT.md` and `backend/README.md`.
-- Blockchain, Neo4j, LangGraph, and the 300-second scheduler are **not** implemented.
+The repository reflects completed and verified implementations across Phases 0 through 3.5:
 
-## Frontend prototype (simulated command center)
+### 1. Implemented & Verified Capabilities
+- **PostgreSQL Operational Foundation**: 1,327 validated operational seed rows spanning orders, inventory, products, warehouses, and suppliers.
+- **REST APIs**: Full PostgreSQL-backed endpoints for Orders, Inventory, Suppliers, Workflows, Approvals, Policies, Actions, and Scheduler.
+- **Multi-Agent Orchestration & Workflow Persistence**: LangGraph-based workflow graph executing Supervisor, Inventory, Procurement, Finance, and Logistics agents, persisting all transitions in `scenario_instances` and `agent_runs`.
+- **Persistent Five-Minute Scenario Engine**: Automated 300-second recurring scenario generation with distributed PostgreSQL lease locking, deterministic slot idempotency (`SCHED-<template>-SLOT-<ts>`), active queue capacity limits, operational data grounding, and watchdog orphan recovery.
+- **Deterministic Policy & Approval Engine**: Server-side policy rule evaluation enforcing financial and operational thresholds, human-in-the-loop approvals, and self-approval restrictions.
+- **Cryptographic Audit Log**: Canonical SHA-256 payload hashing and tamper-evident event logging in `event_log`.
+- **Role-Based Access Control (RBAC)**: Server-side API key authentication distinguishing `ADMIN`, `FINANCE_APPROVER`, `SUPPLY_CHAIN_APPROVER`, `OPERATOR`, and `VIEWER`.
+- **Dual-Mode Frontend**: 11-screen React Operations Control Room with seamless switching between interactive Demo Simulation and Live PostgreSQL Backend modes.
 
-The frontend prototype is fully operational and structured as an **Enterprise AI Operations Command Center**.
-
-### Key Features Implemented:
-1. **Interactive Live Agent Mesh**: Visual node topology connecting Supervisor, Inventory, Procurement, Finance, and Logistics Agents with real-time status pulses and animated communication channels.
-2. **Deterministic Simulation Engine**: Step-by-step order fulfillment runner for Order **ORD-1042** (Industrial Water Pump WP-800).
-3. **11 Major Command Screens**:
-   - **Overview**: System metrics, live mesh, active order runner, concise agent decision rationale, and live activity stream.
-   - **Orders**: Full order registry & detail inspection drawer.
-   - **Agent Mesh**: Agent health, workload %, latency monitoring.
-   - **Inventory**: Warehouse stock tracking & shortage reorder signal alerts.
-   - **Procurement**: Live supplier comparison matrix (3 suppliers) & multi-agent negotiation timeline.
-   - **Finance**: Budget reserve validation & expenditure sanctioning.
-   - **Logistics**: Corridor feasibility, distance & carrier SLA selection.
-   - **Knowledge Graph**: Interactive entity node explorer prepared for Neo4j Cypher queries.
-   - **Audit Trail**: Immutable block ledger with transaction hashes (`0x7f83...a91c`).
-   - **Exceptions**: Resilience scenario runner supporting 4 exception scenarios (*Supplier Unavailable*, *Budget Breach*, *Delivery Delay*, *Multi-Exception*).
-   - **Benchmarks**: Performance metrics comparing Traditional Pipeline vs Enterprise AI Mesh.
+### 2. Simulation Boundaries & Design Targets
+- **Action Execution**: Physical external action execution (ERP updates, payment dispatch, carrier booking) is executed through a safe simulation adapter unless an external enterprise adapter is explicitly configured.
+- **Blockchain Anchoring**: Cryptographic SHA-256 digests and Merkle verification are computed locally. Network submission to public EVM chains (Polygon testnet) is simulated unless external Web3 RPC credentials and gas funds are configured.
+- **Benchmarks**: Latency and MTTR metrics displayed in the UI represent illustrative architectural targets and model projections, not independently measured production load-test results.
 
 ---
 
-## How to Run the Frontend Locally
+## Running the Application Locally
+
+### 1. Prerequisites
+- Python 3.10+
+- Node.js 18+ and npm
+- PostgreSQL 13+ (or Docker)
+
+### 2. Quickstart via Docker Compose
 
 ```bash
-# Navigate to frontend directory
-cd frontend
+# 1. Copy the environment configuration template
+cp .env.example .env
 
-# Install dependencies (if not already installed)
-npm install
+# 2. Configure passwords and secure API keys in .env
+# (Ensure POSTGRES_PASSWORD, ADMIN_API_KEY, etc. are set)
 
-# Start Vite Development Server
-npm run dev
-
-# Build production bundle
-npm run build
+# 3. Start PostgreSQL, Backend, and Frontend containers
+docker compose up --build
 ```
 
----
+Access:
+- Frontend UI: `http://localhost:5173`
+- Backend API Docs: `http://localhost:8000/docs`
+- Health Probe: `http://localhost:8000/api/health`
 
-## Future API Integration Boundary
+### 3. Local Development Setup
 
-Frontend components consume state via typed API services in `frontend/src/services/apiServices.ts` and `frontend/src/state/DemoContext.tsx`. These services can be connected directly to the FastAPI backend endpoints in Phase 2 without modifying frontend visual components.
+#### Backend:
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Configure backend/.env with DATABASE_URL and TEST_DATABASE_URL
+# Run migrations and load seed data:
+python db/migrate.py
+python data/load_seed_data.py
+
+# Run FastAPI dev server:
+uvicorn app.main:app --reload --port 8000
+```
+
+#### Frontend:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+#### Automated Verification:
+```bash
+# Run backend test suite:
+pytest -q
+
+# Validate operational seed dataset (119 checks):
+python backend/data/validate_seed_data.py --database-url-var TEST_DATABASE_URL
+
+# Verify frontend build & linting:
+cd frontend && npm run build && npm run lint
+```
