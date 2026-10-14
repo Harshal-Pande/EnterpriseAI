@@ -19,6 +19,7 @@ from typing import Any, List, Optional, Tuple
 
 from fastapi import HTTPException, status
 
+from app.core.events import EventChannel, EventType, default_event_manager
 from app.core.sanitizer import sanitize_dict, sanitize_error_message
 from app.models.workflow import (
     ALLOWED_WORKFLOW_STATUSES,
@@ -235,6 +236,24 @@ def create_workflow(conn, req: WorkflowCreateRequest) -> WorkflowInstance:
             ),
         )
         conn.commit()
+
+        default_event_manager.publish(
+            event_type=EventType.WORKFLOW_CREATED.value,
+            channel=EventChannel.WORKFLOWS.value,
+            entity_id=str(scenario_id),
+            entity_type="WORKFLOW",
+            scenario_id=str(scenario_id),
+            workflow_id=str(scenario_id),
+            payload={
+                "workflow_id": str(scenario_id),
+                "scenario_id": str(scenario_id),
+                "template_id": req.scenario_template_id,
+                "status": "QUEUED",
+                "severity": severity,
+                "linked_order_id": req.linked_order_id,
+                "created_at": now.isoformat(),
+            },
+        )
 
         return _row_to_workflow_instance(row)
 
@@ -460,5 +479,23 @@ def transition_workflow_status(
             ),
         )
         conn.commit()
+
+        default_event_manager.publish(
+            event_type=EventType.WORKFLOW_STATUS_CHANGED.value,
+            channel=EventChannel.WORKFLOWS.value,
+            entity_id=str(val_uuid),
+            entity_type="WORKFLOW",
+            scenario_id=str(val_uuid),
+            workflow_id=str(val_uuid),
+            payload={
+                "workflow_id": str(val_uuid),
+                "scenario_id": str(val_uuid),
+                "previous_status": current_status,
+                "status": target_status,
+                "reason_code": req.reason_code,
+                "note": req.note,
+                "updated_at": now.isoformat(),
+            },
+        )
 
         return _row_to_workflow_instance(updated_row)

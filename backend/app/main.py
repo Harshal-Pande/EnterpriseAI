@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -17,7 +18,9 @@ from app.api import (
     scheduler,
     suppliers,
     workflow,
+    ws,
 )
+from app.core.events import default_event_manager
 from app.core.security import UserRole, require_role
 from app.db.database import close_db_pool, init_db_pool
 from app.services.scheduler_service import default_scheduler
@@ -27,6 +30,7 @@ from app.services.scheduler_service import default_scheduler
 async def lifespan(app: FastAPI):
     # Initialize connection pool if configured (does not block startup if DB is down)
     init_db_pool()
+    default_event_manager.set_loop(asyncio.get_running_loop())
     default_scheduler.start()
     yield
     default_scheduler.stop()
@@ -80,6 +84,7 @@ app.include_router(
     tags=["orchestration"],
     dependencies=[Depends(require_role(UserRole.VIEWER))],
 )
+app.include_router(ws.router, prefix="/api", tags=["websocket"])
 
 
 @app.get("/")

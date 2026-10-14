@@ -39,6 +39,7 @@ from app.agents.inventory import InventoryAgent
 from app.agents.logistics import LogisticsAgent
 from app.agents.procurement import ProcurementAgent
 from app.agents.supervisor import SupervisorAgent
+from app.core.events import EventChannel, EventType, default_event_manager
 from app.core.llm_provider import (
     AgentPrompt,
     AgentResponse,
@@ -674,6 +675,24 @@ class GovernedOrchestrator:
             state["audit_trail"].append(f"{agent_name} completed [{phase.value}]")
             step_result.status = "COMPLETED"
 
+            default_event_manager.publish(
+                event_type=EventType.AGENT_STEP_COMPLETED.value,
+                channel=EventChannel.ORCHESTRATION.value,
+                entity_id=scen_id,
+                entity_type="AGENT",
+                scenario_id=scen_id,
+                workflow_id=scen_id,
+                payload={
+                    "agent_name": agent_name,
+                    "phase": phase.value,
+                    "status": "COMPLETED",
+                    "duration_ms": step_result.duration_ms,
+                    "llm_confidence": step_result.llm_confidence,
+                    "llm_reasoning": step_result.llm_reasoning,
+                    "deterministic_output": validated_dict,
+                },
+            )
+
         except Exception as exc:
             logger.error("Agent %s failed in phase %s: %s", agent_name, phase.value, exc)
             step_result.status = "FAILED"
@@ -890,5 +909,15 @@ class GovernedOrchestrator:
                     ),
                 )
                 conn.commit()
+
+                default_event_manager.publish(
+                    event_type=event_type,
+                    channel=EventChannel.ORCHESTRATION.value,
+                    entity_id=scenario_id,
+                    entity_type="ORCHESTRATION",
+                    scenario_id=scenario_id,
+                    workflow_id=scenario_id,
+                    payload={"correlation_id": correlation_id, **details},
+                )
         except Exception as exc:
             logger.warning("Could not log audit event %s: %s", event_type, exc)

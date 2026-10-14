@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, status
 
+from app.core.events import EventChannel, EventType, default_event_manager
 from app.core.sanitizer import sanitize_dict, sanitize_error_message
 from app.models.action import (
     ActionDetailResponse,
@@ -345,6 +346,23 @@ def propose_action(conn, req: ActionProposeRequest) -> ActionRecord:
             )
 
         conn.commit()
+
+        default_event_manager.publish(
+            event_type=EventType.ACTION_PROPOSED.value,
+            channel=EventChannel.ACTIONS.value,
+            entity_id=str(action_id),
+            entity_type="ACTION",
+            scenario_id=str(val_scenario_uuid),
+            payload={
+                "action_id": str(action_id),
+                "action_type": req.action_type.upper(),
+                "target_entity_id": req.target_entity_id,
+                "status": initial_status,
+                "requires_approval": requires_approval,
+                "created_at": now.isoformat(),
+            },
+        )
+
         return _row_to_action_record(row)
 
 
@@ -522,6 +540,25 @@ def execute_action(
         )
         updated = cur.fetchone()
         conn.commit()
+
+        default_event_manager.publish(
+            event_type=EventType.ACTION_EXECUTED.value,
+            channel=EventChannel.ACTIONS.value,
+            entity_id=str(val_action_uuid),
+            entity_type="ACTION",
+            scenario_id=str(current[1]),
+            payload={
+                "action_id": str(val_action_uuid),
+                "action_type": action_type,
+                "status": "SUCCEEDED",
+                "actor": caller_id,
+                "approver": current[8],
+                "before_state": before_state,
+                "after_state": after_state,
+                "diff": diff,
+                "executed_at": now.isoformat(),
+            },
+        )
 
         return _row_to_action_record(updated)
 

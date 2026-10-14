@@ -291,3 +291,60 @@ def require_role(minimum_role: UserRole):
         return user
 
     return role_checker
+
+
+def authenticate_ws_credentials(
+    api_key: Optional[str] = None,
+    token: Optional[str] = None,
+) -> AuthUser:
+    """Authenticate WebSocket client credentials from query parameter or initial frame.
+
+    Security Rules:
+    1. Credentials must match registered server keys in the credential registry.
+    2. In production, missing or unknown credentials immediately fail closed (HTTP 401).
+    3. In development/testing, unauthenticated callers are assigned VIEWER (least privilege).
+    4. Client role claims are derived strictly server-side from registered keys.
+    """
+    effective_key = (api_key or token or "").strip()
+    env = (os.environ.get("APP_ENVIRONMENT") or os.environ.get("ENVIRONMENT", "development")).lower()
+    registry = get_credential_registry()
+
+    if env == "production":
+        if not registry:
+            logger.error("Production security alert: no API keys configured for WebSocket authentication.")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Authentication configuration missing in production environment.",
+            )
+        if not effective_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing authentication credentials for WebSocket connection.",
+            )
+        if effective_key not in registry:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials for WebSocket connection.",
+            )
+        role, user_id, domains, max_amount = registry[effective_key]
+    else:
+        if effective_key:
+            if effective_key not in registry:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid authentication credentials for WebSocket connection.",
+                )
+            role, user_id, domains, max_amount = registry[effective_key]
+        else:
+            role = UserRole.VIEWER
+            user_id = "anonymous_ws_viewer"
+            domains = []
+            max_amount = None
+
+    return AuthUser(
+        user_id=user_id,
+        role=role,
+        approval_domains=domains,
+        max_approval_amount=max_amount,
+    )
+

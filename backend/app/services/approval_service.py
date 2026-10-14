@@ -13,6 +13,7 @@ from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
 
+from app.core.events import EventChannel, EventType, default_event_manager
 from app.models.policy import ApprovalDecisionRequest, ApprovalRequestRecord
 
 logger = logging.getLogger("enterpriseai.approvals")
@@ -81,6 +82,24 @@ def create_approval_request(
         )
         row = cur.fetchone()
         conn.commit()
+
+        default_event_manager.publish(
+            event_type=EventType.APPROVAL_REQUESTED.value,
+            channel=EventChannel.APPROVALS.value,
+            entity_id=str(approval_id),
+            entity_type="APPROVAL",
+            scenario_id=str(scenario_id) if scenario_id else None,
+            payload={
+                "approval_id": str(approval_id),
+                "action_id": str(action_id) if action_id else None,
+                "decision_id": str(decision_id) if decision_id else None,
+                "scenario_id": str(scenario_id) if scenario_id else None,
+                "required_domain": required_domain.upper(),
+                "status": "PENDING",
+                "requested_at": now.isoformat(),
+            },
+        )
+
         return _row_to_approval_record(row)
 
 
@@ -175,6 +194,23 @@ def decide_approval_request(
             )
 
         conn.commit()
+
+        default_event_manager.publish(
+            event_type=EventType.APPROVAL_DECIDED.value,
+            channel=EventChannel.APPROVALS.value,
+            entity_id=str(val_uuid),
+            entity_type="APPROVAL",
+            scenario_id=str(current[3]) if current[3] else None,
+            payload={
+                "approval_id": str(val_uuid),
+                "action_id": str(current[1]) if current[1] else None,
+                "status": target_status,
+                "decided_by": req.decided_by.strip(),
+                "decided_at": now.isoformat(),
+                "reason": req.reason,
+            },
+        )
+
         return _row_to_approval_record(updated)
 
 

@@ -24,6 +24,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.core.events import EventChannel, EventType, default_event_manager
 from app.core.sanitizer import sanitize_dict
 from app.db.database import get_db_connection
 from app.models.workflow import WorkflowCreateRequest
@@ -188,6 +189,15 @@ def log_scheduler_event(
                 ),
             )
             conn.commit()
+
+            default_event_manager.publish(
+                event_type=event_type,
+                channel=EventChannel.SCHEDULER.value,
+                entity_id=entity_id,
+                entity_type="SCHEDULER",
+                scenario_id=scenario_id,
+                payload={"status": status, "reason_code": reason_code, **(payload if isinstance(payload, dict) else {})},
+            )
     except Exception as exc:
         logger.warning("Failed to log scheduler event %s: %s", event_type, exc)
 
