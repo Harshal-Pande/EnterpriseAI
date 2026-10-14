@@ -1,0 +1,2207 @@
+{
+  "workbook_path": "d:\\MajorProject\\EnterpriseAI\\project_reference\\enterprise_ai_industrial_dataset_v2.xlsx",
+  "sheet_count": 40,
+  "sheet_names": [
+    "README",
+    "ref_entities",
+    "ref_departments",
+    "ref_products",
+    "ref_warehouses",
+    "ref_suppliers",
+    "ref_supplier_offers",
+    "ref_roles",
+    "ref_users",
+    "inventory",
+    "orders",
+    "order_lines",
+    "ref_production_lines",
+    "production_batches",
+    "shipments",
+    "ref_budgets",
+    "purchase_orders",
+    "goods_receipts",
+    "ref_supplier_contracts",
+    "quality_events",
+    "maintenance_assets",
+    "maintenance_work_orders",
+    "energy_readings",
+    "safety_events",
+    "bill_of_materials",
+    "ref_shifts",
+    "ref_reorder_policies",
+    "carrier_events",
+    "feed_health",
+    "business_rules",
+    "scenario_templates",
+    "scenario_instances",
+    "agent_runs",
+    "decisions",
+    "action_queue",
+    "event_log",
+    "blockchain_anchors",
+    "simulation_config",
+    "data_dictionary",
+    "column_dictionary"
+  ],
+  "sheets": {
+    "README": {
+      "row_count": 8,
+      "columns": [
+        "item",
+        "detail"
+      ],
+      "data_types": {
+        "item": "string",
+        "detail": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "item": "Purpose",
+          "detail": "Synthetic enterprise dataset for the Enterprise AI automated supply-chain control room."
+        },
+        {
+          "item": "Reference style",
+          "detail": "Structured to mirror the PRMS workbook's strong reference tables, detailed column dictionary, transactional tables, event history, invoices/receipts, holds, and audit evidence."
+        },
+        {
+          "item": "Company framing",
+          "detail": "Eastern Alloy & Steel (EAS) is fictional. It is not Tata Steel data and must not be represented as such."
+        }
+      ],
+      "duplicate_pk_column": "item",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_entities": {
+      "row_count": 4,
+      "columns": [
+        "entity_id",
+        "entity_name",
+        "entity_type",
+        "country",
+        "status"
+      ],
+      "data_types": {
+        "entity_id": "string",
+        "entity_name": "string",
+        "entity_type": "string",
+        "country": "string",
+        "status": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "entity_id": "EAS-HQ",
+          "entity_name": "Eastern Alloy & Steel (fictional)",
+          "entity_type": "Corporate",
+          "country": "India",
+          "status": "ACTIVE"
+        },
+        {
+          "entity_id": "EAS-EAST",
+          "entity_name": "East Works",
+          "entity_type": "Integrated Steel Plant",
+          "country": "India",
+          "status": "ACTIVE"
+        },
+        {
+          "entity_id": "EAS-PORT",
+          "entity_name": "Coastal Dispatch Hub",
+          "entity_type": "Logistics Hub",
+          "country": "India",
+          "status": "ACTIVE"
+        }
+      ],
+      "duplicate_pk_column": "entity_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_departments": {
+      "row_count": 11,
+      "columns": [
+        "department_id",
+        "department_name"
+      ],
+      "data_types": {
+        "department_id": "string",
+        "department_name": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "department_id": "DEPT-PROD",
+          "department_name": "Production"
+        },
+        {
+          "department_id": "DEPT-INV",
+          "department_name": "Inventory & Warehousing"
+        },
+        {
+          "department_id": "DEPT-PROC",
+          "department_name": "Procurement"
+        }
+      ],
+      "duplicate_pk_column": "department_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_products": {
+      "row_count": 11,
+      "columns": [
+        "product_id",
+        "product_name",
+        "product_category",
+        "base_uom",
+        "reference_unit_cost_inr",
+        "status"
+      ],
+      "data_types": {
+        "product_id": "string",
+        "product_name": "string",
+        "product_category": "string",
+        "base_uom": "string",
+        "reference_unit_cost_inr": "integer",
+        "status": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "product_id": "PRD-HRC",
+          "product_name": "Hot Rolled Coil",
+          "product_category": "Finished Steel",
+          "base_uom": "MT",
+          "reference_unit_cost_inr": 72000,
+          "status": "ACTIVE"
+        },
+        {
+          "product_id": "PRD-CRC",
+          "product_name": "Cold Rolled Coil",
+          "product_category": "Finished Steel",
+          "base_uom": "MT",
+          "reference_unit_cost_inr": 84500,
+          "status": "ACTIVE"
+        },
+        {
+          "product_id": "PRD-REB",
+          "product_name": "Rebar",
+          "product_category": "Finished Steel",
+          "base_uom": "MT",
+          "reference_unit_cost_inr": 61000,
+          "status": "ACTIVE"
+        }
+      ],
+      "duplicate_pk_column": "product_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_warehouses": {
+      "row_count": 5,
+      "columns": [
+        "warehouse_id",
+        "warehouse_name",
+        "entity_id",
+        "location_label",
+        "capacity_units",
+        "warehouse_type",
+        "status"
+      ],
+      "data_types": {
+        "warehouse_id": "string",
+        "warehouse_name": "string",
+        "entity_id": "string",
+        "location_label": "string",
+        "capacity_units": "integer",
+        "warehouse_type": "string",
+        "status": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "warehouse_id": "WH-RAW-01",
+          "warehouse_name": "Raw Material Yard",
+          "entity_id": "EAS-EAST",
+          "location_label": "Jamshedpur Region",
+          "capacity_units": 60000,
+          "warehouse_type": "RAW_MATERIAL",
+          "status": "ACTIVE"
+        },
+        {
+          "warehouse_id": "WH-FG-01",
+          "warehouse_name": "Finished Goods Yard A",
+          "entity_id": "EAS-EAST",
+          "location_label": "Jamshedpur Region",
+          "capacity_units": 18000,
+          "warehouse_type": "FINISHED_GOODS",
+          "status": "ACTIVE"
+        },
+        {
+          "warehouse_id": "WH-FG-02",
+          "warehouse_name": "Finished Goods Yard B",
+          "entity_id": "EAS-WEST",
+          "location_label": "West Region",
+          "capacity_units": 12000,
+          "warehouse_type": "FINISHED_GOODS",
+          "status": "ACTIVE"
+        }
+      ],
+      "duplicate_pk_column": "warehouse_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_suppliers": {
+      "row_count": 8,
+      "columns": [
+        "supplier_id",
+        "supplier_name",
+        "supplier_category",
+        "status",
+        "risk_band",
+        "historical_on_time_rate",
+        "default_lead_time_hours"
+      ],
+      "data_types": {
+        "supplier_id": "string",
+        "supplier_name": "string",
+        "supplier_category": "string",
+        "status": "string",
+        "risk_band": "string",
+        "historical_on_time_rate": "float",
+        "default_lead_time_hours": "integer"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "supplier_id": "SUP-001",
+          "supplier_name": "Bharat Mineral Logistics (fictional)",
+          "supplier_category": "RAW_MATERIAL",
+          "status": "ACTIVE",
+          "risk_band": "LOW",
+          "historical_on_time_rate": 0.96,
+          "default_lead_time_hours": 36
+        },
+        {
+          "supplier_id": "SUP-002",
+          "supplier_name": "Eastern Coking Resources (fictional)",
+          "supplier_category": "RAW_MATERIAL",
+          "status": "ACTIVE",
+          "risk_band": "MEDIUM",
+          "historical_on_time_rate": 0.91,
+          "default_lead_time_hours": 48
+        },
+        {
+          "supplier_id": "SUP-003",
+          "supplier_name": "Coastal Refractory Works (fictional)",
+          "supplier_category": "CONSUMABLE",
+          "status": "ACTIVE",
+          "risk_band": "LOW",
+          "historical_on_time_rate": 0.98,
+          "default_lead_time_hours": 72
+        }
+      ],
+      "duplicate_pk_column": "supplier_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_supplier_offers": {
+      "row_count": 6,
+      "columns": [
+        "offer_id",
+        "supplier_id",
+        "item_id",
+        "unit_price_inr",
+        "price_uom",
+        "lead_time_hours",
+        "max_available_qty",
+        "on_time_rate",
+        "effective_from",
+        "effective_to",
+        "offer_status"
+      ],
+      "data_types": {
+        "offer_id": "string",
+        "supplier_id": "string",
+        "item_id": "string",
+        "unit_price_inr": "integer",
+        "price_uom": "string",
+        "lead_time_hours": "integer",
+        "max_available_qty": "integer",
+        "on_time_rate": "float",
+        "effective_from": "date_str",
+        "effective_to": "date_str",
+        "offer_status": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "offer_id": "OFR-001",
+          "supplier_id": "SUP-001",
+          "item_id": "MAT-IRON",
+          "unit_price_inr": 6500,
+          "price_uom": "INR/MT",
+          "lead_time_hours": 1800,
+          "max_available_qty": 30000,
+          "on_time_rate": 0.96,
+          "effective_from": "2026-09-01",
+          "effective_to": "2027-03-31",
+          "offer_status": "ACTIVE"
+        },
+        {
+          "offer_id": "OFR-002",
+          "supplier_id": "SUP-002",
+          "item_id": "MAT-COAL",
+          "unit_price_inr": 17600,
+          "price_uom": "INR/MT",
+          "lead_time_hours": 2400,
+          "max_available_qty": 12000,
+          "on_time_rate": 0.91,
+          "effective_from": "2026-09-01",
+          "effective_to": "2027-03-31",
+          "offer_status": "ACTIVE"
+        },
+        {
+          "offer_id": "OFR-003",
+          "supplier_id": "SUP-003",
+          "item_id": "MAT-REFRACT",
+          "unit_price_inr": 82,
+          "price_uom": "INR/EA",
+          "lead_time_hours": 72,
+          "max_available_qty": 1000,
+          "on_time_rate": 0.98,
+          "effective_from": "2026-09-01",
+          "effective_to": "2027-03-31",
+          "offer_status": "ACTIVE"
+        }
+      ],
+      "duplicate_pk_column": "offer_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_roles": {
+      "row_count": 7,
+      "columns": [
+        "role_id",
+        "role_name",
+        "permissions_summary"
+      ],
+      "data_types": {
+        "role_id": "string",
+        "role_name": "string",
+        "permissions_summary": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "role_id": "ROLE-OPS",
+          "role_name": "Operations Controller",
+          "permissions_summary": "Monitor operations; initiate permitted workflow runs"
+        },
+        {
+          "role_id": "ROLE-PROC",
+          "role_name": "Procurement Officer",
+          "permissions_summary": "Review sourcing proposals; approve within delegated limits"
+        },
+        {
+          "role_id": "ROLE-FIN",
+          "role_name": "Finance Approver",
+          "permissions_summary": "Approve budget exceptions within delegated limits"
+        }
+      ],
+      "duplicate_pk_column": "role_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_users": {
+      "row_count": 30,
+      "columns": [
+        "user_id",
+        "display_name",
+        "role_id",
+        "entity_id",
+        "status"
+      ],
+      "data_types": {
+        "user_id": "string",
+        "display_name": "string",
+        "role_id": "string",
+        "entity_id": "string",
+        "status": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "user_id": "USR-001",
+          "display_name": "Demo User 01",
+          "role_id": "ROLE-AUD",
+          "entity_id": "EAS-WEST",
+          "status": "ACTIVE"
+        },
+        {
+          "user_id": "USR-002",
+          "display_name": "Demo User 02",
+          "role_id": "ROLE-AUD",
+          "entity_id": "EAS-PORT",
+          "status": "ACTIVE"
+        },
+        {
+          "user_id": "USR-003",
+          "display_name": "Demo User 03",
+          "role_id": "ROLE-FIN",
+          "entity_id": "EAS-EAST",
+          "status": "ACTIVE"
+        }
+      ],
+      "duplicate_pk_column": "user_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "inventory": {
+      "row_count": 150,
+      "columns": [
+        "inventory_id",
+        "item_id",
+        "warehouse_id",
+        "on_hand_qty",
+        "reserved_qty",
+        "available_qty",
+        "uom",
+        "as_of_timestamp",
+        "stock_signal"
+      ],
+      "data_types": {
+        "inventory_id": "string",
+        "item_id": "string",
+        "warehouse_id": "string",
+        "on_hand_qty": "integer",
+        "reserved_qty": "integer",
+        "available_qty": "integer",
+        "uom": "string",
+        "as_of_timestamp": "string",
+        "stock_signal": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "inventory_id": "INV-0001",
+          "item_id": "MAT-COAL",
+          "warehouse_id": "WH-SPARE-01",
+          "on_hand_qty": 9445,
+          "reserved_qty": 1703,
+          "available_qty": 7742,
+          "uom": "MT",
+          "as_of_timestamp": "2026-10-14T08:52:00",
+          "stock_signal": "NORMAL"
+        },
+        {
+          "inventory_id": "INV-0002",
+          "item_id": "MAT-IRON",
+          "warehouse_id": "WH-PORT-01",
+          "on_hand_qty": 14323,
+          "reserved_qty": 3830,
+          "available_qty": 10493,
+          "uom": "MT",
+          "as_of_timestamp": "2026-10-14T08:15:00",
+          "stock_signal": "NORMAL"
+        },
+        {
+          "inventory_id": "INV-0003",
+          "item_id": "PRD-HRC",
+          "warehouse_id": "WH-FG-02",
+          "on_hand_qty": 2601,
+          "reserved_qty": 800,
+          "available_qty": 1801,
+          "uom": "MT",
+          "as_of_timestamp": "2026-10-14T08:27:00",
+          "stock_signal": "NORMAL"
+        }
+      ],
+      "duplicate_pk_column": "inventory_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "orders": {
+      "row_count": 200,
+      "columns": [
+        "order_id",
+        "customer_ref",
+        "entity_id",
+        "created_at",
+        "required_delivery_at",
+        "status",
+        "priority",
+        "currency",
+        "external_reference"
+      ],
+      "data_types": {
+        "order_id": "string",
+        "customer_ref": "string",
+        "entity_id": "string",
+        "created_at": "string",
+        "required_delivery_at": "string",
+        "status": "string",
+        "priority": "string",
+        "currency": "string",
+        "external_reference": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "order_id": "ORD-1042",
+          "customer_ref": "CUST-036",
+          "entity_id": "EAS-WEST",
+          "created_at": "2026-10-13T12:00:00",
+          "required_delivery_at": "2026-10-18T12:00:00",
+          "status": "AT_RISK",
+          "priority": "CRITICAL",
+          "currency": "INR",
+          "external_reference": "SO-1042"
+        },
+        {
+          "order_id": "ORD-1043",
+          "customer_ref": "CUST-035",
+          "entity_id": "EAS-HQ",
+          "created_at": "2026-10-14T07:00:00",
+          "required_delivery_at": "2026-10-20T07:00:00",
+          "status": "IN_PROGRESS",
+          "priority": "MEDIUM",
+          "currency": "INR",
+          "external_reference": "SO-1043"
+        },
+        {
+          "order_id": "ORD-1044",
+          "customer_ref": "CUST-014",
+          "entity_id": "EAS-WEST",
+          "created_at": "2026-10-12T17:00:00",
+          "required_delivery_at": "2026-10-15T17:00:00",
+          "status": "OPEN",
+          "priority": "MEDIUM",
+          "currency": "INR",
+          "external_reference": "SO-1044"
+        }
+      ],
+      "duplicate_pk_column": "order_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "order_lines": {
+      "row_count": 200,
+      "columns": [
+        "order_line_id",
+        "order_id",
+        "product_id",
+        "requested_qty",
+        "unit_price_inr",
+        "uom"
+      ],
+      "data_types": {
+        "order_line_id": "string",
+        "order_id": "string",
+        "product_id": "string",
+        "requested_qty": "integer",
+        "unit_price_inr": "integer",
+        "uom": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "order_line_id": "OL-1042-1",
+          "order_id": "ORD-1042",
+          "product_id": "PRD-PLT",
+          "requested_qty": 2200,
+          "unit_price_inr": 79000,
+          "uom": "MT"
+        },
+        {
+          "order_line_id": "OL-1043-1",
+          "order_id": "ORD-1043",
+          "product_id": "PRD-HRC",
+          "requested_qty": 100,
+          "unit_price_inr": 72000,
+          "uom": "MT"
+        },
+        {
+          "order_line_id": "OL-1044-1",
+          "order_id": "ORD-1044",
+          "product_id": "PRD-CRC",
+          "requested_qty": 1000,
+          "unit_price_inr": 84500,
+          "uom": "MT"
+        }
+      ],
+      "duplicate_pk_column": "order_line_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_production_lines": {
+      "row_count": 5,
+      "columns": [
+        "production_line_id",
+        "line_name",
+        "entity_id",
+        "process_stage",
+        "status",
+        "utilisation_pct",
+        "daily_capacity_mt"
+      ],
+      "data_types": {
+        "production_line_id": "string",
+        "line_name": "string",
+        "entity_id": "string",
+        "process_stage": "string",
+        "status": "string",
+        "utilisation_pct": "float",
+        "daily_capacity_mt": "integer"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "production_line_id": "LINE-BF-01",
+          "line_name": "Blast Furnace 1",
+          "entity_id": "EAS-EAST",
+          "process_stage": "IRONMAKING",
+          "status": "RUNNING",
+          "utilisation_pct": 0.93,
+          "daily_capacity_mt": 2500
+        },
+        {
+          "production_line_id": "LINE-BOF-01",
+          "line_name": "Basic Oxygen Furnace 1",
+          "entity_id": "EAS-EAST",
+          "process_stage": "STEELMAKING",
+          "status": "RUNNING",
+          "utilisation_pct": 0.89,
+          "daily_capacity_mt": 2100
+        },
+        {
+          "production_line_id": "LINE-ROLL-01",
+          "line_name": "Hot Rolling Mill 1",
+          "entity_id": "EAS-EAST",
+          "process_stage": "ROLLING",
+          "status": "RUNNING",
+          "utilisation_pct": 0.86,
+          "daily_capacity_mt": 1800
+        }
+      ],
+      "duplicate_pk_column": "production_line_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "production_batches": {
+      "row_count": 60,
+      "columns": [
+        "batch_id",
+        "production_line_id",
+        "output_product_id",
+        "planned_output_qty_mt",
+        "actual_output_qty_mt",
+        "planned_start",
+        "planned_end",
+        "status",
+        "risk_flag"
+      ],
+      "data_types": {
+        "batch_id": "string",
+        "production_line_id": "string",
+        "output_product_id": "string",
+        "planned_output_qty_mt": "integer",
+        "actual_output_qty_mt": "integer",
+        "planned_start": "string",
+        "planned_end": "string",
+        "status": "string",
+        "risk_flag": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "batch_id": "BATCH-7001",
+          "production_line_id": "LINE-BF-01",
+          "output_product_id": "PRD-PLT",
+          "planned_output_qty_mt": 2310,
+          "actual_output_qty_mt": 288,
+          "planned_start": "2026-10-13T12:00:00",
+          "planned_end": "2026-10-14T00:00:00",
+          "status": "COMPLETED",
+          "risk_flag": "MATERIAL_RISK"
+        },
+        {
+          "batch_id": "BATCH-7002",
+          "production_line_id": "LINE-BOF-01",
+          "output_product_id": "PRD-PLT",
+          "planned_output_qty_mt": 817,
+          "actual_output_qty_mt": 492,
+          "planned_start": "2026-10-12T22:00:00",
+          "planned_end": "2026-10-13T10:00:00",
+          "status": "COMPLETED",
+          "risk_flag": "NORMAL"
+        },
+        {
+          "batch_id": "BATCH-7003",
+          "production_line_id": "LINE-ROLL-01",
+          "output_product_id": "PRD-HRC",
+          "planned_output_qty_mt": 1093,
+          "actual_output_qty_mt": 446,
+          "planned_start": "2026-10-12T10:00:00",
+          "planned_end": "2026-10-12T22:00:00",
+          "status": "IN_PROGRESS",
+          "risk_flag": "MATERIAL_RISK"
+        }
+      ],
+      "duplicate_pk_column": "batch_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "shipments": {
+      "row_count": 120,
+      "columns": [
+        "shipment_id",
+        "order_id",
+        "origin_warehouse_id",
+        "destination_warehouse_id",
+        "carrier_supplier_id",
+        "planned_dispatch_at",
+        "estimated_arrival_at",
+        "status",
+        "transport_mode",
+        "risk_flag"
+      ],
+      "data_types": {
+        "shipment_id": "string",
+        "order_id": "string",
+        "origin_warehouse_id": "string",
+        "destination_warehouse_id": "string",
+        "carrier_supplier_id": "string",
+        "planned_dispatch_at": "string",
+        "estimated_arrival_at": "string",
+        "status": "string",
+        "transport_mode": "string",
+        "risk_flag": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "shipment_id": "SHP-5001",
+          "order_id": "ORD-1042",
+          "origin_warehouse_id": "WH-FG-01",
+          "destination_warehouse_id": "WH-PORT-01",
+          "carrier_supplier_id": "SUP-004",
+          "planned_dispatch_at": "2026-10-15T20:00:00",
+          "estimated_arrival_at": "2026-10-19T09:00:00",
+          "status": "IN_TRANSIT",
+          "transport_mode": "RAIL",
+          "risk_flag": "DELAY_RISK"
+        },
+        {
+          "shipment_id": "SHP-5002",
+          "order_id": "ORD-1043",
+          "origin_warehouse_id": "WH-FG-02",
+          "destination_warehouse_id": "WH-PORT-01",
+          "carrier_supplier_id": "SUP-004",
+          "planned_dispatch_at": "2026-10-15T15:00:00",
+          "estimated_arrival_at": "2026-10-18T03:00:00",
+          "status": "AT_RISK",
+          "transport_mode": "RAIL",
+          "risk_flag": "NORMAL"
+        },
+        {
+          "shipment_id": "SHP-5003",
+          "order_id": "ORD-1044",
+          "origin_warehouse_id": "WH-RAW-01",
+          "destination_warehouse_id": "WH-PORT-01",
+          "carrier_supplier_id": "SUP-004",
+          "planned_dispatch_at": "2026-10-14T21:00:00",
+          "estimated_arrival_at": "2026-10-17T05:00:00",
+          "status": "AT_RISK",
+          "transport_mode": "ROAD_RAIL",
+          "risk_flag": "DELAY_RISK"
+        }
+      ],
+      "duplicate_pk_column": "shipment_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_budgets": {
+      "row_count": 4,
+      "columns": [
+        "budget_id",
+        "entity_id",
+        "cost_center",
+        "period",
+        "currency",
+        "approved_limit_inr",
+        "committed_spend_inr",
+        "available_budget_inr",
+        "single_action_approval_threshold_inr",
+        "status"
+      ],
+      "data_types": {
+        "budget_id": "string",
+        "entity_id": "string",
+        "cost_center": "string",
+        "period": "string",
+        "currency": "string",
+        "approved_limit_inr": "integer",
+        "committed_spend_inr": "integer",
+        "available_budget_inr": "integer",
+        "single_action_approval_threshold_inr": "integer",
+        "status": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "budget_id": "BUD-PROC-2026-10",
+          "entity_id": "EAS-HQ",
+          "cost_center": "PROCUREMENT",
+          "period": "2026-10",
+          "currency": "INR",
+          "approved_limit_inr": 180000000,
+          "committed_spend_inr": 142000000,
+          "available_budget_inr": 38000000,
+          "single_action_approval_threshold_inr": 25000000,
+          "status": "ACTIVE"
+        },
+        {
+          "budget_id": "BUD-OPS-2026-10",
+          "entity_id": "EAS-EAST",
+          "cost_center": "OPERATIONS",
+          "period": "2026-10",
+          "currency": "INR",
+          "approved_limit_inr": 250000000,
+          "committed_spend_inr": 185000000,
+          "available_budget_inr": 65000000,
+          "single_action_approval_threshold_inr": 50000000,
+          "status": "ACTIVE"
+        },
+        {
+          "budget_id": "BUD-LOG-2026-10",
+          "entity_id": "EAS-PORT",
+          "cost_center": "LOGISTICS",
+          "period": "2026-10",
+          "currency": "INR",
+          "approved_limit_inr": 60000000,
+          "committed_spend_inr": 42000000,
+          "available_budget_inr": 18000000,
+          "single_action_approval_threshold_inr": 10000000,
+          "status": "ACTIVE"
+        }
+      ],
+      "duplicate_pk_column": "budget_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "purchase_orders": {
+      "row_count": 3,
+      "columns": [
+        "po_id",
+        "supplier_id",
+        "item_id",
+        "quantity",
+        "unit_cost_inr",
+        "total_cost_inr",
+        "currency",
+        "created_at",
+        "status",
+        "budget_id"
+      ],
+      "data_types": {
+        "po_id": "string",
+        "supplier_id": "string",
+        "item_id": "string",
+        "quantity": "integer",
+        "unit_cost_inr": "integer",
+        "total_cost_inr": "integer",
+        "currency": "string",
+        "created_at": "string",
+        "status": "string",
+        "budget_id": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "po_id": "PO-8801",
+          "supplier_id": "SUP-001",
+          "item_id": "MAT-IRON",
+          "quantity": 10000,
+          "unit_cost_inr": 6500,
+          "total_cost_inr": 65000000,
+          "currency": "INR",
+          "created_at": "2026-10-12T10:00:00",
+          "status": "APPROVED",
+          "budget_id": "BUD-PROC-2026-10"
+        },
+        {
+          "po_id": "PO-8802",
+          "supplier_id": "SUP-002",
+          "item_id": "MAT-COAL",
+          "quantity": 3000,
+          "unit_cost_inr": 17600,
+          "total_cost_inr": 52800000,
+          "currency": "INR",
+          "created_at": "2026-10-13T15:00:00",
+          "status": "IN_TRANSIT",
+          "budget_id": "BUD-PROC-2026-10"
+        },
+        {
+          "po_id": "PO-8803",
+          "supplier_id": "SUP-003",
+          "item_id": "MAT-REFRACT",
+          "quantity": 120,
+          "unit_cost_inr": 82,
+          "total_cost_inr": 9840,
+          "currency": "INR",
+          "created_at": "2026-10-14T08:30:00",
+          "status": "DRAFT",
+          "budget_id": "BUD-PROC-2026-10"
+        }
+      ],
+      "duplicate_pk_column": "po_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "goods_receipts": {
+      "row_count": 2,
+      "columns": [
+        "grn_id",
+        "po_id",
+        "supplier_id",
+        "item_id",
+        "received_qty",
+        "accepted_qty",
+        "received_at",
+        "inspection_status",
+        "quality_certificate_ref"
+      ],
+      "data_types": {
+        "grn_id": "string",
+        "po_id": "string",
+        "supplier_id": "string",
+        "item_id": "string",
+        "received_qty": "integer",
+        "accepted_qty": "integer",
+        "received_at": "string",
+        "inspection_status": "string",
+        "quality_certificate_ref": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "grn_id": "GRN-001",
+          "po_id": "PO-8801",
+          "supplier_id": "SUP-001",
+          "item_id": "MAT-IRON",
+          "received_qty": 5000,
+          "accepted_qty": 5000,
+          "received_at": "2026-10-13T12:00:00",
+          "inspection_status": "ACCEPTED",
+          "quality_certificate_ref": "CERT-IRON-001"
+        },
+        {
+          "grn_id": "GRN-002",
+          "po_id": "PO-8802",
+          "supplier_id": "SUP-002",
+          "item_id": "MAT-COAL",
+          "received_qty": 1000,
+          "accepted_qty": 0,
+          "received_at": "2026-10-14T08:00:00",
+          "inspection_status": "QUALITY_HOLD",
+          "quality_certificate_ref": "CERT-COAL-002"
+        }
+      ],
+      "duplicate_pk_column": "grn_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_supplier_contracts": {
+      "row_count": 4,
+      "columns": [
+        "contract_id",
+        "supplier_id",
+        "contract_category",
+        "effective_from",
+        "effective_to",
+        "contract_limit_inr",
+        "currency",
+        "status",
+        "owner_department"
+      ],
+      "data_types": {
+        "contract_id": "string",
+        "supplier_id": "string",
+        "contract_category": "string",
+        "effective_from": "date_str",
+        "effective_to": "date_str",
+        "contract_limit_inr": "integer",
+        "currency": "string",
+        "status": "string",
+        "owner_department": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "contract_id": "CTR-001",
+          "supplier_id": "SUP-001",
+          "contract_category": "RAW_MATERIAL",
+          "effective_from": "2026-04-01",
+          "effective_to": "2027-03-31",
+          "contract_limit_inr": 100000000,
+          "currency": "INR",
+          "status": "ACTIVE",
+          "owner_department": "PROCUREMENT"
+        },
+        {
+          "contract_id": "CTR-002",
+          "supplier_id": "SUP-002",
+          "contract_category": "RAW_MATERIAL",
+          "effective_from": "2026-04-01",
+          "effective_to": "2027-03-31",
+          "contract_limit_inr": 80000000,
+          "currency": "INR",
+          "status": "ACTIVE",
+          "owner_department": "PROCUREMENT"
+        },
+        {
+          "contract_id": "CTR-003",
+          "supplier_id": "SUP-004",
+          "contract_category": "LOGISTICS",
+          "effective_from": "2026-01-01",
+          "effective_to": "2026-12-31",
+          "contract_limit_inr": 30000000,
+          "currency": "INR",
+          "status": "ACTIVE",
+          "owner_department": "LOGISTICS"
+        }
+      ],
+      "duplicate_pk_column": "contract_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "quality_events": {
+      "row_count": 40,
+      "columns": [
+        "quality_event_id",
+        "batch_id",
+        "product_id",
+        "detected_at",
+        "defect_code",
+        "severity",
+        "status",
+        "recommended_control"
+      ],
+      "data_types": {
+        "quality_event_id": "string",
+        "batch_id": "string",
+        "product_id": "string",
+        "detected_at": "string",
+        "defect_code": "string",
+        "severity": "string",
+        "status": "string",
+        "recommended_control": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "quality_event_id": "QEV-0001",
+          "batch_id": "BATCH-7001",
+          "product_id": "PRD-CRC",
+          "detected_at": "2026-10-14T08:00:00",
+          "defect_code": "DIMENSIONAL_VARIANCE",
+          "severity": "LOW",
+          "status": "IN_REVIEW",
+          "recommended_control": "HOLD_LOT"
+        },
+        {
+          "quality_event_id": "QEV-0002",
+          "batch_id": "BATCH-7002",
+          "product_id": "PRD-PLT",
+          "detected_at": "2026-10-14T01:00:00",
+          "defect_code": "THICKNESS_VARIANCE",
+          "severity": "HIGH",
+          "status": "RELEASED",
+          "recommended_control": "REVIEW_PROCESS_PARAMETERS"
+        },
+        {
+          "quality_event_id": "QEV-0003",
+          "batch_id": "BATCH-7003",
+          "product_id": "PRD-REB",
+          "detected_at": "2026-10-13T15:00:00",
+          "defect_code": "DIMENSIONAL_VARIANCE",
+          "severity": "MEDIUM",
+          "status": "RELEASED",
+          "recommended_control": "RETEST_SAMPLE"
+        }
+      ],
+      "duplicate_pk_column": "quality_event_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "maintenance_assets": {
+      "row_count": 35,
+      "columns": [
+        "asset_id",
+        "production_line_id",
+        "asset_name",
+        "last_signal_at",
+        "failure_risk_score",
+        "health_status",
+        "next_maintenance_due",
+        "recommended_action"
+      ],
+      "data_types": {
+        "asset_id": "string",
+        "production_line_id": "string",
+        "asset_name": "string",
+        "last_signal_at": "string",
+        "failure_risk_score": "float",
+        "health_status": "string",
+        "next_maintenance_due": "string",
+        "recommended_action": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "asset_id": "AST-001",
+          "production_line_id": "LINE-BF-01",
+          "asset_name": "Cooling Pump",
+          "last_signal_at": "2026-10-14T08:20:00",
+          "failure_risk_score": 0.63,
+          "health_status": "WARNING",
+          "next_maintenance_due": "2026-10-16T04:00:00",
+          "recommended_action": "Inspect vibration"
+        },
+        {
+          "asset_id": "AST-002",
+          "production_line_id": "LINE-BOF-01",
+          "asset_name": "Motor",
+          "last_signal_at": "2026-10-14T06:02:00",
+          "failure_risk_score": 0.72,
+          "health_status": "WARNING",
+          "next_maintenance_due": "2026-10-15T06:00:00",
+          "recommended_action": "No action"
+        },
+        {
+          "asset_id": "AST-003",
+          "production_line_id": "LINE-ROLL-01",
+          "asset_name": "Hydraulic System",
+          "last_signal_at": "2026-10-14T06:36:00",
+          "failure_risk_score": 0.5,
+          "health_status": "NORMAL",
+          "next_maintenance_due": "2026-10-17T10:00:00",
+          "recommended_action": "No action"
+        }
+      ],
+      "duplicate_pk_column": "asset_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "maintenance_work_orders": {
+      "row_count": 50,
+      "columns": [
+        "work_order_id",
+        "asset_id",
+        "work_type",
+        "status",
+        "created_at",
+        "scheduled_for",
+        "priority",
+        "assigned_team_or_vendor"
+      ],
+      "data_types": {
+        "work_order_id": "string",
+        "asset_id": "string",
+        "work_type": "string",
+        "status": "string",
+        "created_at": "string",
+        "scheduled_for": "string",
+        "priority": "string",
+        "assigned_team_or_vendor": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "work_order_id": "MWO-0001",
+          "asset_id": "AST-029",
+          "work_type": "INSPECT",
+          "status": "COMPLETED",
+          "created_at": "2026-10-14T09:00:00",
+          "scheduled_for": "2026-10-18T00:00:00",
+          "priority": "MEDIUM",
+          "assigned_team_or_vendor": "INTERNAL_TEAM"
+        },
+        {
+          "work_order_id": "MWO-0002",
+          "asset_id": "AST-033",
+          "work_type": "REPAIR",
+          "status": "SCHEDULED",
+          "created_at": "2026-10-14T09:00:00",
+          "scheduled_for": "2026-10-17T05:00:00",
+          "priority": "LOW",
+          "assigned_team_or_vendor": "SUP-007"
+        },
+        {
+          "work_order_id": "MWO-0003",
+          "asset_id": "AST-035",
+          "work_type": "INSPECT",
+          "status": "COMPLETED",
+          "created_at": "2026-10-14T09:00:00",
+          "scheduled_for": "2026-10-18T00:00:00",
+          "priority": "HIGH",
+          "assigned_team_or_vendor": "SUP-007"
+        }
+      ],
+      "duplicate_pk_column": "work_order_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "energy_readings": {
+      "row_count": 240,
+      "columns": [
+        "reading_id",
+        "entity_id",
+        "production_line_id",
+        "reading_at",
+        "energy_kwh",
+        "unit_rate_inr",
+        "signal",
+        "currency"
+      ],
+      "data_types": {
+        "reading_id": "string",
+        "entity_id": "string",
+        "production_line_id": "string",
+        "reading_at": "string",
+        "energy_kwh": "integer",
+        "unit_rate_inr": "float",
+        "signal": "string",
+        "currency": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "reading_id": "ENG-0001",
+          "entity_id": "EAS-EAST",
+          "production_line_id": "LINE-BF-01",
+          "reading_at": "2026-10-14T08:53:00",
+          "energy_kwh": 5633,
+          "unit_rate_inr": 7.4,
+          "signal": "SPIKE",
+          "currency": "INR"
+        },
+        {
+          "reading_id": "ENG-0002",
+          "entity_id": "EAS-WEST",
+          "production_line_id": "LINE-ROLL-01",
+          "reading_at": "2026-10-14T08:59:00",
+          "energy_kwh": 10739,
+          "unit_rate_inr": 7.4,
+          "signal": "NORMAL",
+          "currency": "INR"
+        },
+        {
+          "reading_id": "ENG-0003",
+          "entity_id": "EAS-WEST",
+          "production_line_id": "LINE-ROLL-02",
+          "reading_at": "2026-10-14T08:37:00",
+          "energy_kwh": 7416,
+          "unit_rate_inr": 7.4,
+          "signal": "SPIKE",
+          "currency": "INR"
+        }
+      ],
+      "duplicate_pk_column": "reading_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "safety_events": {
+      "row_count": 25,
+      "columns": [
+        "safety_event_id",
+        "entity_id",
+        "occurred_at",
+        "event_type",
+        "severity",
+        "status",
+        "description"
+      ],
+      "data_types": {
+        "safety_event_id": "string",
+        "entity_id": "string",
+        "occurred_at": "string",
+        "event_type": "string",
+        "severity": "string",
+        "status": "string",
+        "description": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "safety_event_id": "SAFE-0001",
+          "entity_id": "EAS-WEST",
+          "occurred_at": "2026-10-11T22:00:00",
+          "event_type": "NEAR_MISS",
+          "severity": "HIGH",
+          "status": "INVESTIGATING",
+          "description": "Guard sensor alert"
+        },
+        {
+          "safety_event_id": "SAFE-0002",
+          "entity_id": "EAS-EAST",
+          "occurred_at": "2026-10-13T14:00:00",
+          "event_type": "UNSAFE_CONDITION",
+          "severity": "HIGH",
+          "status": "INVESTIGATING",
+          "description": "Guard sensor alert"
+        },
+        {
+          "safety_event_id": "SAFE-0003",
+          "entity_id": "EAS-EAST",
+          "occurred_at": "2026-10-12T16:00:00",
+          "event_type": "UNSAFE_CONDITION",
+          "severity": "CRITICAL",
+          "status": "CLOSED",
+          "description": "Forklift/pedestrian conflict"
+        }
+      ],
+      "duplicate_pk_column": "safety_event_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "bill_of_materials": {
+      "row_count": 5,
+      "columns": [
+        "bom_line_id",
+        "output_product_id",
+        "input_item_id",
+        "quantity_per_output_unit",
+        "consumption_uom",
+        "version_status"
+      ],
+      "data_types": {
+        "bom_line_id": "string",
+        "output_product_id": "string",
+        "input_item_id": "string",
+        "quantity_per_output_unit": "float",
+        "consumption_uom": "string",
+        "version_status": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "bom_line_id": "BOM-HRC-01",
+          "output_product_id": "PRD-HRC",
+          "input_item_id": "MAT-IRON",
+          "quantity_per_output_unit": 1.45,
+          "consumption_uom": "MT_PER_MT",
+          "version_status": "STANDARD"
+        },
+        {
+          "bom_line_id": "BOM-HRC-02",
+          "output_product_id": "PRD-HRC",
+          "input_item_id": "MAT-COAL",
+          "quantity_per_output_unit": 0.62,
+          "consumption_uom": "MT_PER_MT",
+          "version_status": "STANDARD"
+        },
+        {
+          "bom_line_id": "BOM-CRC-01",
+          "output_product_id": "PRD-CRC",
+          "input_item_id": "PRD-HRC",
+          "quantity_per_output_unit": 1.08,
+          "consumption_uom": "MT_PER_MT",
+          "version_status": "STANDARD"
+        }
+      ],
+      "duplicate_pk_column": "bom_line_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_shifts": {
+      "row_count": 4,
+      "columns": [
+        "shift_id",
+        "entity_id",
+        "start_local",
+        "end_local",
+        "duration_hours",
+        "status"
+      ],
+      "data_types": {
+        "shift_id": "string",
+        "entity_id": "string",
+        "start_local": "string",
+        "end_local": "string",
+        "duration_hours": "integer",
+        "status": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "shift_id": "SHIFT-A",
+          "entity_id": "EAS-EAST",
+          "start_local": "06:00",
+          "end_local": "14:00",
+          "duration_hours": 8,
+          "status": "ACTIVE"
+        },
+        {
+          "shift_id": "SHIFT-B",
+          "entity_id": "EAS-EAST",
+          "start_local": "14:00",
+          "end_local": "22:00",
+          "duration_hours": 8,
+          "status": "ACTIVE"
+        },
+        {
+          "shift_id": "SHIFT-C",
+          "entity_id": "EAS-EAST",
+          "start_local": "22:00",
+          "end_local": "06:00",
+          "duration_hours": 8,
+          "status": "ACTIVE"
+        }
+      ],
+      "duplicate_pk_column": "shift_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "ref_reorder_policies": {
+      "row_count": 55,
+      "columns": [
+        "policy_id",
+        "item_id",
+        "warehouse_id",
+        "reorder_point_qty",
+        "safety_stock_qty",
+        "target_stock_qty",
+        "status"
+      ],
+      "data_types": {
+        "policy_id": "string",
+        "item_id": "string",
+        "warehouse_id": "string",
+        "reorder_point_qty": "integer",
+        "safety_stock_qty": "integer",
+        "target_stock_qty": "integer",
+        "status": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "policy_id": "ROP-001",
+          "item_id": "PRD-HRC",
+          "warehouse_id": "WH-RAW-01",
+          "reorder_point_qty": 2820,
+          "safety_stock_qty": 2497,
+          "target_stock_qty": 1174,
+          "status": "ACTIVE"
+        },
+        {
+          "policy_id": "ROP-002",
+          "item_id": "PRD-HRC",
+          "warehouse_id": "WH-FG-01",
+          "reorder_point_qty": 882,
+          "safety_stock_qty": 4488,
+          "target_stock_qty": 1128,
+          "status": "ACTIVE"
+        },
+        {
+          "policy_id": "ROP-003",
+          "item_id": "PRD-HRC",
+          "warehouse_id": "WH-FG-02",
+          "reorder_point_qty": 2376,
+          "safety_stock_qty": 1359,
+          "target_stock_qty": 1803,
+          "status": "ACTIVE"
+        }
+      ],
+      "duplicate_pk_column": "policy_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "carrier_events": {
+      "row_count": 2,
+      "columns": [
+        "carrier_event_id",
+        "shipment_id",
+        "event_timestamp",
+        "event_type",
+        "description",
+        "source_supplier_id"
+      ],
+      "data_types": {
+        "carrier_event_id": "string",
+        "shipment_id": "string",
+        "event_timestamp": "string",
+        "event_type": "string",
+        "description": "string",
+        "source_supplier_id": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "carrier_event_id": "CE-001",
+          "shipment_id": "SHP-5003",
+          "event_timestamp": "2026-10-14T08:30:00",
+          "event_type": "DEPARTURE_DELAY",
+          "description": "Synthetic carrier event: dispatch slot missed",
+          "source_supplier_id": "SUP-004"
+        },
+        {
+          "carrier_event_id": "CE-002",
+          "shipment_id": "SHP-5004",
+          "event_timestamp": "2026-10-14T08:45:00",
+          "event_type": "ROUTE_CONGESTION",
+          "description": "Synthetic route congestion alert",
+          "source_supplier_id": "SUP-004"
+        }
+      ],
+      "duplicate_pk_column": "carrier_event_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "feed_health": {
+      "row_count": 4,
+      "columns": [
+        "feed_id",
+        "source_name",
+        "last_success_at",
+        "consecutive_failures",
+        "health_status",
+        "max_age_seconds"
+      ],
+      "data_types": {
+        "feed_id": "string",
+        "source_name": "string",
+        "last_success_at": "string",
+        "consecutive_failures": "integer",
+        "health_status": "string",
+        "max_age_seconds": "integer"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "feed_id": "FEED-INVENTORY",
+          "source_name": "PostgreSQL seed",
+          "last_success_at": "2026-10-14T09:00:00",
+          "consecutive_failures": 0,
+          "health_status": "HEALTHY",
+          "max_age_seconds": 300
+        },
+        {
+          "feed_id": "FEED-SUPPLIER",
+          "source_name": "Supplier simulation",
+          "last_success_at": "2026-10-14T09:00:00",
+          "consecutive_failures": 0,
+          "health_status": "HEALTHY",
+          "max_age_seconds": 900
+        },
+        {
+          "feed_id": "FEED-SHIPMENT",
+          "source_name": "Carrier simulation",
+          "last_success_at": "2026-10-14T09:00:00",
+          "consecutive_failures": 0,
+          "health_status": "HEALTHY",
+          "max_age_seconds": 300
+        }
+      ],
+      "duplicate_pk_column": "feed_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "business_rules": {
+      "row_count": 10,
+      "columns": [
+        "rule_id",
+        "domain",
+        "condition_expression",
+        "failure_action",
+        "severity",
+        "automation_mode",
+        "enabled"
+      ],
+      "data_types": {
+        "rule_id": "string",
+        "domain": "string",
+        "condition_expression": "string",
+        "failure_action": "string",
+        "severity": "string",
+        "automation_mode": "string",
+        "enabled": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "rule_id": "RULE-INV-001",
+          "domain": "INVENTORY",
+          "condition_expression": "available_qty >= requested_qty",
+          "failure_action": "If false, raise INVENTORY_SHORTAGE and evaluate reallocation/procurement.",
+          "severity": "HIGH",
+          "automation_mode": "AUTO_RECOMMEND",
+          "enabled": "true"
+        },
+        {
+          "rule_id": "RULE-PROC-001",
+          "domain": "PROCUREMENT",
+          "condition_expression": "supplier.status == ACTIVE and offer.status == ACTIVE and offer.within_validity",
+          "failure_action": "Exclude inactive or expired supplier offers.",
+          "severity": "HIGH",
+          "automation_mode": "AUTO_SELECT_WITHIN_POLICY",
+          "enabled": "true"
+        },
+        {
+          "rule_id": "RULE-FIN-001",
+          "domain": "FINANCE",
+          "condition_expression": "projected_spend <= available_budget and within_delegated_limit",
+          "failure_action": "If false, block auto-approval and create BUDGET_BREACH.",
+          "severity": "CRITICAL",
+          "automation_mode": "HUMAN_APPROVAL_REQUIRED",
+          "enabled": "true"
+        }
+      ],
+      "duplicate_pk_column": "rule_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "scenario_templates": {
+      "row_count": 15,
+      "columns": [
+        "scenario_template_id",
+        "scenario_type",
+        "domain",
+        "description",
+        "linked_reference_id",
+        "base_record_id",
+        "injection_method",
+        "agents_involved",
+        "expected_response",
+        "guardrail"
+      ],
+      "data_types": {
+        "scenario_template_id": "string",
+        "scenario_type": "string",
+        "domain": "string",
+        "description": "string",
+        "linked_reference_id": "string",
+        "base_record_id": "string",
+        "injection_method": "string",
+        "agents_involved": "string",
+        "expected_response": "string",
+        "guardrail": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "scenario_template_id": "TPL-001",
+          "scenario_type": "INVENTORY_SHORTAGE",
+          "domain": "Inventory",
+          "description": "Available stock drops below order requirement.",
+          "linked_reference_id": "HIGH",
+          "base_record_id": "ORD-1042",
+          "injection_method": "inventory_overlay",
+          "agents_involved": "Inventory,Procurement,Supervisor",
+          "expected_response": "Reallocate stock or draft purchase proposal",
+          "guardrail": "No purchase commitment without approval"
+        },
+        {
+          "scenario_template_id": "TPL-002",
+          "scenario_type": "SUPPLIER_UNAVAILABLE",
+          "domain": "Procurement",
+          "description": "Preferred supplier cannot fulfil or fails confirmation.",
+          "linked_reference_id": "HIGH",
+          "base_record_id": "PO-8803",
+          "injection_method": "supplier_status_overlay",
+          "agents_involved": "Procurement,Inventory,Supervisor",
+          "expected_response": "Evaluate eligible alternate supplier",
+          "guardrail": "Never invent supplier capacity or quote"
+        },
+        {
+          "scenario_template_id": "TPL-003",
+          "scenario_type": "BUDGET_BREACH",
+          "domain": "Finance",
+          "description": "Proposed spend exceeds available budget or approval threshold.",
+          "linked_reference_id": "CRITICAL",
+          "base_record_id": "PO-8803",
+          "injection_method": "quote_or_budget_overlay",
+          "agents_involved": "Finance,Procurement,Supervisor",
+          "expected_response": "Block approval; revise proposal or request authorised review",
+          "guardrail": "No automatic spend commitment"
+        }
+      ],
+      "duplicate_pk_column": "scenario_template_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "scenario_instances": {
+      "row_count": 0,
+      "columns": [
+        "scenario_id",
+        "scenario_template_id",
+        "scheduled_at",
+        "created_at",
+        "status",
+        "severity",
+        "linked_order_id",
+        "linked_batch_id",
+        "input_overlay_json",
+        "workflow_run_id",
+        "resolved_at",
+        "resolution_summary",
+        "idempotency_key",
+        "data_mode"
+      ],
+      "data_types": {
+        "scenario_id": "null",
+        "scenario_template_id": "null",
+        "scheduled_at": "null",
+        "created_at": "null",
+        "status": "null",
+        "severity": "null",
+        "linked_order_id": "null",
+        "linked_batch_id": "null",
+        "input_overlay_json": "null",
+        "workflow_run_id": "null",
+        "resolved_at": "null",
+        "resolution_summary": "null",
+        "idempotency_key": "null",
+        "data_mode": "null"
+      },
+      "null_counts": {},
+      "sample_rows": [],
+      "duplicate_pk_column": "scenario_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "agent_runs": {
+      "row_count": 0,
+      "columns": [
+        "agent_run_id",
+        "scenario_id",
+        "workflow_run_id",
+        "agent_name",
+        "started_at",
+        "completed_at",
+        "status",
+        "input_refs_json",
+        "output_json",
+        "evidence_refs_json",
+        "error_code",
+        "model_provider",
+        "model_name",
+        "prompt_version"
+      ],
+      "data_types": {
+        "agent_run_id": "null",
+        "scenario_id": "null",
+        "workflow_run_id": "null",
+        "agent_name": "null",
+        "started_at": "null",
+        "completed_at": "null",
+        "status": "null",
+        "input_refs_json": "null",
+        "output_json": "null",
+        "evidence_refs_json": "null",
+        "error_code": "null",
+        "model_provider": "null",
+        "model_name": "null",
+        "prompt_version": "null"
+      },
+      "null_counts": {},
+      "sample_rows": [],
+      "duplicate_pk_column": "agent_run_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "decisions": {
+      "row_count": 0,
+      "columns": [
+        "decision_id",
+        "scenario_id",
+        "workflow_run_id",
+        "decision_at",
+        "supervisor_summary",
+        "decision_code",
+        "recommended_action",
+        "policy_checks_json",
+        "human_approval_required",
+        "approval_status",
+        "evidence_refs_json",
+        "audit_event_id",
+        "blockchain_anchor_status"
+      ],
+      "data_types": {
+        "decision_id": "null",
+        "scenario_id": "null",
+        "workflow_run_id": "null",
+        "decision_at": "null",
+        "supervisor_summary": "null",
+        "decision_code": "null",
+        "recommended_action": "null",
+        "policy_checks_json": "null",
+        "human_approval_required": "null",
+        "approval_status": "null",
+        "evidence_refs_json": "null",
+        "audit_event_id": "null",
+        "blockchain_anchor_status": "null"
+      },
+      "null_counts": {},
+      "sample_rows": [],
+      "duplicate_pk_column": "decision_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "action_queue": {
+      "row_count": 0,
+      "columns": [
+        "action_id",
+        "scenario_id",
+        "decision_id",
+        "action_type",
+        "target_entity_id",
+        "payload_json",
+        "status",
+        "requires_approval",
+        "approved_by",
+        "created_at",
+        "executed_at",
+        "result_json",
+        "idempotency_key"
+      ],
+      "data_types": {
+        "action_id": "null",
+        "scenario_id": "null",
+        "decision_id": "null",
+        "action_type": "null",
+        "target_entity_id": "null",
+        "payload_json": "null",
+        "status": "null",
+        "requires_approval": "null",
+        "approved_by": "null",
+        "created_at": "null",
+        "executed_at": "null",
+        "result_json": "null",
+        "idempotency_key": "null"
+      },
+      "null_counts": {},
+      "sample_rows": [],
+      "duplicate_pk_column": "action_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "event_log": {
+      "row_count": 0,
+      "columns": [
+        "event_id",
+        "event_timestamp",
+        "event_type",
+        "entity_type",
+        "entity_id",
+        "scenario_id",
+        "workflow_run_id",
+        "actor_type",
+        "actor_id",
+        "status",
+        "reason_code",
+        "evidence_refs_json",
+        "payload_hash",
+        "previous_event_hash",
+        "source_channel"
+      ],
+      "data_types": {
+        "event_id": "null",
+        "event_timestamp": "null",
+        "event_type": "null",
+        "entity_type": "null",
+        "entity_id": "null",
+        "scenario_id": "null",
+        "workflow_run_id": "null",
+        "actor_type": "null",
+        "actor_id": "null",
+        "status": "null",
+        "reason_code": "null",
+        "evidence_refs_json": "null",
+        "payload_hash": "null",
+        "previous_event_hash": "null",
+        "source_channel": "null"
+      },
+      "null_counts": {},
+      "sample_rows": [],
+      "duplicate_pk_column": "event_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "blockchain_anchors": {
+      "row_count": 0,
+      "columns": [
+        "anchor_id",
+        "event_id_or_batch_id",
+        "payload_hash",
+        "chain_name",
+        "chain_id",
+        "contract_address",
+        "transaction_hash",
+        "block_number",
+        "anchored_at",
+        "confirmation_status",
+        "verification_status",
+        "error_message"
+      ],
+      "data_types": {
+        "anchor_id": "null",
+        "event_id_or_batch_id": "null",
+        "payload_hash": "null",
+        "chain_name": "null",
+        "chain_id": "null",
+        "contract_address": "null",
+        "transaction_hash": "null",
+        "block_number": "null",
+        "anchored_at": "null",
+        "confirmation_status": "null",
+        "verification_status": "null",
+        "error_message": "null"
+      },
+      "null_counts": {},
+      "sample_rows": [],
+      "duplicate_pk_column": "anchor_id",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "simulation_config": {
+      "row_count": 12,
+      "columns": [
+        "config_key",
+        "config_value",
+        "description"
+      ],
+      "data_types": {
+        "config_key": "string",
+        "config_value": "string",
+        "description": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "config_key": "SIMULATION_ENABLED",
+          "config_value": "true",
+          "description": "Enable scheduler in demo mode."
+        },
+        {
+          "config_key": "SCENARIO_INTERVAL_SECONDS",
+          "config_value": "300",
+          "description": "Generate one new situation every five minutes."
+        },
+        {
+          "config_key": "SCENARIO_MODE",
+          "config_value": "synthetic_overlay",
+          "description": "Inject temporary changes without overwriting master seed records."
+        }
+      ],
+      "duplicate_pk_column": "config_key",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "data_dictionary": {
+      "row_count": 37,
+      "columns": [
+        "sheet_name",
+        "description"
+      ],
+      "data_types": {
+        "sheet_name": "string",
+        "description": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "sheet_name": "ref_entities",
+          "description": "Company entities, plants and operating sites."
+        },
+        {
+          "sheet_name": "ref_departments",
+          "description": "Departments that own operational workflows and exceptions."
+        },
+        {
+          "sheet_name": "ref_products",
+          "description": "Finished steel products, raw materials, consumables and utilities."
+        }
+      ],
+      "duplicate_pk_column": "sheet_name",
+      "duplicate_pk_count": 0,
+      "duplicate_pk_values": [],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": []
+    },
+    "column_dictionary": {
+      "row_count": 305,
+      "columns": [
+        "sheet_name",
+        "column_name",
+        "data_type",
+        "key_role",
+        "description"
+      ],
+      "data_types": {
+        "sheet_name": "string",
+        "column_name": "string",
+        "data_type": "string",
+        "key_role": "string",
+        "description": "string"
+      },
+      "null_counts": {},
+      "sample_rows": [
+        {
+          "sheet_name": "ref_entities",
+          "column_name": "entity_id",
+          "data_type": "object",
+          "key_role": "PK",
+          "description": "Company entities, plants and operating sites. Field: entity_id."
+        },
+        {
+          "sheet_name": "ref_entities",
+          "column_name": "entity_name",
+          "data_type": "object",
+          "key_role": "Attribute",
+          "description": "Company entities, plants and operating sites. Field: entity_name."
+        },
+        {
+          "sheet_name": "ref_entities",
+          "column_name": "entity_type",
+          "data_type": "object",
+          "key_role": "Attribute",
+          "description": "Company entities, plants and operating sites. Field: entity_type."
+        }
+      ],
+      "duplicate_pk_column": "sheet_name",
+      "duplicate_pk_count": 37,
+      "duplicate_pk_values": [
+        "ref_entities",
+        "ref_departments",
+        "ref_products",
+        "ref_warehouses",
+        "ref_suppliers",
+        "ref_supplier_offers",
+        "ref_roles",
+        "ref_users",
+        "inventory",
+        "orders"
+      ],
+      "negative_numeric_count": 0,
+      "out_of_range_pct_count": 0,
+      "warnings": [
+        "Duplicate values in first column (sheet_name): 37 duplicated values"
+      ]
+    }
+  }
+}

@@ -1,0 +1,502 @@
+{
+  "generated_at": "2026-10-14T11:29:29.471294+00:00",
+  "workbook_path": "d:\\MajorProject\\EnterpriseAI\\project_reference\\enterprise_ai_industrial_dataset_v2.xlsx",
+  "sheets_inspected": 30,
+  "total_records_inspected": 1315,
+  "summary": {
+    "critical": 0,
+    "warning": 73,
+    "info": 0
+  },
+  "sheets": [
+    {
+      "sheet_name": "ref_entities",
+      "row_count": 4,
+      "column_count": 5,
+      "columns": [
+        "entity_id",
+        "entity_name",
+        "entity_type",
+        "country",
+        "status"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_departments",
+      "row_count": 11,
+      "column_count": 2,
+      "columns": [
+        "department_id",
+        "department_name"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_products",
+      "row_count": 11,
+      "column_count": 6,
+      "columns": [
+        "product_id",
+        "product_name",
+        "product_category",
+        "base_uom",
+        "reference_unit_cost_inr",
+        "status"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_warehouses",
+      "row_count": 5,
+      "column_count": 7,
+      "columns": [
+        "warehouse_id",
+        "warehouse_name",
+        "entity_id",
+        "location_label",
+        "capacity_units",
+        "warehouse_type",
+        "status"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_suppliers",
+      "row_count": 8,
+      "column_count": 7,
+      "columns": [
+        "supplier_id",
+        "supplier_name",
+        "supplier_category",
+        "status",
+        "risk_band",
+        "historical_on_time_rate",
+        "default_lead_time_hours"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_supplier_offers",
+      "row_count": 6,
+      "column_count": 11,
+      "columns": [
+        "offer_id",
+        "supplier_id",
+        "item_id",
+        "unit_price_inr",
+        "price_uom",
+        "lead_time_hours",
+        "max_available_qty",
+        "on_time_rate",
+        "effective_from",
+        "effective_to",
+        "offer_status"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_roles",
+      "row_count": 7,
+      "column_count": 3,
+      "columns": [
+        "role_id",
+        "role_name",
+        "permissions_summary"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_users",
+      "row_count": 30,
+      "column_count": 5,
+      "columns": [
+        "user_id",
+        "display_name",
+        "role_id",
+        "entity_id",
+        "status"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_production_lines",
+      "row_count": 5,
+      "column_count": 7,
+      "columns": [
+        "production_line_id",
+        "line_name",
+        "entity_id",
+        "process_stage",
+        "status",
+        "utilisation_pct",
+        "daily_capacity_mt"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_budgets",
+      "row_count": 4,
+      "column_count": 10,
+      "columns": [
+        "budget_id",
+        "entity_id",
+        "cost_center",
+        "period",
+        "currency",
+        "approved_limit_inr",
+        "committed_spend_inr",
+        "available_budget_inr",
+        "single_action_approval_threshold_inr",
+        "status"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_supplier_contracts",
+      "row_count": 4,
+      "column_count": 9,
+      "columns": [
+        "contract_id",
+        "supplier_id",
+        "contract_category",
+        "effective_from",
+        "effective_to",
+        "contract_limit_inr",
+        "currency",
+        "status",
+        "owner_department"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_shifts",
+      "row_count": 4,
+      "column_count": 6,
+      "columns": [
+        "shift_id",
+        "entity_id",
+        "start_local",
+        "end_local",
+        "duration_hours",
+        "status"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "ref_reorder_policies",
+      "row_count": 55,
+      "column_count": 7,
+      "columns": [
+        "policy_id",
+        "item_id",
+        "warehouse_id",
+        "reorder_point_qty",
+        "safety_stock_qty",
+        "target_stock_qty",
+        "status"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "bill_of_materials",
+      "row_count": 5,
+      "column_count": 6,
+      "columns": [
+        "bom_line_id",
+        "output_product_id",
+        "input_item_id",
+        "quantity_per_output_unit",
+        "consumption_uom",
+        "version_status"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "business_rules",
+      "row_count": 10,
+      "column_count": 7,
+      "columns": [
+        "rule_id",
+        "domain",
+        "condition_expression",
+        "failure_action",
+        "severity",
+        "automation_mode",
+        "enabled"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "inventory",
+      "row_count": 150,
+      "column_count": 9,
+      "columns": [
+        "inventory_id",
+        "item_id",
+        "warehouse_id",
+        "on_hand_qty",
+        "reserved_qty",
+        "available_qty",
+        "uom",
+        "as_of_timestamp",
+        "stock_signal"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "orders",
+      "row_count": 200,
+      "column_count": 9,
+      "columns": [
+        "order_id",
+        "customer_ref",
+        "entity_id",
+        "created_at",
+        "required_delivery_at",
+        "status",
+        "priority",
+        "currency",
+        "external_reference"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "order_lines",
+      "row_count": 200,
+      "column_count": 6,
+      "columns": [
+        "order_line_id",
+        "order_id",
+        "product_id",
+        "requested_qty",
+        "unit_price_inr",
+        "uom"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "production_batches",
+      "row_count": 60,
+      "column_count": 9,
+      "columns": [
+        "batch_id",
+        "production_line_id",
+        "output_product_id",
+        "planned_output_qty_mt",
+        "actual_output_qty_mt",
+        "planned_start",
+        "planned_end",
+        "status",
+        "risk_flag"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "shipments",
+      "row_count": 120,
+      "column_count": 10,
+      "columns": [
+        "shipment_id",
+        "order_id",
+        "origin_warehouse_id",
+        "destination_warehouse_id",
+        "carrier_supplier_id",
+        "planned_dispatch_at",
+        "estimated_arrival_at",
+        "status",
+        "transport_mode",
+        "risk_flag"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "purchase_orders",
+      "row_count": 3,
+      "column_count": 10,
+      "columns": [
+        "po_id",
+        "supplier_id",
+        "item_id",
+        "quantity",
+        "unit_cost_inr",
+        "total_cost_inr",
+        "currency",
+        "created_at",
+        "status",
+        "budget_id"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "goods_receipts",
+      "row_count": 2,
+      "column_count": 9,
+      "columns": [
+        "grn_id",
+        "po_id",
+        "supplier_id",
+        "item_id",
+        "received_qty",
+        "accepted_qty",
+        "received_at",
+        "inspection_status",
+        "quality_certificate_ref"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "quality_events",
+      "row_count": 40,
+      "column_count": 8,
+      "columns": [
+        "quality_event_id",
+        "batch_id",
+        "product_id",
+        "detected_at",
+        "defect_code",
+        "severity",
+        "status",
+        "recommended_control"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "maintenance_assets",
+      "row_count": 35,
+      "column_count": 8,
+      "columns": [
+        "asset_id",
+        "production_line_id",
+        "asset_name",
+        "last_signal_at",
+        "failure_risk_score",
+        "health_status",
+        "next_maintenance_due",
+        "recommended_action"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "maintenance_work_orders",
+      "row_count": 50,
+      "column_count": 8,
+      "columns": [
+        "work_order_id",
+        "asset_id",
+        "work_type",
+        "status",
+        "created_at",
+        "scheduled_for",
+        "priority",
+        "assigned_team_or_vendor"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "energy_readings",
+      "row_count": 240,
+      "column_count": 8,
+      "columns": [
+        "reading_id",
+        "entity_id",
+        "production_line_id",
+        "reading_at",
+        "energy_kwh",
+        "unit_rate_inr",
+        "signal",
+        "currency"
+      ],
+      "findings": [
+        {
+          "rule": "valid_status",
+          "severity": "WARNING",
+          "column": "signal",
+          "count": 69,
+          "examples": [
+            "HIGH_USAGE",
+            "HIGH_USAGE",
+            "HIGH_USAGE",
+            "HIGH_USAGE",
+            "HIGH_USAGE"
+          ]
+        }
+      ]
+    },
+    {
+      "sheet_name": "safety_events",
+      "row_count": 25,
+      "column_count": 7,
+      "columns": [
+        "safety_event_id",
+        "entity_id",
+        "occurred_at",
+        "event_type",
+        "severity",
+        "status",
+        "description"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "carrier_events",
+      "row_count": 2,
+      "column_count": 6,
+      "columns": [
+        "carrier_event_id",
+        "shipment_id",
+        "event_timestamp",
+        "event_type",
+        "description",
+        "source_supplier_id"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "feed_health",
+      "row_count": 4,
+      "column_count": 6,
+      "columns": [
+        "feed_id",
+        "source_name",
+        "last_success_at",
+        "consecutive_failures",
+        "health_status",
+        "max_age_seconds"
+      ],
+      "findings": []
+    },
+    {
+      "sheet_name": "scenario_templates",
+      "row_count": 15,
+      "column_count": 10,
+      "columns": [
+        "scenario_template_id",
+        "scenario_type",
+        "domain",
+        "description",
+        "linked_reference_id",
+        "base_record_id",
+        "injection_method",
+        "agents_involved",
+        "expected_response",
+        "guardrail"
+      ],
+      "findings": [
+        {
+          "rule": "valid_status",
+          "severity": "WARNING",
+          "column": "domain",
+          "count": 4,
+          "examples": [
+            "Cross-functional",
+            "General",
+            "Production",
+            "Data Quality"
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": []
+}
