@@ -36,17 +36,22 @@ def workbook_path() -> Path:
     return WORKBOOK_PATH
 
 
-@pytest.fixture(scope="session")
-def test_database_url() -> str:
-    url = get_database_url("TEST_DATABASE_URL") or os.environ.get("TEST_DATABASE_URL")
+def validate_test_database_url(url: str | None) -> str:
+    """Validate that the database URL is explicitly a disposable test database."""
     if not url:
         pytest.skip("TEST_DATABASE_URL is not set; skipping PostgreSQL integration tests")
     if not _is_disposable_test_url(url):
-        pytest.skip(
-            "TEST_DATABASE_URL database name must contain 'test' so tests cannot "
-            "run against a development database"
+        pytest.fail(
+            "SAFETY VIOLATION: TEST_DATABASE_URL database name must contain 'test' so tests cannot "
+            f"run against non-test database '{urlparse(url).path}'"
         )
     return url
+
+
+@pytest.fixture(scope="session")
+def test_database_url() -> str:
+    url = get_database_url("TEST_DATABASE_URL") or os.environ.get("TEST_DATABASE_URL")
+    return validate_test_database_url(url)
 
 
 @pytest.fixture

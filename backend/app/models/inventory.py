@@ -9,6 +9,7 @@ class InventoryItem(BaseModel):
     inventory_id: str
     name: str
     product_name: str
+    productName: Optional[str] = None
     item_id: str
     product_id: str
     product_category: Optional[str] = None
@@ -16,6 +17,7 @@ class InventoryItem(BaseModel):
     warehouse_name: Optional[str] = None
     warehouse_type: Optional[str] = None
     quantity: float
+    currentStock: Optional[float] = None
     on_hand_qty: float
     reserved_qty: float
     available_qty: float
