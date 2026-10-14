@@ -63,9 +63,9 @@ Workbook JSON headers such as `input_overlay_json` map to JSONB columns without 
 
 | Source | Destination | Rule |
 |---|---|---|
-| scenario_templates.linked_reference_id | severity | Values are HIGH/CRITICAL/MEDIUM/LOW |
-| (same column) | linked_reference_id | Set NULL; do not copy severity into the FK |
-| (absent) | enabled | Default TRUE |
+| scenario_templates.linked_reference_id | severity | **DQ-01:** the column exists in the workbook but stores severity tokens (HIGH/CRITICAL/MEDIUM/LOW), not a foreign key. Values are copied to `severity`. |
+| (same column) | linked_reference_id | Set NULL for all 15 rows. No genuine linked-reference IDs exist; nothing is invented. |
+| enabled (column absent) | enabled | **DQ-02:** workbook has no `enabled` column. Import defaults TRUE. |
 | ISO timestamps without offset | TIMESTAMPTZ | Treated as UTC |
 | `*_inr` integers | NUMERIC(18,2) | Direct cast |
 | business_rules.enabled | BOOLEAN | `"true"`/`"false"` strings |

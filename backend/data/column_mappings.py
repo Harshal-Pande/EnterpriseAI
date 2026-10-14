@@ -825,7 +825,12 @@ EXPECTED_SOURCE_ROW_COUNTS: Dict[str, int] = {
 }
 
 
-# Observed source values plus future-phase statuses required by CHECK constraints.
+# Status allowlists used by workbook validation and SQL CHECK constraints.
+# - Values present in the v2 workbook are included because they occur in source data
+#   (e.g. energy_readings.signal HIGH_USAGE, scenario_templates.domain Production).
+# - Additional values (COMPLETED, CANCELLED, DELIVERED, STOPPED, …) are forward-
+#   compatible statuses for later phases. They do not hide current warnings: they
+#   are unused in the seed. Unknown tokens still fail validation.
 STATUS_ALLOWLISTS: Dict[Tuple[str, str], Set[str]] = {
     ("ref_entities", "status"): {"ACTIVE", "INACTIVE"},
     ("ref_products", "status"): {"ACTIVE", "INACTIVE", "OBSOLETE"},

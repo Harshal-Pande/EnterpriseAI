@@ -4,8 +4,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.integration
-
 from column_mappings import EXPECTED_SOURCE_ROW_COUNTS, SHEET_MAPPINGS  # noqa: E402
 from load_seed_data import load_workbook, sheet_to_records  # noqa: E402
 from migrate import run  # noqa: E402
@@ -17,6 +15,7 @@ def _prepare(monkeypatch, test_database_url):
     assert run(dry_run=False, env_var="TEST_DATABASE_URL") == 0
 
 
+@pytest.mark.integration
 def test_seed_row_counts_and_dq01(test_conn, test_database_url, monkeypatch, workbook_path):
     import openpyxl
 
@@ -41,6 +40,7 @@ def test_seed_row_counts_and_dq01(test_conn, test_database_url, monkeypatch, wor
         assert cur.fetchone()[0] == 0
 
 
+@pytest.mark.integration
 def test_seed_is_idempotent(test_conn, test_database_url, monkeypatch, workbook_path):
     import openpyxl
 
@@ -60,6 +60,7 @@ def test_seed_is_idempotent(test_conn, test_database_url, monkeypatch, workbook_
     assert second["totals"]["updated"] == 0
 
 
+@pytest.mark.integration
 def test_database_validation_report(test_conn, test_database_url, monkeypatch, workbook_path):
     import openpyxl
 
@@ -74,6 +75,7 @@ def test_database_validation_report(test_conn, test_database_url, monkeypatch, w
     assert report["pass"] is True
 
 
+@pytest.mark.integration
 def test_duplicate_primary_key_is_skipped_not_duplicated(
     test_conn, test_database_url, monkeypatch, workbook_path
 ):
@@ -98,6 +100,7 @@ def test_duplicate_primary_key_is_skipped_not_duplicated(
     test_conn.commit()
 
 
+@pytest.mark.integration
 def test_invalid_record_rolls_back_in_transaction(test_conn, test_database_url, monkeypatch):
     import psycopg2
 

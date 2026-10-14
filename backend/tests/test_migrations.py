@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from migrate import list_migration_files, run, version_of
+from migrate import checksum_of, list_migration_files, run, version_of
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -28,6 +28,14 @@ def test_dry_run_without_database_url(monkeypatch, capsys):
     assert code == 0
     assert "001_operational_schema.sql" in captured.out
     assert "DRY-RUN" in captured.out
+
+
+def test_migration_checksums_are_stable_and_distinct():
+    files = list_migration_files()
+    digests = [checksum_of(p) for p in files]
+    assert len(digests) == len(set(digests))
+    assert all(len(d) == 64 for d in digests)
+    assert checksum_of(files[0]) == checksum_of(files[0])
 
 
 def test_apply_without_database_url_fails(monkeypatch):

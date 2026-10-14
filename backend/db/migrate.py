@@ -11,6 +11,7 @@ Never drops or resets an existing database. Repeated runs skip applied versions.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 
@@ -30,21 +31,32 @@ def list_migration_files() -> list[Path]:
     return sorted(p for p in MIGRATIONS_DIR.glob("*.sql") if p.is_file())
 
 
+def checksum_of(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def ensure_tracking_table(cur) -> None:
     cur.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {TRACKING_TABLE} (
             version TEXT PRIMARY KEY,
             filename TEXT NOT NULL,
+            checksum TEXT NOT NULL,
             applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
         """
     )
+    cur.execute(
+        f"ALTER TABLE {TRACKING_TABLE} ADD COLUMN IF NOT EXISTS checksum TEXT"
+    )
 
 
-def applied_versions(cur) -> set[str]:
-    cur.execute(f"SELECT version FROM {TRACKING_TABLE}")
-    return {row[0] for row in cur.fetchall()}
+def applied_records(cur) -> dict[str, str]:
+    """Return {version: checksum} for applied migrations. Missing checksum → empty string."""
+    cur.execute(
+        f"SELECT version, COALESCE(checksum, '') FROM {TRACKING_TABLE}"
+    )
+    return {row[0]: row[1] for row in cur.fetchall()}
 
 
 def version_of(path: Path) -> str:
@@ -73,27 +85,65 @@ def run(dry_run: bool = False, env_var: str = "DATABASE_URL") -> int:
         return 0
 
     conn = connect(env_var)
-    applied: set[str] = set()
+    applied: dict[str, str] = {}
     try:
-        with conn.cursor() as cur:
-            ensure_tracking_table(cur)
-        conn.commit()
-        with conn.cursor() as cur:
-            applied = applied_versions(cur)
+        if dry_run:
+            # Do not CREATE/ALTER tracking tables during dry-run.
+            try:
+                with conn.cursor() as cur:
+                    applied = applied_records(cur)
+                conn.rollback()
+            except Exception:
+                conn.rollback()
+                applied = {}
+                print(
+                    "DRY-RUN: tracking table not present; treating all files as pending."
+                )
+        else:
+            with conn.cursor() as cur:
+                ensure_tracking_table(cur)
+            conn.commit()
+            with conn.cursor() as cur:
+                applied = applied_records(cur)
     except Exception:
         conn.rollback()
         conn.close()
         raise
 
-    pending = [p for p in files if version_of(p) not in applied]
-    skipped = [p for p in files if version_of(p) in applied]
+    checksum_errors = []
+    pending = []
+    skipped = []
+    for path in files:
+        ver = version_of(path)
+        current = checksum_of(path)
+        if ver in applied:
+            stored = applied[ver]
+            if stored and stored != current:
+                checksum_errors.append(
+                    f"{path.name}: applied checksum {stored} != file checksum {current}"
+                )
+            skipped.append(path)
+        else:
+            pending.append(path)
+
+    if checksum_errors:
+        print("ERROR: applied migration file(s) have changed on disk:", file=sys.stderr)
+        for msg in checksum_errors:
+            print(f"  {msg}", file=sys.stderr)
+        print(
+            "Refusing to skip or re-apply a modified migration. "
+            "Add a new numbered SQL file instead of editing an applied one.",
+            file=sys.stderr,
+        )
+        conn.close()
+        return 1
 
     if dry_run:
         print("\nDRY-RUN: no SQL will be executed.")
         for path in skipped:
-            print(f"  SKIP     {path.name} (already applied)")
+            print(f"  SKIP     {path.name} (already applied, checksum match)")
         for path in pending:
-            print(f"  APPLY    {path.name}")
+            print(f"  APPLY    {path.name}  checksum={checksum_of(path)[:12]}…")
         if not pending:
             print("  (nothing pending)")
         conn.close()
@@ -101,7 +151,7 @@ def run(dry_run: bool = False, env_var: str = "DATABASE_URL") -> int:
 
     try:
         for path in skipped:
-            print(f"SKIP  {path.name} (already applied)")
+            print(f"SKIP  {path.name} (already applied, checksum match)")
 
         if not pending:
             print("No pending migrations.")
@@ -109,16 +159,18 @@ def run(dry_run: bool = False, env_var: str = "DATABASE_URL") -> int:
 
         for path in pending:
             sql = path.read_text(encoding="utf-8")
+            digest = checksum_of(path)
             print(f"APPLY {path.name} ...")
             try:
                 with conn.cursor() as cur:
                     cur.execute(sql)
                     cur.execute(
-                        f"INSERT INTO {TRACKING_TABLE} (version, filename) VALUES (%s, %s)",
-                        (version_of(path), path.name),
+                        f"INSERT INTO {TRACKING_TABLE} (version, filename, checksum) "
+                        f"VALUES (%s, %s, %s)",
+                        (version_of(path), path.name, digest),
                     )
                 conn.commit()
-                print(f"  OK    {path.name}")
+                print(f"  OK    {path.name} checksum={digest[:12]}…")
             except Exception as exc:  # noqa: BLE001
                 conn.rollback()
                 print(f"  FAIL  {path.name}: {exc}", file=sys.stderr)

@@ -151,26 +151,17 @@ def load_workbook(wb, conn, dry_run: bool) -> dict[str, Any]:
                     pk_sets[table].add(key)
         else:
             sql = insert_sql(table, dest_columns, pk_col)
-            try:
-                with conn.cursor() as cur:
-                    for dest in converted_rows:
-                        key = str(dest[pk_col])
-                        already = key in pk_sets[table]
-                        values = [dest.get(col) for col in dest_columns]
-                        cur.execute(sql, values)
-                        if cur.rowcount == 1:
-                            inserted += 1
-                            pk_sets[table].add(key)
-                        else:
-                            skipped += 1
-                            pk_sets[table].add(key)
-                            if not already:
-                                # Conflict with a row we did not previously index.
-                                pass
-                conn.commit()
-            except Exception:
-                conn.rollback()
-                raise
+            with conn.cursor() as cur:
+                for dest in converted_rows:
+                    key = str(dest[pk_col])
+                    values = [dest.get(col) for col in dest_columns]
+                    cur.execute(sql, values)
+                    if cur.rowcount == 1:
+                        inserted += 1
+                        pk_sets[table].add(key)
+                    else:
+                        skipped += 1
+                        pk_sets[table].add(key)
 
         expected = EXPECTED_SOURCE_ROW_COUNTS.get(sheet_name)
         summary = {
@@ -199,6 +190,12 @@ def load_workbook(wb, conn, dry_run: bool) -> dict[str, Any]:
         if rejected_examples:
             for ex in rejected_examples:
                 print(f"    reject: {ex}")
+
+    if conn is not None and not dry_run:
+        if totals["rejected"] > 0:
+            conn.rollback()
+        else:
+            conn.commit()
 
     return {"tables": summaries, "totals": totals, "dry_run": dry_run}
 
@@ -229,6 +226,10 @@ def main() -> None:
 
     try:
         result = load_workbook(wb, conn, dry_run=args.dry_run)
+    except Exception:
+        if conn is not None:
+            conn.rollback()
+        raise
     finally:
         wb.close()
         if conn is not None:

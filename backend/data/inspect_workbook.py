@@ -105,11 +105,14 @@ def inspect_sheet(ws):
             # Check out-of-range percentages - column name heuristic
             col_lower = col.lower()
             if isinstance(val, (int, float)) and not isinstance(val, bool):
-                if any(kw in col_lower for kw in ["pct", "percent", "utilisation", "utilization"]):
-                    # Workbook stores percentages as 0–1 fractions (e.g. 0.93).
-                    if val > 1 or val < 0:
-                        out_of_range_pct += 1
-                elif any(kw in col_lower for kw in ["rate", "score"]):
+                # Only 0–1 fraction columns. Do not match unit_rate_inr (INR/kWh).
+                fraction_cols = {
+                    "utilisation_pct",
+                    "historical_on_time_rate",
+                    "on_time_rate",
+                    "failure_risk_score",
+                }
+                if col_lower in fraction_cols or col_lower.endswith("_pct"):
                     if val > 1 or val < 0:
                         out_of_range_pct += 1
 
