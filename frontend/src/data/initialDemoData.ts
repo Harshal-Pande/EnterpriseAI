@@ -267,7 +267,9 @@ export const INITIAL_AUDIT_EVENTS: AuditEvent[] = [
     actor: 'Customer Portal',
     orderId: 'ORD-1042',
     timestamp: '16:42:08.102',
-    status: 'VERIFIED',
+    // SIMULATED — no blockchain transaction has been submitted.
+    // Real on-chain anchoring is deferred to Phase 7.
+    status: 'SIMULATED',
     txHash: '0x7f83a91c2049e88b1',
     details: 'Order ORD-1042 initialized for 120 units WP-800'
   },
@@ -278,7 +280,7 @@ export const INITIAL_AUDIT_EVENTS: AuditEvent[] = [
     actor: 'Supervisor Agent',
     orderId: 'ORD-1042',
     timestamp: '16:42:09.410',
-    status: 'VERIFIED',
+    status: 'SIMULATED',
     txHash: '0x3a88f71e9902d1442',
     details: 'Workflow graph initialized. Assigned to sub-agents.'
   },
@@ -289,7 +291,7 @@ export const INITIAL_AUDIT_EVENTS: AuditEvent[] = [
     actor: 'Inventory Agent',
     orderId: 'ORD-1042',
     timestamp: '16:42:10.825',
-    status: 'VERIFIED',
+    status: 'SIMULATED',
     txHash: '0x9b41c88d1033f2a13',
     details: 'Warehouse check complete: Stock shortfall 78 units.'
   },
@@ -300,7 +302,7 @@ export const INITIAL_AUDIT_EVENTS: AuditEvent[] = [
     actor: 'Procurement Agent',
     orderId: 'ORD-1042',
     timestamp: '16:42:16.090',
-    status: 'VERIFIED',
+    status: 'SIMULATED',
     txHash: '0x1c55d00a4421b9874',
     details: 'Supplier B selected (Quote: ₹6,600/unit, 2-day delivery)'
   },
@@ -311,7 +313,7 @@ export const INITIAL_AUDIT_EVENTS: AuditEvent[] = [
     actor: 'Finance Agent',
     orderId: 'ORD-1042',
     timestamp: '16:42:18.512',
-    status: 'VERIFIED',
+    status: 'SIMULATED',
     txHash: '0x8e22c99b1190a3315',
     details: 'Budget reserve approved: ₹7,92,000 sanctioned.'
   }

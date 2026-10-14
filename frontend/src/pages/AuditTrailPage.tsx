@@ -50,9 +50,9 @@ export const AuditTrailPage: React.FC = () => {
           },
           {
             label: 'Smart Contract Status',
-            value: 'CONSENSUS',
-            sub:   'Contract 0x7f83…a91c',
-            color: '#10B981',
+            value: 'NOT DEPLOYED',
+            sub:   'Phase 7 — pending testnet deployment',
+            color: '#94A3B8',
             icon:  <Database className="w-4 h-4" />,
           },
         ].map(({ label, value, sub, color, icon }) => (
@@ -116,9 +116,10 @@ export const AuditTrailPage: React.FC = () => {
                       <span className="font-mono font-bold text-sm text-slate-200">Block #{evt.blockNumber}</span>
                       <span
                         className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
-                        style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.25)' }}
+                        style={{ background: 'rgba(99,102,241,0.1)', color: '#A5B4FC', border: '1px solid rgba(99,102,241,0.25)' }}
+                        title="No blockchain transaction has been submitted. This record is a simulated demo event."
                       >
-                        <ShieldCheck className="w-3 h-3" /> VERIFIED
+                        <ShieldCheck className="w-3 h-3" /> SIMULATED
                       </span>
                     </div>
                     <span className="text-[10px] font-mono text-slate-600">{evt.timestamp}</span>

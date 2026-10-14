@@ -118,7 +118,9 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
       actor,
       orderId: activeOrder.id,
       timestamp: timeStr,
-      status: 'VERIFIED',
+      // 'SIMULATED' — no blockchain transaction has been submitted.
+      // Real on-chain anchoring is deferred to Phase 7.
+      status: 'SIMULATED',
       txHash: hash,
       details
     };

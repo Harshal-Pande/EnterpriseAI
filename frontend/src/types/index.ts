@@ -93,7 +93,12 @@ export interface AuditEvent {
   actor: string;
   orderId: string;
   timestamp: string;
-  status: 'VERIFIED' | 'PENDING';
+  /**
+   * 'SIMULATED' — local demo event, no blockchain transaction submitted.
+   * 'PENDING'    — transaction submitted, awaiting on-chain confirmation.
+   * 'VERIFIED'   — on-chain receipt confirmed (Phase 7+).
+   */
+  status: 'SIMULATED' | 'PENDING' | 'VERIFIED';
   txHash: string;
   details: string;
 }

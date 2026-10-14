@@ -1,8 +1,51 @@
+# Enterprise AI Mesh — backend Python dependencies
+#
+# DEPENDENCY ASSESSMENT (Phase 0.5 hygiene pass — 2026-10-14)
+# ------------------------------------------------------------
+# The pins below were set at project start. The globally-installed
+# versions in the development environment are newer than these pins
+# (fastapi 0.116.1, uvicorn 0.35.0, pydantic 2.11.7).
+#
+# Current status: imports succeed and the application starts with
+# the installed versions. The pinned versions have NOT been updated
+# because:
+#   1. No automated test suite exists yet to validate compatibility.
+#   2. Changing pins without a virtual environment would not change
+#      what is actually loaded at runtime.
+#
+# RECOMMENDED ACTION before Phase 1:
+#   a) Create a virtual environment:
+#        python -m venv .venv && .venv\Scripts\activate  (Windows)
+#        pip install -r requirements.txt
+#   b) Confirm the application starts within the venv.
+#   c) Update the pins to match verified working versions, e.g.:
+#        fastapi==0.116.1
+#        uvicorn[standard]==0.35.0
+#        pydantic==2.11.7
+#   d) Add pytest and httpx for testing:
+#        pytest==8.x.x
+#        httpx==0.x.x   (for FastAPI TestClient)
+#
+# __init__.py FILES:
+#   The current application imports correctly without __init__.py
+#   files when run from the `backend/` directory (confirmed by
+#   Phase 0 baseline check). __init__.py files ARE required for:
+#     - pytest discovery when invoked from outside `backend/`
+#     - Docker / packaging where the working directory differs
+#     - Absolute package imports in future integration code
+#   Decision: add __init__.py files in Phase 1 when the test
+#   infrastructure is set up, not as a blind pre-emptive change.
+#
+# ------------------------------------------------------------
+
 fastapi==0.110.0
 uvicorn==0.29.0
 pydantic==2.6.4
-# langgraph==0.0.30
-# langchain==0.1.13
-# neo4j==5.18.0
-# psycopg2-binary==2.9.9
-# web3==6.15.1
+
+# Optional integrations — uncomment and pin when the relevant
+# phase begins and a virtual environment has been validated.
+# langgraph==0.0.30       # Phase 4 — real agent orchestration
+# langchain==0.1.13       # Phase 4
+# neo4j==5.18.0           # Phase 8 — knowledge graph
+# psycopg2-binary==2.9.9  # Phase 2 — PostgreSQL
+# web3==6.15.1            # Phase 7 — blockchain (verify testnet support first)

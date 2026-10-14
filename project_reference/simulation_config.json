@@ -1,0 +1,35 @@
+{
+  "project": "Enterprise AI Supply Chain Control Room",
+  "dataset_version": "2.0",
+  "company": "Eastern Alloy & Steel (fictional; not Tata Steel operational data)",
+  "scenario_interval_seconds": 300,
+  "scenario_mode": "synthetic_overlay",
+  "max_open_scenarios": 3,
+  "max_concurrent_workflows": 2,
+  "automatic_external_actions": false,
+  "auto_execute_low_risk_reversible_actions": true,
+  "human_approval_domains": [
+    "FINANCE",
+    "SAFETY",
+    "QUALITY",
+    "PRODUCTION_STOP"
+  ],
+  "blockchain": {
+    "mode": "hash_only",
+    "requires_actual_receipt": true,
+    "contract_address": "SET_FROM_EXISTING_DEPLOYMENT",
+    "chain_id": "SET_FROM_EXISTING_DEPLOYMENT",
+    "abi_path": "SET_FROM_EXISTING_DEPLOYMENT"
+  },
+  "scenario_selection": {
+    "weighted_random": true,
+    "allow_compound": true,
+    "normal_operations_probability": 0.15,
+    "prevent_duplicate_active_type": true
+  },
+  "notes": [
+    "Store production timestamps in UTC.",
+    "Excel is a seed dataset, not the runtime database.",
+    "Never claim blockchain success without a real transaction receipt and verification."
+  ]
+}
