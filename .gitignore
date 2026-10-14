@@ -99,3 +99,7 @@ desktop.ini
 # Miscellaneous local artifacts
 # ----------------------------------------------------------
 *.local
+
+# Generated validation reports (regenerate with documented commands)
+backend/data/validation_report.json
+backend/data/workbook_validation_report.json

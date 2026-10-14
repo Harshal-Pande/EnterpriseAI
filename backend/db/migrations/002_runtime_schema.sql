@@ -9,7 +9,7 @@
 --   agent_findings, policy_evaluations, approval_requests, action_execution_results.
 -- scheduler_state is seeded with a 300s interval; the scheduler itself is Phase 3.
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- gen_random_uuid() is built into PostgreSQL 13+. No pgcrypto superuser grant required.
 
 CREATE TABLE IF NOT EXISTS scenario_templates (
   scenario_template_id TEXT PRIMARY KEY,

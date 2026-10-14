@@ -365,7 +365,7 @@ For each phase, follow this loop:
 |---|---|
 | Phase 0 — Repository baseline | **Complete** — baseline report in `PHASE_0_BASELINE_REPORT.md` |
 | Phase 0.5 — Repository hygiene | **Complete** — checkpoint commit `827143d` |
-| Phase 1 — Domain model and dataset validation | Starter workbook/schema prepared separately; repository integration unverified |
+| Phase 1 — Domain model and dataset validation | **In progress / completing** — mappings, migrations, seed loader, validators, tests |
 | Phase 2 — PostgreSQL persistence and API | Starter only; no active database connection confirmed |
 | Phase 3 — Scenario scheduler | Not implemented as a persistent 300-second scheduler |
 | Phase 4 — Real agent orchestration | Stub/simulation; complete orchestration not implemented |
@@ -390,6 +390,10 @@ The goal is to establish what actually builds and runs today, not to generate mo
 - Clarified the target five-minute scenario loop and the industrial supply-chain domain.
 - Established incremental implementation phases and acceptance criteria.
 - No repository code has been changed by creating this reference document.
+
+### 2026-10-14 — Phase 1 continuation
+- Reconciled workbook totals (1677 vs 1327). Previous validation report (30 sheets / 1315 rows / 73 warnings) omitted `simulation_config` and treated observed enums as errors.
+- Added `backend/db/migrate.py`, seed loader, database validator, pytest suite. FastAPI remains disconnected.
 
 ### 2026-10-14 — Phase 0.5 hygiene checkpoint (`827143d`)
 - Created root `.gitignore` covering `.env`, `__pycache__/`, venvs, test caches, logs, OS/editor metadata, and frontend build artefacts.

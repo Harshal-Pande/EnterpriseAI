@@ -1,12 +1,10 @@
-# Database Schema Notes
+# Database schema notes (Phase 1)
 
-This file outlines the intended schema for the PostgreSQL / pgvector database.
+The outdated 4-table sketch has been replaced. Authoritative schema is:
 
-## Tables
-- `orders` (id, customer_id, status, created_at, updated_at)
-- `inventory` (id, item_name, quantity, warehouse_id)
-- `suppliers` (id, name, rating, api_endpoint)
-- `audit_events` (id, order_id, event_type, tx_hash, timestamp)
+- `backend/db/migrations/001_operational_schema.sql` — domain/reference/transaction tables from the workbook
+- `backend/db/migrations/002_runtime_schema.sql` — workflow tables (supersedes `project_reference/schema_core.sql` for application use; the starter file is kept unchanged)
+- `backend/data/column_mappings.py` — workbook column → SQL column mappings
+- `PHASE_1_DATA_AUDIT.md` and `docs/DATA_DICTIONARY.md` — relationships, units, exclusions
 
-## Vector Embeddings
-- Future: store text embeddings of supplier contracts or past procurement negotiations to aid LLM decision-making.
+`backend/app/db/database.py` is still a placeholder. FastAPI is **not** connected to PostgreSQL in Phase 1.

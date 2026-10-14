@@ -1,5 +1,5 @@
 {
-  "workbook_path": "d:\\MajorProject\\EnterpriseAI\\project_reference\\enterprise_ai_industrial_dataset_v2.xlsx",
+  "workbook_path": "D:\\MajorProject\\EnterpriseAI\\project_reference\\enterprise_ai_industrial_dataset_v2.xlsx",
   "sheet_count": 40,
   "sheet_names": [
     "README",
@@ -1376,8 +1376,10 @@
       "duplicate_pk_count": 0,
       "duplicate_pk_values": [],
       "negative_numeric_count": 0,
-      "out_of_range_pct_count": 0,
-      "warnings": []
+      "out_of_range_pct_count": 240,
+      "warnings": [
+        "Out-of-range percentage values (>100 or <0): 240 occurrences"
+      ]
     },
     "safety_events": {
       "row_count": 25,

@@ -16,7 +16,7 @@ The Enterprise AI Mesh is a full-stack platform designed to automate complex sup
 - **Frontend**: Fully implemented interactive prototype.
 - **Backend API**: Starter implementation (FastAPI with mock endpoints).
 - **Multi-agent Orchestration**: Starter implementation (LangGraph stubs, Supervisor logic stubbed).
-- **Database (PostgreSQL)**: Starter implementation (Schema noted, models defined, no active connection).
+- **Database (PostgreSQL)**: Phase 1 schema + seed scripts exist. FastAPI is **not** connected (`get_db()` still returns nothing). API responses remain hardcoded.
 - **Knowledge Graph (Neo4j)**: Starter implementation (Cypher schema and sample data).
 - **Blockchain**: Starter implementation (EnterpriseAudit.sol written, not deployed).
 
@@ -38,7 +38,7 @@ The Enterprise AI Mesh is a full-stack platform designed to automate complex sup
 - [x] Solidity audit contract starter.
 
 ## 6. Work Currently In Progress
-- Completed architecture establishment and creation of persistent context tracking.
+- Phase 1 domain model, migrations, and seed validation.
 
 ## 7. Remaining Work
 - Implement active PostgreSQL database connection.
@@ -64,11 +64,16 @@ The Enterprise AI Mesh is a full-stack platform designed to automate complex sup
 - Keep the project academically defensible and technically meaningful.
 
 ## 10. Next Recommended Step
-- Connect FastAPI backend to PostgreSQL/pgvector and migrate mock data into the database, providing real API endpoints for the frontend.
+- Phase 2: connect FastAPI to PostgreSQL and replace hardcoded API responses. Do not start this until Phase 1 acceptance is met.
 
 ---
 
 ## Development Log
+
+### 2026-10-14 — Phase 1 schema and seed (in progress / completing)
+- Workbook counts reconciled: 1677 all-sheet rows vs 1327 mapped import rows vs 350 metadata exclusions vs 6 empty runtime sheets.
+- Versioned SQL migrations, seed loader, and validators added under `backend/db` and `backend/data`.
+- FastAPI mock endpoints were not changed.
 
 ### 2026-08-14 — Establish Full-Stack Architecture
 - **What was changed**: Created complete repository architecture matching the intended full-stack design.

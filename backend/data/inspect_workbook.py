@@ -105,9 +105,12 @@ def inspect_sheet(ws):
             # Check out-of-range percentages - column name heuristic
             col_lower = col.lower()
             if isinstance(val, (int, float)) and not isinstance(val, bool):
-                if any(kw in col_lower for kw in ["pct", "percent", "rate", "efficiency", "utilization",
-                                                    "score", "rating", "quality"]):
-                    if val > 100 or val < 0:
+                if any(kw in col_lower for kw in ["pct", "percent", "utilisation", "utilization"]):
+                    # Workbook stores percentages as 0–1 fractions (e.g. 0.93).
+                    if val > 1 or val < 0:
+                        out_of_range_pct += 1
+                elif any(kw in col_lower for kw in ["rate", "score"]):
+                    if val > 1 or val < 0:
                         out_of_range_pct += 1
 
     # Dominant type per column

@@ -21,14 +21,16 @@
 | Sheets with data (>0 rows) | **34** |
 | Empty runtime-schema sheets | **6** (scenario_instances, agent_runs, decisions, action_queue, event_log, blockchain_anchors) |
 | Metadata-only sheets | **3** (README, data_dictionary, column_dictionary) |
-| Total data rows across all sheets | **1,677** |
-| Rows in mapped (imported) sheets | **1,327** |
-| Validation run: sheets inspected | **31** |
-| Validation run: records inspected | **1,327** |
-| CRITICAL findings | **0** |
-| WARNING findings | **0** |
-| INFO findings | **0** |
-| Overall data quality | **CLEAN** — zero validation errors after confirmed enum corrections |
+| Total data rows across all sheets | **1,677** (all 40 sheets; not the import set) |
+| Rows in mapped (imported) sheets | **1,327** (31 sheets listed in `column_mappings.py`) |
+| Excluded metadata rows | **350** (README 8 + data_dictionary 37 + column_dictionary 305) |
+| Empty runtime workbook sheets | **6** sheets × **0** rows |
+| Reconciliation | **1677 = 1327 + 350 + 0** |
+| Workbook validation sheets | **31** mapped sheets |
+| CRITICAL findings | **0** (after verifying observed enums, not by hiding unknown values) |
+| WARNING findings | **0** expected on a clean workbook; previous 73 warnings were `HIGH_USAGE` (69) and extra scenario domains (4) that **are present in the source** |
+| INFO findings | Documented fixtures (DQ-01, DQ-02, GRN-002, low-yield batch) |
+| Overall data quality | Referentially clean. Two import-time defects (DQ-01, DQ-02). |
 
 The dataset represents the synthetic operational state of Eastern Alloy & Steel (EAS), a
 fictional steel-manufacturing company. Data is referentially clean: all 18 FK relationships
@@ -722,32 +724,26 @@ All 18 FK relationships were validated programmatically. **Zero orphaned referen
 | DQ-E2 | production_batches | `risk_flag` | `CAPACITY_RISK` value found (13/60 rows) — not in initial allowed-enum list | WARNING→resolved | 13 rows | Resolved | Enum confirmed from data; `CAPACITY_RISK` added to run_validation.py |
 
 **Net confirmed defects requiring import-time fixes: 2 (DQ-01, DQ-02)**
-**Net validation findings after fix: 0 CRITICAL, 0 WARNING, 0 INFO**
+
+Workbook validation (`run_validation.py`) reports INFO for those defects and for intentional fixtures. It must not be described as “zero findings after expanding allow-lists”. Observed source values (`HIGH_USAGE`, `QUALITY_RISK`, scenario domains Production/General/Cross-functional/Data Quality, safety LOW/MEDIUM) are allowed because they occur in the workbook. Future-phase statuses (`COMPLETED`, `CANCELLED`, `DELIVERED`, …) are allowed in SQL CHECK constraints so later phases do not need a migration; they are not present in the seed.
 
 ---
 
 ## 7. Validation Run Results
 
-From `validation_report.json` (final run after enum corrections):
+Workbook-only report: `python backend/data/run_validation.py` → `backend/data/workbook_validation_report.json` (no PostgreSQL).
 
-```
-generated_at       : 2026-10-14T11:21:35+00:00
-sheets_inspected   : 31
-records_inspected  : 1,327
-CRITICAL           : 0
-WARNING            : 0
-INFO               : 0
-script errors      : []
-```
+Database report (only after migrate + seed): `python backend/data/validate_seed_data.py` → `backend/data/validation_report.json`. That file is **not** evidence of database validation unless `"database_queried": true`.
 
-The validation covered:
-- Required column presence checks on all 31 mapped sheets
-- Duplicate primary-key detection on all 31 sheets
-- No-null checks on all required columns
-- Status/enum validity checks on all enum columns
-- Numeric range checks (quantities, rates, monetary amounts, percentages)
-- Date range plausibility checks (2020-01-01 to 2030-12-31)
-- Referential integrity for all 27 FK relationships
+The committed `validation_report.json` from the earlier workflow inspected **30** sheets / **1,315** rows (it omitted `simulation_config`’s 12 rows) and recorded **73 warnings**. Those warnings were real source values (`HIGH_USAGE`, extra scenario domains), not data corruption.
+
+Current workbook validation covers:
+- Required column presence, duplicate PKs, required-column nulls
+- Status/enum checks (observed source values + documented future statuses)
+- Numeric and date ranges; date order; inventory/budget/PO arithmetic; GRN accepted ≤ received
+- Referential integrity for FK specs in `column_mappings.py` (including warehouse FKs on shipments and `purchase_orders.budget_id`)
+- Empty-runtime-sheet confirmation (6 sheets, 0 rows)
+- INFO notes for DQ-01, DQ-02, and intentional fixtures
 
 ---
 

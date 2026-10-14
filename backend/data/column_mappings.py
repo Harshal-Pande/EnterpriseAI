@@ -45,10 +45,11 @@ class SheetMapping:
 # ---------------------------------------------------------------------------
 
 def _strip(v: Any) -> Optional[str]:
-    """Strip surrounding whitespace from a string value."""
+    """Strip surrounding whitespace; treat blank strings as null."""
     if v is None:
         return None
-    return str(v).strip()
+    s = str(v).strip()
+    return s if s else None
 
 
 def _to_bool_str(v: Any) -> bool:
@@ -691,9 +692,9 @@ SHEET_MAPPINGS: Dict[str, SheetMapping] = {
             ),
             ColumnMapping("base_record_id",    "base_record_id",    "str", False, _strip),
             ColumnMapping("injection_method",  "injection_method",  "str", True,  _strip),
-            ColumnMapping("agents_involved",   "agents_involved",   "str", False, _strip),
-            ColumnMapping("expected_response", "expected_response", "str", False, _strip),
-            ColumnMapping("guardrail",         "guardrail",         "str", False, _strip),
+            ColumnMapping("agents_involved",   "agents_involved",   "str", True,  _strip),
+            ColumnMapping("expected_response", "expected_response", "str", True,  _strip),
+            ColumnMapping("guardrail",         "guardrail",         "str", True,  _strip),
             # DQ-02: 'enabled' column absent from workbook; defaulted to True at import time.
             # No source_col mapping; the loader sets enabled=True unconditionally.
         ],
@@ -936,3 +937,33 @@ EMPTY_RUNTIME_SHEETS = (
     "event_log",
     "blockchain_anchors",
 )
+
+
+def dest_primary_key(mapping: SheetMapping) -> str:
+    """Return the destination PK column for a sheet mapping."""
+    for col in mapping.columns:
+        if col.source_col == mapping.primary_key_col:
+            return col.dest_col
+    return mapping.primary_key_col
+
+
+def convert_record(mapping: SheetMapping, record: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Apply column mappings and transforms to one source row.
+
+    Returns (dest_row, None) on success, or (None, reason) on rejection.
+    Does not fabricate missing values.
+    """
+    dest: Dict[str, Any] = {}
+    for col in mapping.columns:
+        raw = record.get(col.source_col)
+        if col.transform is not None:
+            value = col.transform(raw)
+        else:
+            value = raw
+            if isinstance(value, str):
+                value = value.strip() or None
+        if col.required and value is None:
+            return None, f"missing required source column '{col.source_col}'"
+        dest[col.dest_col] = value
+    dest.update(mapping.extra_dest_values)
+    return dest, None

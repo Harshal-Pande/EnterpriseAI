@@ -23,7 +23,14 @@ EnterpriseAI/
 
 ---
 
-## Current Status — Phase 1: Frontend Prototype Operations Command Center
+## Current status (honest)
+
+- **Frontend**: interactive command-center prototype with **simulated** data. It does not call the backend.
+- **Backend API**: FastAPI starter; endpoints return **hardcoded** JSON.
+- **Phase 1 (data/schema)**: workbook validation, PostgreSQL migrations, and seed scripts live under `backend/data` and `backend/db`. See `PHASE_1_DATA_AUDIT.md` and `backend/README.md`.
+- Blockchain, Neo4j, LangGraph, and the 300-second scheduler are **not** implemented.
+
+## Frontend prototype (simulated command center)
 
 The frontend prototype is fully operational and structured as an **Enterprise AI Operations Command Center**.
 

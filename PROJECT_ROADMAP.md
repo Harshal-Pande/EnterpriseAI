@@ -25,7 +25,7 @@
 **Objective**: Integrate PostgreSQL / pgvector.
 **Major tasks**: Connect database, run migrations, store order and inventory state, implement vector search.
 **Dependencies**: Backend Foundation
-**Current status**: **Planned**
+**Current status**: **Phase 1 schema/seed in this repo (Antigravity Phase 1). FastAPI still mock — live connection is Antigravity Phase 2 / this PHASE 4.**
 **Definition of completion**: API reads and writes accurately to PostgreSQL without mock data.
 
 ## PHASE 5 — Neo4j Knowledge Graph
