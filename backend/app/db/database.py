@@ -15,10 +15,18 @@ from typing import Generator, Optional
 from fastapi import HTTPException, status
 
 try:
-
-    from db.connection import get_database_url
-except ImportError:
     from backend.db.connection import get_database_url
+except ImportError:
+    try:
+        from db.connection import get_database_url
+    except ImportError:
+        import sys
+        from pathlib import Path
+
+        _backend_dir = Path(__file__).resolve().parent.parent.parent
+        if str(_backend_dir) not in sys.path:
+            sys.path.insert(0, str(_backend_dir))
+        from db.connection import get_database_url
 
 try:
     import psycopg2

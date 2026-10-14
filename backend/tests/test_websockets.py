@@ -119,6 +119,7 @@ def test_ws_event_broadcast_and_channel_filtering():
             event_type="SCHEDULER_CYCLE_STARTED",
             channel="scheduler",
             payload={"cycle": 1},
+            wait=True,
         )
 
         # Broadcast event on 'approvals' channel (should be received)
@@ -127,6 +128,7 @@ def test_ws_event_broadcast_and_channel_filtering():
             channel="approvals",
             entity_id="APP-1234",
             payload={"amount": 75000000},
+            wait=True,
         )
 
         received = ws.receive_json()
@@ -154,6 +156,7 @@ def test_ws_entity_filter():
             channel="actions",
             entity_id="ACT-000",
             payload={"status": "SUCCEEDED"},
+            wait=True,
         )
 
         # Event for matching entity (ACT-999)
@@ -162,6 +165,7 @@ def test_ws_entity_filter():
             channel="actions",
             entity_id="ACT-999",
             payload={"status": "SUCCEEDED"},
+            wait=True,
         )
 
         received = ws.receive_json()
@@ -183,6 +187,7 @@ def test_ws_viewer_role_payload_masking():
                 "secret": "super_secret_token",
                 "api_key": "raw_api_key_value",
             },
+            wait=True,
         )
 
         received = ws.receive_json()

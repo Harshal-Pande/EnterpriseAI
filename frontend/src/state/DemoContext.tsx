@@ -19,11 +19,18 @@ import {
   type BackendInventorySummary,
   type BackendSupplier,
   type BackendSchedulerStatus,
+  type BackendScenarioInstance,
   type BackendApprovalRequest,
   type BackendActionRecord,
   type BackendAuditEvent,
   type BackendAuditVerification,
+  type OrchestrationResult,
 } from '../services/apiClient';
+import {
+  websocketClient,
+  type WSConnectionState,
+  type WSEventMessage,
+} from '../services/websocketClient';
 import {
   INITIAL_AGENTS,
   DEFAULT_ORDER,
@@ -52,6 +59,15 @@ interface DemoContextType {
   liveAuditEvents: BackendAuditEvent[];
   schedulerStatus: BackendSchedulerStatus | null;
   liveSchedulerStatus: BackendSchedulerStatus | null;
+  wsConnectionState: WSConnectionState;
+  liveScenarios: BackendScenarioInstance[];
+  activeLiveOrderId: string;
+  setActiveLiveOrderId: (orderId: string) => void;
+  liveOrchestrationResult: OrchestrationResult | null;
+  isOrchestrating: boolean;
+  orchestrationError: string | null;
+  executeLiveOrchestration: (orderId?: string, templateId?: string, severity?: string) => Promise<OrchestrationResult>;
+  fetchScenariosQueue: (limit?: number, status?: string, offset?: number) => Promise<BackendScenarioInstance[]>;
   toggleDataMode: () => void;
   refreshLiveData: () => Promise<void>;
   triggerScheduler: (force?: boolean, templateId?: string, idempotencyKey?: string, seed?: number) => Promise<any>;
@@ -97,6 +113,12 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [liveActions, setLiveActions] = useState<BackendActionRecord[]>([]);
   const [liveAuditEvents, setLiveAuditEvents] = useState<BackendAuditEvent[]>([]);
   const [schedulerStatus, setSchedulerStatus] = useState<BackendSchedulerStatus | null>(null);
+  const [wsConnectionState, setWsConnectionState] = useState<WSConnectionState>('DISCONNECTED');
+  const [liveScenarios, setLiveScenarios] = useState<BackendScenarioInstance[]>([]);
+  const [activeLiveOrderId, setActiveLiveOrderId] = useState<string>('ORD-1042');
+  const [liveOrchestrationResult, setLiveOrchestrationResult] = useState<OrchestrationResult | null>(null);
+  const [isOrchestrating, setIsOrchestrating] = useState<boolean>(false);
+  const [orchestrationError, setOrchestrationError] = useState<string | null>(null);
 
   // Demo Simulation State
   const [activeOrder, setActiveOrder] = useState<Order>(DEFAULT_ORDER);
@@ -453,6 +475,7 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         actRes,
         auditRes,
         schedRes,
+        scenRes,
       ] = await Promise.allSettled([
         apiClient.checkLive(),
         apiClient.getOrders(100),
@@ -463,6 +486,7 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         apiClient.getActions(50),
         apiClient.getAuditEvents(50),
         apiClient.getSchedulerStatus(),
+        apiClient.getSchedulerScenarios(50),
       ]);
 
       const isLiveProbeOk = liveCheckRes.status === 'fulfilled';
@@ -483,7 +507,12 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Update state for successful queries
-      if (ordersRes.status === 'fulfilled') setLiveOrders(ordersRes.value);
+      if (ordersRes.status === 'fulfilled') {
+        setLiveOrders(ordersRes.value);
+        if (ordersRes.value.length > 0 && !ordersRes.value.some(o => o.order_id === activeLiveOrderId)) {
+          setActiveLiveOrderId(ordersRes.value[0].order_id);
+        }
+      }
       if (invItemsRes.status === 'fulfilled') setLiveInventory(invItemsRes.value);
       if (invSummaryRes.status === 'fulfilled') setLiveInventorySummary(invSummaryRes.value);
       if (suppRes.status === 'fulfilled') setLiveSuppliers(suppRes.value);
@@ -491,6 +520,7 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (actRes.status === 'fulfilled') setLiveActions(actRes.value);
       if (auditRes.status === 'fulfilled') setLiveAuditEvents(auditRes.value);
       if (schedRes.status === 'fulfilled') setSchedulerStatus(schedRes.value);
+      if (scenRes.status === 'fulfilled') setLiveScenarios(scenRes.value);
 
       // Connection is active
       setIsLiveConnected(true);
@@ -505,6 +535,7 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (actRes.status === 'rejected') failedNames.push('actions');
       if (auditRes.status === 'rejected') failedNames.push('audit events');
       if (schedRes.status === 'rejected') failedNames.push('scheduler status');
+      if (scenRes.status === 'rejected') failedNames.push('scenarios');
 
       if (failedNames.length > 0) {
         setLiveError(`Degraded live connection: failed to refresh ${failedNames.join(', ')}`);
@@ -516,6 +547,44 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLiveConnected(false);
     } finally {
       setLiveLoading(false);
+    }
+  };
+
+  const fetchScenariosQueue = async (limit = 50, status?: string, offset = 0) => {
+    try {
+      const scens = await apiClient.getSchedulerScenarios(limit, status, offset);
+      setLiveScenarios(scens);
+      return scens;
+    } catch (err) {
+      console.warn('Failed to fetch scenarios queue:', err);
+      throw err;
+    }
+  };
+
+  const executeLiveOrchestration = async (
+    orderId = activeLiveOrderId || 'ORD-1042',
+    templateId = 'TPL-010',
+    severity = 'MEDIUM'
+  ): Promise<OrchestrationResult> => {
+    setIsOrchestrating(true);
+    setOrchestrationError(null);
+    try {
+      const res = await apiClient.executeOrchestration(orderId, templateId, severity);
+      setLiveOrchestrationResult(res);
+      addActivityLog(
+        'supervisor',
+        `Live orchestration executed for ${orderId}: Decision ${res.decision_code || res.status}${res.human_approval_required ? ' (Human approval required)' : ''}`,
+        res.human_approval_required ? 'warning' : 'success'
+      );
+      await refreshLiveData();
+      return res;
+    } catch (err: any) {
+      const msg = err.message || 'Live orchestration failed';
+      setOrchestrationError(msg);
+      addActivityLog('supervisor', `Live orchestration failed: ${msg}`, 'error');
+      throw err;
+    } finally {
+      setIsOrchestrating(false);
     }
   };
 
@@ -553,6 +622,69 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return await apiClient.verifyAuditEvent(eventId, payload);
   };
 
+  // WebSocket Live Event Handling
+  useEffect(() => {
+    if (dataMode === 'live') {
+      websocketClient.connect();
+
+      const unsubState = websocketClient.onStateChange((state) => {
+        setWsConnectionState(state);
+      });
+
+      const unsubEvent = websocketClient.onAnyEvent((wsEvt: WSEventMessage) => {
+        const evtType = wsEvt.event_type;
+        const payload = wsEvt.payload || {};
+
+        if (evtType === 'AGENT_STEP_COMPLETED') {
+          const agentName = ((payload.agent_name || 'supervisor') as string).toLowerCase() as ActivityLog['agent'];
+          const phase = payload.phase || 'STEP';
+          const dur = payload.duration_ms || 0;
+          addActivityLog(agentName, `Agent ${payload.agent_name} completed [${phase}] in ${dur}ms`, 'info');
+        } else if (evtType === 'ORCHESTRATION_COMPLETED') {
+          addActivityLog(
+            'supervisor',
+            `Workflow completed: Decision ${payload.decision_code || 'COMPLETED'}${payload.human_approval_required ? ' (Approval required)' : ''}`,
+            payload.decision_code === 'POLICY_REJECTED' ? 'warning' : 'success'
+          );
+          refreshLiveData();
+        } else if (evtType === 'APPROVAL_REQUESTED' || evtType === 'APPROVAL_DECIDED') {
+          addActivityLog(
+            'finance',
+            evtType === 'APPROVAL_REQUESTED'
+              ? `Approval requested: ${payload.reason || 'Pending operator action'}`
+              : `Approval ${payload.approval_id} decided: ${payload.status}`,
+            'warning'
+          );
+          apiClient.getApprovals('PENDING').then(apprs => setLiveApprovals(apprs)).catch(() => {});
+        } else if (evtType === 'ACTION_PROPOSED' || evtType === 'ACTION_EXECUTED') {
+          addActivityLog(
+            'SYSTEM',
+            `Controlled action ${payload.action_id || wsEvt.entity_id}: ${evtType}`,
+            'info'
+          );
+          apiClient.getActions(50).then(acts => setLiveActions(acts)).catch(() => {});
+        } else if (evtType === 'SCENARIO_GENERATED') {
+          addActivityLog(
+            'SYSTEM',
+            `Scenario generated: ${payload.scenario_id || ''} [${payload.template_id || ''}]`,
+            'info'
+          );
+          apiClient.getSchedulerScenarios(50).then(scens => setLiveScenarios(scens)).catch(() => {});
+        }
+      });
+
+      return () => {
+        unsubState();
+        unsubEvent();
+        websocketClient.disconnect();
+      };
+    } else {
+      websocketClient.disconnect();
+      setWsConnectionState('DISCONNECTED');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataMode]);
+
   useEffect(() => {
     apiClient
       .checkLive()
@@ -582,6 +714,15 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
         liveAuditEvents,
         schedulerStatus,
         liveSchedulerStatus: schedulerStatus,
+        wsConnectionState,
+        liveScenarios,
+        activeLiveOrderId,
+        setActiveLiveOrderId,
+        liveOrchestrationResult,
+        isOrchestrating,
+        orchestrationError,
+        executeLiveOrchestration,
+        fetchScenariosQueue,
         toggleDataMode,
         refreshLiveData,
         triggerScheduler,

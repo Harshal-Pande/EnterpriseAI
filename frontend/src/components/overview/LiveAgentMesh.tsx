@@ -104,17 +104,38 @@ const AgentNode: React.FC<AgentNodeProps> = ({ id, isCenter, isSelected, isActiv
 };
 
 export const LiveAgentMesh: React.FC = () => {
-  const { agents, workflowStage, setSelectedAgentId, selectedAgentId } = useDemo();
+  const {
+    agents,
+    workflowStage,
+    setSelectedAgentId,
+    selectedAgentId,
+    dataMode,
+    liveOrchestrationResult,
+    isOrchestrating,
+    wsConnectionState
+  } = useDemo();
+
+  const isLive = dataMode === 'live';
 
   const getAgent = (id: AgentId) => agents.find(a => a.id === id);
-  const supervisor = getAgent('supervisor');
-  const inventory = getAgent('inventory');
-  const procurement = getAgent('procurement');
-  const finance = getAgent('finance');
-  const logistics = getAgent('logistics');
+
+  const isNodeActive = (id: AgentId) => {
+    if (isLive) {
+      if (isOrchestrating) return true;
+      const step =
+        liveOrchestrationResult?.agent_steps?.find(s => s.agent_name.toLowerCase() === id.toLowerCase()) ||
+        liveOrchestrationResult?.steps?.[id];
+      return step ? step.status === 'COMPLETED' || step.status === 'RUNNING' : false;
+    }
+    return !!getAgent(id)?.active;
+  };
 
   const lineColor = (active?: boolean, color?: string) =>
     active ? (color ?? '#38BDF8') : '#1E293B';
+
+  const displayStage = isLive
+    ? (isOrchestrating ? 'ORCHESTRATING_PIPELINE' : (liveOrchestrationResult ? `DECISION_${liveOrchestrationResult.decision_code || 'COMPLETED'}` : 'MESH_STANDBY'))
+    : workflowStage;
 
   return (
     <div
@@ -132,10 +153,14 @@ export const LiveAgentMesh: React.FC = () => {
 
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between px-5 py-3.5 border-b border-[#1E293B]">
-        <h2 className="text-sm font-bold text-white">Live Agent Mesh</h2>
+        <h2 className="text-sm font-bold text-white">
+          {isLive ? 'Live Governed Agent Mesh' : 'Live Agent Mesh'}
+        </h2>
         <div className="flex items-center gap-2 text-[11px] font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-          <span className="text-emerald-400">Network Synced</span>
+          <span className={`w-1.5 h-1.5 rounded-full ${wsConnectionState === 'CONNECTED' || !isLive ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
+          <span className={wsConnectionState === 'CONNECTED' || !isLive ? 'text-emerald-400' : 'text-amber-400'}>
+            {isLive ? `Mesh ${wsConnectionState}` : 'Network Synced'}
+          </span>
         </div>
       </div>
 
@@ -148,38 +173,38 @@ export const LiveAgentMesh: React.FC = () => {
         >
           {/* Supervisor → Inventory (Center to Top-Left) */}
           <line x1="50%" y1="50%" x2="25%" y2="25%"
-            stroke={lineColor(inventory?.active, '#10B981')}
-            strokeWidth={inventory?.active ? '1.5' : '1'}
-            className={inventory?.active ? 'animate-dash-flow' : ''}
-            strokeDasharray={inventory?.active ? '5 5' : '0'}
+            stroke={lineColor(isNodeActive('inventory'), '#10B981')}
+            strokeWidth={isNodeActive('inventory') ? '1.5' : '1'}
+            className={isNodeActive('inventory') ? 'animate-dash-flow' : ''}
+            strokeDasharray={isNodeActive('inventory') ? '5 5' : '0'}
           />
           {/* Supervisor → Finance (Center to Top-Right) */}
           <line x1="50%" y1="50%" x2="75%" y2="25%"
-            stroke={lineColor(finance?.active, '#EC4899')}
-            strokeWidth={finance?.active ? '1.5' : '1'}
-            className={finance?.active ? 'animate-dash-flow' : ''}
-            strokeDasharray={finance?.active ? '5 5' : '0'}
+            stroke={lineColor(isNodeActive('finance'), '#EC4899')}
+            strokeWidth={isNodeActive('finance') ? '1.5' : '1'}
+            className={isNodeActive('finance') ? 'animate-dash-flow' : ''}
+            strokeDasharray={isNodeActive('finance') ? '5 5' : '0'}
           />
           {/* Supervisor → Procurement (Center to Bottom-Left) */}
           <line x1="50%" y1="50%" x2="25%" y2="75%"
-            stroke={lineColor(procurement?.active, '#F59E0B')}
-            strokeWidth={procurement?.active ? '1.5' : '1'}
-            className={procurement?.active ? 'animate-dash-flow' : ''}
-            strokeDasharray={procurement?.active ? '5 5' : '0'}
+            stroke={lineColor(isNodeActive('procurement'), '#F59E0B')}
+            strokeWidth={isNodeActive('procurement') ? '1.5' : '1'}
+            className={isNodeActive('procurement') ? 'animate-dash-flow' : ''}
+            strokeDasharray={isNodeActive('procurement') ? '5 5' : '0'}
           />
           {/* Procurement → Logistics (Bottom-Left to Bottom-Right) */}
           <line x1="25%" y1="75%" x2="75%" y2="75%"
-            stroke={lineColor(logistics?.active, '#8B5CF6')}
-            strokeWidth={logistics?.active ? '1.5' : '1'}
-            className={logistics?.active ? 'animate-dash-flow' : ''}
-            strokeDasharray={logistics?.active ? '5 5' : '4 4'}
+            stroke={lineColor(isNodeActive('logistics'), '#8B5CF6')}
+            strokeWidth={isNodeActive('logistics') ? '1.5' : '1'}
+            className={isNodeActive('logistics') ? 'animate-dash-flow' : ''}
+            strokeDasharray={isNodeActive('logistics') ? '5 5' : '4 4'}
           />
           {/* Supervisor ring */}
           <circle cx="50%" cy="50%" r="65"
             fill="none"
-            stroke={supervisor?.active ? 'rgba(99,102,241,0.15)' : 'transparent'}
+            stroke={isNodeActive('supervisor') ? 'rgba(99,102,241,0.15)' : 'transparent'}
             strokeWidth="1"
-            className={supervisor?.active ? 'animate-pulse' : ''}
+            className={isNodeActive('supervisor') ? 'animate-pulse' : ''}
           />
         </svg>
 
@@ -191,7 +216,7 @@ export const LiveAgentMesh: React.FC = () => {
               id="supervisor"
               isCenter
               isSelected={selectedAgentId === 'supervisor'}
-              isActive={!!supervisor?.active}
+              isActive={isNodeActive('supervisor')}
               onClick={() => setSelectedAgentId('supervisor')}
             />
           </div>
@@ -201,7 +226,7 @@ export const LiveAgentMesh: React.FC = () => {
             <AgentNode
               id="inventory"
               isSelected={selectedAgentId === 'inventory'}
-              isActive={!!inventory?.active}
+              isActive={isNodeActive('inventory')}
               onClick={() => setSelectedAgentId('inventory')}
             />
           </div>
@@ -211,7 +236,7 @@ export const LiveAgentMesh: React.FC = () => {
             <AgentNode
               id="finance"
               isSelected={selectedAgentId === 'finance'}
-              isActive={!!finance?.active}
+              isActive={isNodeActive('finance')}
               onClick={() => setSelectedAgentId('finance')}
             />
           </div>
@@ -221,7 +246,7 @@ export const LiveAgentMesh: React.FC = () => {
             <AgentNode
               id="procurement"
               isSelected={selectedAgentId === 'procurement'}
-              isActive={!!procurement?.active}
+              isActive={isNodeActive('procurement')}
               onClick={() => setSelectedAgentId('procurement')}
             />
           </div>
@@ -231,7 +256,7 @@ export const LiveAgentMesh: React.FC = () => {
             <AgentNode
               id="logistics"
               isSelected={selectedAgentId === 'logistics'}
-              isActive={!!logistics?.active}
+              isActive={isNodeActive('logistics')}
               onClick={() => setSelectedAgentId('logistics')}
             />
           </div>
@@ -244,8 +269,8 @@ export const LiveAgentMesh: React.FC = () => {
         style={{ background: 'rgba(8,12,20,0.8)' }}
       >
         <span className="text-slate-500">Execution Stage</span>
-        <span className={`font-bold uppercase ${workflowStage === 'IDLE' ? 'text-slate-500' : workflowStage === 'COMPLETED' ? 'text-emerald-400' : 'text-cyan-400'}`}>
-          {workflowStage}
+        <span className={`font-bold uppercase ${displayStage === 'IDLE' || displayStage === 'MESH_STANDBY' ? 'text-slate-500' : displayStage.includes('COMPLETED') ? 'text-emerald-400' : 'text-cyan-400'}`}>
+          {displayStage}
         </span>
       </div>
     </div>

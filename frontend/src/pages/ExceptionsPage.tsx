@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Play, Square, Zap, ShieldOff, TrendingUp, GitMerge, CheckCircle2, XCircle, RefreshCw, ShieldCheck, Clock, Cpu } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Play, Square, Zap, ShieldOff, TrendingUp, GitMerge, CheckCircle2, XCircle, RefreshCw, ShieldCheck, Clock, Cpu, ChevronLeft, ChevronRight, AlertCircle, ListOrdered } from 'lucide-react';
 import { useDemo } from '../state/DemoContext';
 import type { DemoScenario } from '../types';
 
@@ -68,6 +68,8 @@ export const ExceptionsPage: React.FC = () => {
     liveApprovals,
     liveActions,
     liveSchedulerStatus,
+    liveScenarios,
+    fetchScenariosQueue,
     triggerScheduler,
     decideApproval,
     executeAction,
@@ -78,6 +80,31 @@ export const ExceptionsPage: React.FC = () => {
   const [decidingId, setDecidingId] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+
+  // Persistent Scenario Queue State
+  const [scenarioPage, setScenarioPage] = useState(0);
+  const [scenarioLimit] = useState(10);
+  const [scenarioStatusFilter, setScenarioStatusFilter] = useState<string>('ALL');
+  const [isScenariosLoading, setIsScenariosLoading] = useState(false);
+  const [scenarioQueueError, setScenarioQueueError] = useState<string | null>(null);
+
+  const loadScenarioQueue = useCallback(async (page: number, status: string) => {
+    setIsScenariosLoading(true);
+    setScenarioQueueError(null);
+    try {
+      await fetchScenariosQueue(scenarioLimit, status === 'ALL' ? undefined : status, page * scenarioLimit);
+    } catch (err: unknown) {
+      setScenarioQueueError(err instanceof Error ? err.message : 'Failed to fetch scenario queue');
+    } finally {
+      setIsScenariosLoading(false);
+    }
+  }, [fetchScenariosQueue, scenarioLimit]);
+
+  useEffect(() => {
+    if (dataMode === 'live') {
+      loadScenarioQueue(scenarioPage, scenarioStatusFilter);
+    }
+  }, [dataMode, scenarioPage, scenarioStatusFilter, loadScenarioQueue]);
 
   const handleTriggerScheduler = async () => {
     if (!window.confirm('Trigger background scenario scheduler cycle against PostgreSQL?')) return;
@@ -211,6 +238,151 @@ export const ExceptionsPage: React.FC = () => {
                 {isTriggeringScheduler ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                 Trigger Scheduler Cycle
               </button>
+            </div>
+          </div>
+
+          {/* Persistent Scenario Queue (GET /api/scheduler/scenarios) */}
+          <div className="rounded-xl overflow-hidden bg-[#111827] border border-[#1E293B]">
+            <div className="px-5 py-3.5 border-b border-[#1E293B] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <ListOrdered className="w-4 h-4 text-purple-400" />
+                <div>
+                  <h2 className="text-sm font-bold text-white">Persistent Scenario Queue</h2>
+                  <div className="text-[10px] text-slate-400 font-mono">
+                    PostgreSQL scenario_instances table records & execution queue
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 flex-wrap">
+                {/* Filter dropdown */}
+                <select
+                  value={scenarioStatusFilter}
+                  onChange={(e) => {
+                    setScenarioStatusFilter(e.target.value);
+                    setScenarioPage(0);
+                  }}
+                  className="bg-[#162032] text-xs font-mono font-semibold text-purple-300 border border-purple-500/30 rounded px-2.5 py-1 outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="QUEUED">QUEUED</option>
+                  <option value="RUNNING">RUNNING</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="FAILED">FAILED</option>
+                  <option value="TIMED_OUT">TIMED_OUT</option>
+                </select>
+
+                <button
+                  onClick={() => loadScenarioQueue(scenarioPage, scenarioStatusFilter)}
+                  disabled={isScenariosLoading}
+                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-mono flex items-center gap-1 transition disabled:opacity-40"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isScenariosLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            {scenarioQueueError && (
+              <div className="m-4 p-3 rounded-lg bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs font-mono flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{scenarioQueueError}</span>
+                </div>
+                <button
+                  onClick={() => loadScenarioQueue(scenarioPage, scenarioStatusFilter)}
+                  className="underline hover:text-white"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            <div className="p-5">
+              {isScenariosLoading ? (
+                <div className="text-center py-8 text-slate-400 text-xs font-mono flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
+                  Loading persistent scenario queue from backend…
+                </div>
+              ) : liveScenarios.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-xs font-mono">
+                  No scenario instances found for filter "{scenarioStatusFilter}". Trigger a scheduler cycle above or wait for cron interval.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-[#1E293B] text-slate-500 uppercase tracking-wider text-[10px]">
+                        <th className="pb-2.5 px-3">Scenario ID</th>
+                        <th className="pb-2.5 px-3">Template</th>
+                        <th className="pb-2.5 px-3">Severity</th>
+                        <th className="pb-2.5 px-3">Linked Order</th>
+                        <th className="pb-2.5 px-3">Status</th>
+                        <th className="pb-2.5 px-3">Created / Scheduled</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1E293B]/50">
+                      {liveScenarios.map((scen) => {
+                        const sevColor =
+                          scen.severity === 'CRITICAL' ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' :
+                          scen.severity === 'HIGH' ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' :
+                          scen.severity === 'MEDIUM' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
+                          'bg-blue-500/10 text-blue-400 border-blue-500/30';
+
+                        const statusColor =
+                          scen.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' :
+                          scen.status === 'RUNNING' ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30 animate-pulse' :
+                          scen.status === 'FAILED' || scen.status === 'TIMED_OUT' ? 'bg-rose-500/10 text-rose-300 border-rose-500/30' :
+                          'bg-amber-500/10 text-amber-300 border-amber-500/30';
+
+                        return (
+                          <tr key={scen.scenario_id} className="hover:bg-[#162032]/40 transition">
+                            <td className="py-2.5 px-3 text-white font-bold">{scen.scenario_id}</td>
+                            <td className="py-2.5 px-3 text-purple-300">{scen.scenario_template_id || scen.template_id}</td>
+                            <td className="py-2.5 px-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${sevColor}`}>
+                                {scen.severity}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-cyan-300">
+                              {scen.linked_order_id || '—'}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${statusColor}`}>
+                                {scen.status}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-400 text-[11px]">
+                              {scen.created_at ? scen.created_at.replace('T', ' ').slice(0, 19) : (scen.scheduled_at ? scen.scheduled_at.replace('T', ' ').slice(0, 19) : '—')}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Pagination bar */}
+              <div className="flex items-center justify-between pt-4 mt-3 border-t border-[#1E293B] text-xs font-mono text-slate-400">
+                <span>Page {scenarioPage + 1} (Showing up to {scenarioLimit} per page)</span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setScenarioPage(p => Math.max(0, p - 1))}
+                    disabled={scenarioPage === 0 || isScenariosLoading}
+                    className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setScenarioPage(p => p + 1)}
+                    disabled={liveScenarios.length < scenarioLimit || isScenariosLoading}
+                    className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 

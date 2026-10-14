@@ -84,12 +84,24 @@
 **Current status**: **Completed, Hardened & Verified** (227/227 backend tests passing, 9/9 Phase 5 dedicated tests passing, 119/119 seed validation checks passing, Frontend build & lint clean).
 **Definition of completion**: Multi-domain policies evaluate deterministically, approval-required actions block execution, state transitions record before/after diffs in PostgreSQL, and all regression suites pass.
 
-## PHASE 7 — Real-Time Events & WebSockets
-**Objective**: Stream agent workflow progress live to the UI.
-**Major tasks**: Configure WebSockets in FastAPI, update React to listen for state changes.
-**Dependencies**: Real Multi-Agent Orchestration
+## PHASE 6 — Frontend Integration and Live Workflow Visibility
+**Objective**: Connect the React frontend command center directly to authenticated backend workflow events and live operational data.
+**Major tasks**:
+- Fix synchronous WebSocket broadcast concurrency defect (`EventManager.publish`) supporting thread-safe loop discovery.
+- Implement typed resilient frontend WebSocket client (`websocketClient.ts`) with bounded exponential backoff, jitter, and replay.
+- Integrate Command Center Overview components (`DemoContext.tsx`, `OverviewPage.tsx`, `LiveOrderPanel`, `AgentDecisionPanel`, `LiveAgentMesh`, `ActivityStream`) with live operational state while preserving Demo Mode.
+- Add live persistent scenario queue to `ExceptionsPage.tsx` with pagination, loading, status filtering, and error states.
+- End-to-end verification across unit, integration, isolation, and frontend production builds.
+**Dependencies**: Phase 5 Policy Engine & Approvals (Completed)
+**Current status**: **Completed, Hardened & Verified** (238/238 backend tests passing, 11/11 WebSocket tests passing, 119/119 DB checks passing, 4/4 isolation tests passing, Frontend production build passing in 884ms, 0 lint errors).
+**Definition of completion**: Command Center operates in Live PostgreSQL mode with live multi-agent orchestration, authenticated WebSocket event streaming, and persistent scenario queue.
+
+## PHASE 7 — Real Blockchain Audit Anchoring
+**Objective**: Verify critical audit records on an actual test network.
+**Major tasks**: Review Solidity smart contract, deploy to test network, implement Web3 integration with canonical hashing.
+**Dependencies**: Phase 6 Frontend Integration (Completed)
 **Current status**: **Planned**
-**Definition of completion**: UI Activity Stream updates in real-time as agents progress through LangGraph nodes.
+**Definition of completion**: Real on-chain audit receipt confirmed before UI reports verified status.
 
 ## PHASE 8 — Integration, Testing & Benchmarking
 **Objective**: Ensure the entire system works cohesively.

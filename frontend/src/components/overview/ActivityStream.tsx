@@ -26,9 +26,21 @@ const SCROLL_LOCK_THRESHOLD_PX = 60; // px from bottom → auto-scroll
 const MAX_HEIGHT_PX = 460;
 
 export const ActivityStream: React.FC = () => {
-  const { activityLogs } = useDemo();
+  const { activityLogs, dataMode, liveAuditEvents, wsConnectionState } = useDemo();
   const listRef       = useRef<HTMLDivElement>(null);
   const isNearBottom  = useRef(true); // tracks whether user is near bottom
+
+  const isLive = dataMode === 'live';
+
+  const displayLogs: ActivityLog[] = isLive && activityLogs.length === 0 && liveAuditEvents.length > 0
+    ? liveAuditEvents.slice(0, 30).map(evt => ({
+        id: evt.event_id || Math.random().toString(),
+        timestamp: evt.timestamp ? (evt.timestamp.split('T')[1]?.slice(0, 8) || evt.timestamp) : 'Recent',
+        agent: (evt.actor?.toLowerCase().includes('inventory') ? 'inventory' : evt.actor?.toLowerCase().includes('procurement') ? 'procurement' : evt.actor?.toLowerCase().includes('finance') ? 'finance' : evt.actor?.toLowerCase().includes('logistics') ? 'logistics' : 'AUDIT') as any,
+        message: `${evt.event_type}: ${evt.details || evt.status || 'Verified PostgreSQL audit record'}`,
+        type: evt.status === 'TAMPER_DETECTED' ? 'error' : 'info'
+      }))
+    : activityLogs;
 
   // Track scroll position to decide whether to auto-scroll
   const handleScroll = useCallback(() => {
@@ -46,7 +58,7 @@ export const ActivityStream: React.FC = () => {
       // Scroll to top because newest events are prepended (index 0)
       el.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [activityLogs.length]);
+  }, [displayLogs.length]);
 
   return (
     <div
@@ -64,13 +76,22 @@ export const ActivityStream: React.FC = () => {
       >
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0" />
-          <h2 className="text-sm font-bold text-white">Activity Stream</h2>
+          <h2 className="text-sm font-bold text-white">
+            {isLive ? 'Live Workflow & Audit Stream' : 'Activity Stream'}
+          </h2>
         </div>
         <div className="flex items-center gap-2">
-          {activityLogs.length > 0 && (
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          {isLive ? (
+            <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/30 flex items-center gap-1">
+              <span className={`w-1.5 h-1.5 rounded-full ${wsConnectionState === 'CONNECTED' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              {wsConnectionState}
+            </span>
+          ) : (
+            displayLogs.length > 0 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            )
           )}
-          <span className="text-[10px] font-mono text-slate-500">{activityLogs.length} events</span>
+          <span className="text-[10px] font-mono text-slate-500">{displayLogs.length} events</span>
         </div>
       </div>
 
@@ -86,14 +107,14 @@ export const ActivityStream: React.FC = () => {
           padding: '14px 16px',
         }}
       >
-        {activityLogs.length === 0 && (
-          <div className="text-center text-slate-600 text-xs py-10">
-            No events yet. Run the demo to begin.
+        {displayLogs.length === 0 && (
+          <div className="text-center text-slate-600 text-xs py-10 font-mono">
+            {isLive ? 'No live operational events yet. Run a live orchestration or scheduler cycle.' : 'No events yet. Run the demo to begin.'}
           </div>
         )}
 
         <div className="space-y-2.5">
-          {activityLogs.map((log, idx) => (
+          {displayLogs.map((log, idx) => (
             <div
               key={log.id}
               className="flex items-start gap-2.5"

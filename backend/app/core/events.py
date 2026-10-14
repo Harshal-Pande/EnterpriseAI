@@ -109,9 +109,10 @@ class InboundMessage(BaseModel):
 class ConnectionContext:
     """Session context for an authenticated WebSocket client."""
 
-    def __init__(self, websocket: WebSocket, user: AuthUser):
+    def __init__(self, websocket: WebSocket, user: AuthUser, loop: Optional[asyncio.AbstractEventLoop] = None):
         self.websocket = websocket
         self.user = user
+        self.loop = loop
         self.subscribed_channels: Set[str] = {EventChannel.ALL.value}
         self.entity_filter: Optional[str] = None
         self.connected_at = datetime.now(timezone.utc).isoformat()
@@ -135,6 +136,12 @@ class EventManager:
 
     async def connect(self, websocket: WebSocket, user: AuthUser) -> ConnectionContext:
         """Register a new authenticated WebSocket connection."""
+        try:
+            current_loop = asyncio.get_running_loop()
+            self._loop = current_loop
+        except RuntimeError:
+            current_loop = self._loop
+
         async with self._lock:
             if len(self._connections) >= MAX_WEBSOCKET_CONNECTIONS:
                 logger.warning(
@@ -144,7 +151,7 @@ class EventManager:
                 await websocket.close(code=1008, reason="Server connection capacity reached")
                 raise RuntimeError("Max WebSocket connections reached")
 
-            ctx = ConnectionContext(websocket, user)
+            ctx = ConnectionContext(websocket, user, loop=current_loop)
             self._connections[websocket] = ctx
             logger.info(
                 "WebSocket client connected: user_id=%s, role=%s (active: %d)",
@@ -268,10 +275,11 @@ class EventManager:
         scenario_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
         payload: Optional[Dict[str, Any]] = None,
+        wait: bool = False,
     ):
         """Synchronously or asynchronously publish an event to the global event bus.
 
-        Safely works from both async FastAPI routes and synchronous services.
+        Safely works from both async FastAPI routes and synchronous services/threads.
         """
         event = WSEvent(
             event_type=event_type,
@@ -283,15 +291,31 @@ class EventManager:
             payload=payload or {},
         )
 
+        running_loop = None
         try:
-            loop = asyncio.get_running_loop()
+            running_loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = self._loop
+            pass
 
-        if loop and loop.is_running():
-            asyncio.run_coroutine_threadsafe(self.broadcast(event), loop)
+        target_loop = running_loop or self._loop
+        if not target_loop or not target_loop.is_running():
+            for ctx in self._connections.values():
+                if ctx.loop and ctx.loop.is_running():
+                    target_loop = ctx.loop
+                    self._loop = target_loop
+                    break
+
+        if running_loop and running_loop.is_running():
+            asyncio.create_task(self.broadcast(event))
+        elif target_loop and target_loop.is_running():
+            fut = asyncio.run_coroutine_threadsafe(self.broadcast(event), target_loop)
+            if wait:
+                try:
+                    fut.result(timeout=2.0)
+                except Exception as exc:
+                    logger.warning("Error waiting for broadcast completion: %s", exc)
         else:
-            logger.debug("No running event loop; event published to log only: %s", event_type)
+            logger.debug("No active event loop found; event published to log only: %s", event_type)
 
     async def replay_from_db(
         self,

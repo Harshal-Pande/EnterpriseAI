@@ -295,6 +295,7 @@ export interface OrchestrationResult {
   provider_mode: string;
   phases_completed: string[];
   agent_steps: OrchestrationAgentStep[];
+  steps?: Record<string, any>;
   governance: Record<string, any>;
   decision_summary?: string;
   decision_code?: string;
@@ -348,10 +349,15 @@ export const apiClient = {
     apiFetch<BackendSchedulerStatus>('/api/scheduler/status'),
   getSchedulerTemplates: () =>
     apiFetch<BackendScenarioTemplate[]>('/api/scheduler/templates'),
-  getSchedulerScenarios: (limit = 50, status?: string) =>
-    apiFetch<BackendScenarioInstance[]>(
-      `/api/scheduler/scenarios?limit=${limit}${status ? `&status=${status}` : ''}`
-    ),
+  getSchedulerScenarios: (limit = 50, status?: string, offset = 0) => {
+    const params = new URLSearchParams();
+    params.append('limit', limit.toString());
+    if (offset > 0) params.append('offset', offset.toString());
+    if (status && status !== 'ALL') params.append('status', status);
+    return apiFetch<BackendScenarioInstance[]>(
+      `/api/scheduler/scenarios?${params.toString()}`
+    );
+  },
   triggerScheduler: (force = false, templateId?: string, idempotencyKey?: string, seed?: number) => {
     const params = new URLSearchParams();
     if (force) params.append('force', 'true');

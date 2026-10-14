@@ -19,7 +19,13 @@ for extra in (BACKEND_DIR, BACKEND_DIR / "data", BACKEND_DIR / "db"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
 
-from connection import get_database_url, load_project_env  # noqa: E402
+try:
+    from backend.db.connection import get_database_url, load_project_env  # noqa: E402
+except ImportError:
+    try:
+        from db.connection import get_database_url, load_project_env  # noqa: E402
+    except ImportError:
+        from connection import get_database_url, load_project_env  # noqa: E402
 
 load_project_env()
 
