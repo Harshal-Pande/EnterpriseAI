@@ -383,6 +383,16 @@ For each phase, follow this loop:
 
 ## Development log
 
+### 2026-10-14 — Phase 3 Persistent Five-Minute Scenario Engine Verified & Complete
+- **Interval Configuration & Precedence**: Implemented strict precedence rule: `SCENARIO_SCHEDULER_INTERVAL_SECONDS` takes precedence over `SCHEDULER_INTERVAL_SECONDS`, defaulting safely to 300 seconds (5 minutes). Startup validation rejects negative, zero, or invalid values.
+- **Operational Data Grounding**: Scenarios bind dynamically to real entities in PostgreSQL operational tables (`orders`, `inventory`, `suppliers`, `budgets`) rather than fabricating synthetic identifiers.
+- **Queue Limit & Capacity Control**: Enforced `SCHEDULER_MAX_OPEN_SCENARIOS` (default 10) to guard against unbounded scenario creation, skipping cycles observably with `OPEN_SCENARIOS_LIMIT_REACHED` status and audit logging.
+- **Seeded Determinism & Idempotency**: Added support for seeded template selection (`seed` query param / env) for reproducible test scenarios, and idempotency key handling ensuring duplicate triggers return existing instances without creating duplicates.
+- **Scheduler Audit Events**: Logged structured lifecycle events (`SCHEDULER_CYCLE_STARTED`, `SCENARIO_GENERATED`, `SCENARIO_GENERATION_SKIPPED`, `SCHEDULER_LEASE_RELEASED`) into `event_log`.
+- **API Endpoints**: Enhanced `POST /api/scheduler/trigger` (with `force`, `template_id`, `idempotency_key`, `seed`), added `GET /api/scheduler/templates` and `GET /api/scheduler/scenarios`.
+- **Frontend Integration**: Updated Overview and Governance/Exceptions pages to truthfully display scheduler status badge, 300s interval, queue capacity counter (`active/max`), active leases, and detailed skip reasons.
+- **Regression Suite**: 171/171 passing Pytest tests (+6 new Phase 3 scenario engine tests), 119/119 passing database integrity checks, 0 rows in runtime tables, clean frontend production build and lint.
+
 ### 2026-10-14 — Phase 2 Security Hardening & Contract Alignment Gate Passed
 - **Authentication & Anti-Forgery**: Enforced server-side credential-to-role mapping (`ADMIN_API_KEY`, `FINANCE_API_KEY`, `SUPPLY_CHAIN_API_KEY`, `OPERATOR_API_KEY`, `VIEWER_API_KEY`). Built Anti-Forgery Guard rejecting spoofed client role headers (`X-User-Role: ADMIN` with non-admin keys -> HTTP 403 Forbidden).
 - **Least-Privilege Defaults & Fail-Closed Security**: In development, unauthenticated requests receive read-only `VIEWER` role; in production, missing credentials fail closed with HTTP 500/401.

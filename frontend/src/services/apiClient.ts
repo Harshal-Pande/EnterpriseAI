@@ -140,6 +140,7 @@ export interface BackendSchedulerStatus {
   scheduler_name: string;
   configured_interval_seconds: number;
   interval_seconds?: number;
+  status?: string;
   is_locked: boolean;
   is_running?: boolean;
   locked_by: string | null;
@@ -148,9 +149,40 @@ export interface BackendSchedulerStatus {
   last_run_at?: string | null;
   last_scheduled_at?: string | null;
   last_status: string | null;
+  last_skip_reason?: string | null;
+  open_scenarios_count?: number;
+  max_open_scenarios?: number;
   total_runs: number;
   consecutive_failures: number;
   active_leases_count?: number;
+}
+
+export interface BackendScenarioTemplate {
+  template_id: string;
+  scenario_template_id: string;
+  scenario_type: string;
+  domain: string;
+  severity: string;
+  description: string;
+  injection_method: string;
+  agents_involved: string;
+  expected_response: string;
+  guardrail: string;
+}
+
+export interface BackendScenarioInstance {
+  scenario_id: string;
+  template_id: string;
+  scenario_template_id: string;
+  scheduled_at: string | null;
+  created_at: string | null;
+  status: string;
+  severity: string;
+  linked_order_id: string | null;
+  linked_batch_id: string | null;
+  input_overlay: Record<string, any>;
+  idempotency_key: string;
+  updated_at: string | null;
 }
 
 export interface BackendApprovalRequest {
@@ -262,14 +294,27 @@ export const apiClient = {
   getSuppliers: (limit = 100) =>
     apiFetch<BackendSupplier[]>(`/api/suppliers/?limit=${limit}`),
 
-  // Scheduler
+  // Scheduler & Scenarios
   getSchedulerStatus: () =>
     apiFetch<BackendSchedulerStatus>('/api/scheduler/status'),
-  triggerScheduler: () =>
-    apiFetch<{ executed: boolean; status: string; scenario_id?: string }>(
-      '/api/scheduler/trigger',
-      { method: 'POST' }
+  getSchedulerTemplates: () =>
+    apiFetch<BackendScenarioTemplate[]>('/api/scheduler/templates'),
+  getSchedulerScenarios: (limit = 50, status?: string) =>
+    apiFetch<BackendScenarioInstance[]>(
+      `/api/scheduler/scenarios?limit=${limit}${status ? `&status=${status}` : ''}`
     ),
+  triggerScheduler: (force = false, templateId?: string, idempotencyKey?: string, seed?: number) => {
+    const params = new URLSearchParams();
+    if (force) params.append('force', 'true');
+    if (templateId) params.append('template_id', templateId);
+    if (idempotencyKey) params.append('idempotency_key', idempotencyKey);
+    if (seed !== undefined) params.append('seed', seed.toString());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiFetch<{ executed: boolean; status: string; scenario_id?: string; reason?: string; last_skip_reason?: string; leases_acquired?: number }>(
+      `/api/scheduler/trigger${query}`,
+      { method: 'POST' }
+    );
+  },
 
   // Policies & Approvals
   getPolicyRules: () => apiFetch<BackendPolicyRule[]>('/api/policies/rules'),

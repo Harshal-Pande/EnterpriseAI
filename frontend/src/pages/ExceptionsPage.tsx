@@ -85,7 +85,11 @@ export const ExceptionsPage: React.FC = () => {
     setActionFeedback(null);
     try {
       const res = await triggerScheduler();
-      setActionFeedback(`Scheduler cycle executed: ${res?.leases_acquired ?? 0} lease(s) acquired, status: ${res?.status ?? 'success'}`);
+      if (res?.status === 'SKIPPED') {
+        setActionFeedback(`Scheduler cycle skipped: ${res?.reason || res?.last_skip_reason || 'Queue limit or eligibility conditions not met'}`);
+      } else {
+        setActionFeedback(`Scheduler cycle executed: ${res?.leases_acquired ?? 0} lease(s) acquired, status: ${res?.status ?? 'success'}${res?.scenario_id ? ` (Scenario: ${res.scenario_id})` : ''}`);
+      }
     } catch (err: unknown) {
       setActionFeedback(`Scheduler error: ${err instanceof Error ? err.message : 'Execution failed'}`);
     } finally {
@@ -188,10 +192,14 @@ export const ExceptionsPage: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-white">Scenario Scheduler Status</h2>
-                  <div className="text-xs text-slate-400 flex items-center gap-3 mt-0.5 font-mono">
-                    <span>Status: <strong className="text-emerald-400">{liveSchedulerStatus?.is_running ? 'RUNNING' : 'STANDBY'}</strong></span>
-                    <span>Interval: {liveSchedulerStatus?.interval_seconds ?? 60}s</span>
+                  <div className="text-xs text-slate-400 flex flex-wrap items-center gap-x-4 gap-y-1 mt-0.5 font-mono">
+                    <span>Status: <strong className={liveSchedulerStatus?.status === 'RUNNING' || liveSchedulerStatus?.is_running ? 'text-emerald-400' : 'text-amber-400'}>{liveSchedulerStatus?.status || (liveSchedulerStatus?.is_running ? 'RUNNING' : 'STANDBY')}</strong></span>
+                    <span>Interval: {liveSchedulerStatus?.interval_seconds ?? liveSchedulerStatus?.configured_interval_seconds ?? 300}s</span>
+                    <span>Queue: <strong className={liveSchedulerStatus && (liveSchedulerStatus.open_scenarios_count ?? 0) >= (liveSchedulerStatus.max_open_scenarios ?? 10) ? 'text-amber-400 font-bold' : 'text-slate-300'}>{liveSchedulerStatus?.open_scenarios_count ?? 0}/{liveSchedulerStatus?.max_open_scenarios ?? 10}</strong> active</span>
                     <span>Active Leases: {liveSchedulerStatus?.active_leases_count ?? 0}</span>
+                    {liveSchedulerStatus?.last_skip_reason && (
+                      <span className="text-amber-400">Skip Reason: {liveSchedulerStatus.last_skip_reason}</span>
+                    )}
                   </div>
                 </div>
               </div>

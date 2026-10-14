@@ -54,7 +54,7 @@ interface DemoContextType {
   liveSchedulerStatus: BackendSchedulerStatus | null;
   toggleDataMode: () => void;
   refreshLiveData: () => Promise<void>;
-  triggerScheduler: () => Promise<any>;
+  triggerScheduler: (force?: boolean, templateId?: string, idempotencyKey?: string, seed?: number) => Promise<any>;
   decideApproval: (id: string, decision: 'APPROVED' | 'REJECTED', reason?: string) => Promise<any>;
   executeAction: (id: string) => Promise<any>;
   verifyAuditDigest: (eventId: string, payload?: any) => Promise<BackendAuditVerification>;
@@ -489,8 +489,8 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const triggerScheduler = async () => {
-    const res = await apiClient.triggerScheduler();
+  const triggerScheduler = async (force = false, templateId?: string, idempotencyKey?: string, seed?: number) => {
+    const res = await apiClient.triggerScheduler(force, templateId, idempotencyKey, seed);
     await refreshLiveData();
     return res;
   };

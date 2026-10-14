@@ -101,7 +101,7 @@ export const OverviewPage: React.FC = () => {
           </div>
           <p className="text-sm text-slate-500 mt-1.5">
             {isLive
-              ? `Connected to PostgreSQL backend — Scheduler: ${liveSchedulerStatus?.is_running ? 'Active' : 'Standby'}, Orders: ${liveOrders.length}, Audit Logs: ${liveAuditEvents.length}`
+              ? `Connected to PostgreSQL backend — Scheduler: ${liveSchedulerStatus?.status || (liveSchedulerStatus?.is_running ? 'Active' : 'Standby')} (${liveSchedulerStatus?.interval_seconds ?? liveSchedulerStatus?.configured_interval_seconds ?? 300}s, Queue: ${liveSchedulerStatus?.open_scenarios_count ?? 0}/${liveSchedulerStatus?.max_open_scenarios ?? 10}), Orders: ${liveOrders.length}, Audit Logs: ${liveAuditEvents.length}`
               : 'Autonomous Order Fulfilment & Decision Intelligence'}
           </p>
         </div>

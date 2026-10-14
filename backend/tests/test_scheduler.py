@@ -28,6 +28,7 @@ from app.services.scheduler_service import (
     DEFAULT_INTERVAL_SECONDS,
     ScenarioScheduler,
     get_configured_interval,
+    get_max_open_scenarios,
 )
 
 
@@ -56,8 +57,9 @@ def scheduler_test_tracker(test_conn) -> Generator[dict, None, None]:
     tracker: dict[str, list[str]] = {"scenario_ids": []}
     yield tracker
 
-    cur = test_conn.cursor()
     try:
+        test_conn.rollback()
+        cur = test_conn.cursor()
         if tracker["scenario_ids"]:
             cur.execute(
                 "DELETE FROM action_execution_results WHERE action_id IN (SELECT action_id FROM action_queue WHERE scenario_id::text = ANY(%s));",
@@ -95,7 +97,8 @@ def scheduler_test_tracker(test_conn) -> Generator[dict, None, None]:
                 "DELETE FROM scenario_instances WHERE scenario_id::text = ANY(%s);",
                 (tracker["scenario_ids"],),
             )
-        # Reset scheduler lock state
+        # Clean up scheduler event logs and reset scheduler lock state
+        cur.execute("DELETE FROM event_log WHERE entity_id = 'scenario-generator' OR entity_type = 'SCHEDULER';")
         cur.execute(
             """
             UPDATE scheduler_state
@@ -245,3 +248,150 @@ def test_scheduler_api_status_and_trigger(client: TestClient, scheduler_test_tra
     assert "executed" in trig_data
     if trig_data.get("scenario_id"):
         scheduler_test_tracker["scenario_ids"].append(trig_data["scenario_id"])
+
+
+@pytest.mark.integration
+def test_interval_precedence_and_validation(monkeypatch):
+    """SCENARIO_SCHEDULER_INTERVAL_SECONDS takes precedence over SCHEDULER_INTERVAL_SECONDS, falling back safely."""
+    monkeypatch.delenv("SCENARIO_SCHEDULER_INTERVAL_SECONDS", raising=False)
+    monkeypatch.delenv("SCHEDULER_INTERVAL_SECONDS", raising=False)
+    assert get_configured_interval() == DEFAULT_INTERVAL_SECONDS
+
+    # SCHEDULER_INTERVAL_SECONDS works when alone
+    monkeypatch.setenv("SCHEDULER_INTERVAL_SECONDS", "200")
+    assert get_configured_interval() == 200
+
+    # SCENARIO_SCHEDULER_INTERVAL_SECONDS takes precedence
+    monkeypatch.setenv("SCENARIO_SCHEDULER_INTERVAL_SECONDS", "150")
+    assert get_configured_interval() == 150
+
+    # Zero or negative values fall back to default
+    monkeypatch.setenv("SCENARIO_SCHEDULER_INTERVAL_SECONDS", "-10")
+    assert get_configured_interval() == DEFAULT_INTERVAL_SECONDS
+
+    monkeypatch.setenv("SCENARIO_SCHEDULER_INTERVAL_SECONDS", "0")
+    assert get_configured_interval() == DEFAULT_INTERVAL_SECONDS
+
+
+@pytest.mark.integration
+def test_open_scenarios_capacity_limit_skips_generation(test_conn, scheduler_test_tracker, monkeypatch):
+    """When active open scenarios reach the configured capacity, the scheduler cycle safely skips generation."""
+    monkeypatch.setenv("SCHEDULER_MAX_OPEN_SCENARIOS", "2")
+    sched = ScenarioScheduler()
+
+    # Pre-populate 2 active scenarios
+    now = datetime.now(timezone.utc)
+    for _ in range(2):
+        s_id = str(uuid.uuid4())
+        scheduler_test_tracker["scenario_ids"].append(s_id)
+        with test_conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO scenario_instances (
+                    scenario_id, scenario_template_id, scheduled_at, created_at,
+                    status, severity, idempotency_key
+                )
+                VALUES (%s, 'TPL-001', %s, %s, 'RUNNING', 'MEDIUM', %s);
+                """,
+                (s_id, now, now, f"IDEMP-LIMIT-{s_id}"),
+            )
+            test_conn.commit()
+
+    # Cycle should skip due to limit
+    res = sched.run_cycle(test_conn)
+    assert res["executed"] is False
+    assert res["status"] == "SKIPPED"
+    assert res["reason"] == "OPEN_SCENARIOS_LIMIT_REACHED"
+
+    status = sched.get_status(test_conn)
+    assert status["last_skip_reason"] == "OPEN_SCENARIOS_LIMIT_REACHED"
+    assert (status.get("open_scenarios_count") or 0) >= 2
+
+
+@pytest.mark.integration
+def test_operational_data_grounding(test_conn, scheduler_test_tracker):
+    """Generated scenario binds operational entities to real rows in PostgreSQL operational tables."""
+    sched = ScenarioScheduler()
+    res = sched.run_cycle(test_conn)
+    assert res["executed"] is True
+    scenario_id = res["scenario_id"]
+    scheduler_test_tracker["scenario_ids"].append(scenario_id)
+
+    with test_conn.cursor() as cur:
+        cur.execute(
+            "SELECT input_overlay, linked_order_id FROM scenario_instances WHERE scenario_id = %s;",
+            (scenario_id,),
+        )
+        row = cur.fetchone()
+        assert row is not None
+        overlay, linked_order_id = row[0], row[1]
+        grounded = overlay.get("grounded_data", {})
+        meta = overlay.get("generation_metadata", {})
+        assert meta.get("grounded_operational_data") is True
+
+        # Check references in PostgreSQL operational tables
+        if linked_order_id:
+            cur.execute("SELECT 1 FROM orders WHERE order_id = %s;", (linked_order_id,))
+            assert cur.fetchone() is not None, f"Referenced order {linked_order_id} must exist in orders table"
+        if "item_id" in grounded:
+            cur.execute("SELECT 1 FROM products WHERE product_id = %s;", (grounded["item_id"],))
+            assert cur.fetchone() is not None, f"Referenced item {grounded['item_id']} must exist in products table"
+        if "supplier_id" in grounded:
+            cur.execute("SELECT 1 FROM suppliers WHERE supplier_id = %s;", (grounded["supplier_id"],))
+            assert cur.fetchone() is not None, f"Referenced supplier {grounded['supplier_id']} must exist in suppliers table"
+
+
+@pytest.mark.integration
+def test_seeded_deterministic_selection(test_conn):
+    """Providing a fixed seed produces reproducible template selection."""
+    sched = ScenarioScheduler()
+    t1 = sched.find_eligible_scenario(test_conn, seed=42)
+    t2 = sched.find_eligible_scenario(test_conn, seed=42)
+    assert t1 is not None and t2 is not None
+    assert t1[0] == t2[0]  # exact same template_id
+
+
+@pytest.mark.integration
+def test_cycle_idempotency(test_conn, scheduler_test_tracker):
+    """Repeated triggers with identical idempotency key do not duplicate scenario instances."""
+    sched = ScenarioScheduler()
+    key = f"TEST-IDEMP-{uuid.uuid4().hex[:12]}"
+
+    res1 = sched.run_cycle(test_conn, idempotency_key=key)
+    assert res1["executed"] is True
+    s_id_1 = res1["scenario_id"]
+    scheduler_test_tracker["scenario_ids"].append(s_id_1)
+
+    # Second run with same idempotency key
+    res2 = sched.run_cycle(test_conn, idempotency_key=key)
+    assert res2["executed"] is False
+    assert res2["status"] == "EXISTING_INSTANCE"
+    assert res2["scenario_id"] == s_id_1
+
+    # Verify database has exactly 1 instance for this key
+    with test_conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM scenario_instances WHERE idempotency_key = %s;", (key,))
+        count = cur.fetchone()[0]
+        assert count == 1
+
+
+@pytest.mark.integration
+def test_scheduler_api_templates_and_scenarios(client: TestClient, scheduler_test_tracker):
+    """API endpoints for listing templates and paginated scenarios return correct schemas."""
+    # Templates
+    res_tpl = client.get("/api/scheduler/templates")
+    assert res_tpl.status_code == 200
+    tpls = res_tpl.json()
+    assert isinstance(tpls, list)
+    assert len(tpls) >= 1
+    assert "scenario_template_id" in tpls[0]
+
+    # Scenarios list
+    res_scen = client.get("/api/scheduler/scenarios?limit=10")
+    assert res_scen.status_code == 200
+    scens = res_scen.json()
+    assert isinstance(scens, list)
+
+    # Unauthorized trigger
+    res_unauth = client.post("/api/scheduler/trigger")
+    assert res_unauth.status_code in (401, 403)
