@@ -55,7 +55,7 @@ export const OrchestrationPage: React.FC = () => {
   const [providerInfo, setProviderInfo] = useState<ProviderInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
-  const [orderId, setOrderId] = useState('ORD-1001');
+  const [orderId, setOrderId] = useState('ORD-1042');
 
   const fetchProviderInfo = useCallback(async () => {
     try {
@@ -247,6 +247,11 @@ export const OrchestrationPage: React.FC = () => {
                 <div>
                   <div className="text-sm font-bold text-white flex items-center gap-2">
                     <span>Orchestration {result.status}</span>
+                    {result.error_code && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-red-950/60 text-red-300 border border-red-800/60">
+                        {result.error_code}
+                      </span>
+                    )}
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/40 text-slate-400 border border-slate-700">
                       wf: {result.workflow_id.slice(0, 8)}…
                     </span>
@@ -322,6 +327,29 @@ export const OrchestrationPage: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Result Error Banner */}
+          {result.error && (
+            <div
+              className="rounded-xl px-4 py-3 flex items-start gap-3"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }}
+            >
+              <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold text-red-400 uppercase tracking-wider">
+                    Execution Error
+                  </span>
+                  {result.error_code && (
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-red-900/40 text-red-300 border border-red-700/50">
+                      {result.error_code}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-red-200 mt-0.5">{result.error}</div>
+              </div>
+            </div>
+          )}
 
           {/* Supervisor Conflicts / Missing Evidence Alerts */}
           {((result.conflicts && result.conflicts.length > 0) || (result.missing_evidence && result.missing_evidence.length > 0)) && (

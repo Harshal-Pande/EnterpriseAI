@@ -283,6 +283,7 @@ export interface OrchestrationAgentStep {
   duration_ms?: number;
   evidence_refs: Record<string, any>[];
   error?: string;
+  error_code?: string;
 }
 
 export interface OrchestrationResult {
@@ -308,6 +309,7 @@ export interface OrchestrationResult {
   started_at: string;
   completed_at?: string;
   error?: string;
+  error_code?: string;
 }
 
 export interface ProviderInfo {

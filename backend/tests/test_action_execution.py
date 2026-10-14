@@ -74,6 +74,10 @@ def action_test_tracker(test_conn) -> Generator[dict, None, None]:
                 (tracker["action_ids"],),
             )
             cur.execute(
+                "DELETE FROM event_log WHERE entity_id::text = ANY(%s);",
+                (tracker["action_ids"],),
+            )
+            cur.execute(
                 "DELETE FROM action_queue WHERE action_id::text = ANY(%s);",
                 (tracker["action_ids"],),
             )

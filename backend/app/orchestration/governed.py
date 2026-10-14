@@ -43,7 +43,11 @@ from app.core.llm_provider import (
     AgentPrompt,
     AgentResponse,
     LLMProvider,
+    LLMProviderConfigError,
     LLMProviderError,
+    LLMProviderMalformedOutputError,
+    LLMProviderTimeoutError,
+    LLMProviderUnavailableError,
     ProviderMode,
     get_default_provider,
 )
@@ -64,6 +68,22 @@ from app.services.policy_service import evaluate_policy
 from app.services.workflow_service import transition_workflow_status
 
 logger = logging.getLogger("enterpriseai.orchestration.governed")
+
+
+class OrchestrationErrorCode(str, Enum):
+    """Controlled, typed error codes for governed orchestration failures."""
+
+    MISSING_EVIDENCE = "MISSING_EVIDENCE"
+    SAFETY_HOLD_BLOCKED = "SAFETY_HOLD_BLOCKED"
+    POLICY_REJECTION = "POLICY_REJECTION"
+    APPROVAL_REQUIRED = "APPROVAL_REQUIRED"
+    APPROVAL_REJECTED = "APPROVAL_REJECTED"
+    APPROVAL_PENDING = "APPROVAL_PENDING"
+    AGENT_EXECUTION_FAILED = "AGENT_EXECUTION_FAILED"
+    PROVIDER_TIMEOUT = "PROVIDER_TIMEOUT"
+    PROVIDER_UNAVAILABLE = "PROVIDER_UNAVAILABLE"
+    PROVIDER_MALFORMED = "PROVIDER_MALFORMED"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
 
 
 class OrchestrationPhase(str, Enum):
@@ -99,6 +119,7 @@ class AgentStepResult(BaseModel):
     duration_ms: Optional[float] = None
     evidence_refs: List[Dict[str, Any]] = Field(default_factory=list)
     error: Optional[str] = None
+    error_code: Optional[str] = None
 
 
 class OrchestrationResult(BaseModel):
@@ -126,6 +147,7 @@ class OrchestrationResult(BaseModel):
     started_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     completed_at: Optional[str] = None
     error: Optional[str] = None
+    error_code: Optional[str] = None
 
 
 class GovernedOrchestrator:
@@ -208,6 +230,7 @@ class GovernedOrchestrator:
                 if not order_row:
                     msg = f"Missing evidence: Order '{order_id}' not found in operational database."
                     result.status = "BLOCKED"
+                    result.error_code = OrchestrationErrorCode.MISSING_EVIDENCE.value
                     result.error = msg
                     result.missing_evidence.append(msg)
                     result.can_retry = True
@@ -374,6 +397,7 @@ class GovernedOrchestrator:
         # If there are blocking conflicts (e.g. active quality hold), fail closed
         if state.get("quality_hold") or state.get("safety_alert"):
             result.status = "FAILED"
+            result.error_code = OrchestrationErrorCode.SAFETY_HOLD_BLOCKED.value
             result.error = "Execution blocked by active safety/quality hold."
             result.can_retry = False
             result.phases_completed.append(OrchestrationPhase.POLICY_EVALUATION.value)
@@ -465,6 +489,7 @@ class GovernedOrchestrator:
                 # Policy rejected proposed action (e.g., budget exceeded or supplier inactive)
                 logger.warning("Action rejected during governance evaluation: %s", http_exc.detail)
                 result.status = "FAILED"
+                result.error_code = OrchestrationErrorCode.POLICY_REJECTION.value
                 result.error = f"Policy Gate Rejection: {http_exc.detail}"
                 result.can_retry = False
                 result.governance["policy_rejected"] = True
@@ -487,6 +512,7 @@ class GovernedOrchestrator:
             except Exception as exc:
                 logger.error("Error during governance action execution: %s", exc)
                 result.status = "FAILED"
+                result.error_code = OrchestrationErrorCode.INTERNAL_ERROR.value
                 result.error = str(exc)
                 result.can_retry = True
 
@@ -610,6 +636,14 @@ class GovernedOrchestrator:
             except LLMProviderError as llm_err:
                 if self.llm_provider.get_mode() == ProviderMode.LIVE:
                     # In LIVE mode, provider failures fail closed!
+                    if isinstance(llm_err, LLMProviderTimeoutError):
+                        step_result.error_code = OrchestrationErrorCode.PROVIDER_TIMEOUT.value
+                    elif isinstance(llm_err, LLMProviderUnavailableError):
+                        step_result.error_code = OrchestrationErrorCode.PROVIDER_UNAVAILABLE.value
+                    elif isinstance(llm_err, LLMProviderMalformedOutputError):
+                        step_result.error_code = OrchestrationErrorCode.PROVIDER_MALFORMED.value
+                    else:
+                        step_result.error_code = OrchestrationErrorCode.AGENT_EXECUTION_FAILED.value
                     raise
                 logger.warning("LLM provider error for %s (non-fatal in simulation): %s", agent_name, llm_err)
                 step_result.llm_reasoning = f"LLM consultation skipped: {type(llm_err).__name__}"
@@ -643,6 +677,15 @@ class GovernedOrchestrator:
         except Exception as exc:
             logger.error("Agent %s failed in phase %s: %s", agent_name, phase.value, exc)
             step_result.status = "FAILED"
+            if not step_result.error_code:
+                if isinstance(exc, LLMProviderTimeoutError):
+                    step_result.error_code = OrchestrationErrorCode.PROVIDER_TIMEOUT.value
+                elif isinstance(exc, LLMProviderUnavailableError):
+                    step_result.error_code = OrchestrationErrorCode.PROVIDER_UNAVAILABLE.value
+                elif isinstance(exc, LLMProviderMalformedOutputError):
+                    step_result.error_code = OrchestrationErrorCode.PROVIDER_MALFORMED.value
+                else:
+                    step_result.error_code = OrchestrationErrorCode.AGENT_EXECUTION_FAILED.value
             step_result.error = str(exc)
 
             if is_persistent and conn and run_id:
@@ -672,6 +715,7 @@ class GovernedOrchestrator:
     ) -> OrchestrationResult:
         """Handle agent step failure: fail closed, prevent downstream actions, transition workflow."""
         result.status = "FAILED"
+        result.error_code = step_res.error_code or OrchestrationErrorCode.AGENT_EXECUTION_FAILED.value
         result.error = f"Agent '{step_res.agent_name}' failed in phase '{step_res.phase}': {step_res.error}"
         result.can_retry = True
         result.completed_at = datetime.now(timezone.utc).isoformat()
@@ -724,7 +768,7 @@ class GovernedOrchestrator:
             if not row:
                 raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found.")
 
-            curr_status, order_id, template_id, overlay = row[0], row[1] or "ORD-1001", row[2], row[3] or {}
+            curr_status, order_id, template_id, overlay = row[0], row[1] or "ORD-1042", row[2], row[3] or {}
 
         if curr_status in ("RESOLVED", "COMPLETED"):
             raise HTTPException(
@@ -768,6 +812,7 @@ class GovernedOrchestrator:
                     scenario_id=workflow_id,
                     order_id=order_id,
                     status="FAILED",
+                    error_code=OrchestrationErrorCode.APPROVAL_REJECTED.value,
                     error=f"Approval was REJECTED: {reason}",
                     can_retry=False,
                 )

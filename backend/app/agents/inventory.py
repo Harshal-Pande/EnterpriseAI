@@ -22,7 +22,7 @@ class InventoryAgent:
 
     def run(self, state: Dict[str, Any], conn=None) -> Dict[str, Any]:
         """Check real stock levels from PostgreSQL inventory and reorder_policies."""
-        order_id = state.get("order_id", "ORD-1001")
+        order_id = state.get("order_id", "ORD-1042")
         item_id = state.get("product_id") or state.get("item_id")
         requested_qty = float(state.get("requested_qty") or state.get("quantity") or 100.0)
         warehouse_id = state.get("warehouse_id")

@@ -68,13 +68,125 @@ def _row_to_action_record(row: tuple) -> ActionRecord:
     )
 
 
+def _compute_simulation_state_transition(
+    conn,
+    action_type: str,
+    target_entity_id: Optional[str],
+    payload: Dict[str, Any],
+) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    """Capture real before-state from PostgreSQL and compute projected after-state and delta."""
+    action_upper = action_type.upper()
+    spend = float(payload.get("estimated_cost") or payload.get("spend") or 0.0)
+    quantity = float(payload.get("quantity") or 0.0)
+    item_id = payload.get("item_id") or target_entity_id
+
+    # 1. Financial actions: query active budget before state
+    if action_upper in {"CREATE_PURCHASE_ORDER", "ALLOCATE_BUDGET", "DISPATCH_PAYMENT"}:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT budget_id, available_budget_inr, committed_spend_inr
+                FROM budgets
+                WHERE status = 'ACTIVE'
+                ORDER BY available_budget_inr DESC
+                LIMIT 1;
+                """
+            )
+            b_row = cur.fetchone()
+        if b_row:
+            b_id, avail, committed = b_row[0], float(b_row[1]), float(b_row[2]) if b_row[2] is not None else 0.0
+            proj_avail = max(0.0, avail - spend)
+            proj_committed = committed + spend
+            before = {"budget_id": b_id, "available_budget_inr": avail, "committed_spend_inr": committed}
+            after = {"budget_id": b_id, "available_budget_inr": proj_avail, "committed_spend_inr": proj_committed}
+            diff = {
+                "available_budget_inr": {"before": avail, "after": proj_avail, "delta": -spend},
+                "committed_spend_inr": {"before": committed, "after": proj_committed, "delta": spend},
+            }
+            return before, after, diff
+
+    # 2. Inventory actions: query inventory before state
+    if action_upper in {"ALLOCATE_INVENTORY", "FULFILL_ORDER", "CHECK_STOCK"} and item_id:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COALESCE(SUM(available_qty), 0), COALESCE(SUM(reserved_qty), 0) FROM inventory WHERE item_id = %s;",
+                (item_id,),
+            )
+            i_row = cur.fetchone()
+        avail = float(i_row[0]) if i_row else 0.0
+        reserved = float(i_row[1]) if i_row else 0.0
+        proj_avail = max(0.0, avail - quantity)
+        proj_reserved = reserved + quantity
+        before = {"item_id": item_id, "available_qty": avail, "reserved_qty": reserved}
+        after = {"item_id": item_id, "available_qty": proj_avail, "reserved_qty": proj_reserved}
+        diff = {
+            "available_qty": {"before": avail, "after": proj_avail, "delta": -quantity},
+            "reserved_qty": {"before": reserved, "after": proj_reserved, "delta": quantity},
+        }
+        return before, after, diff
+
+    # 3. Maintenance actions: query maintenance_assets before state
+    asset_id = payload.get("asset_id") or target_entity_id
+    if action_upper in {"TRIGGER_EMERGENCY_MAINTENANCE", "OVERRIDE_MAINTENANCE_SCHEDULE", "SHUTDOWN_ASSET"} or (asset_id and asset_id.startswith("AST-")):
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT asset_id, health_status, failure_risk_score FROM maintenance_assets WHERE asset_id = %s;",
+                (asset_id,),
+            )
+            m_row = cur.fetchone()
+        if m_row:
+            a_id, h_status, risk = m_row[0], m_row[1], float(m_row[2]) if m_row[2] is not None else 0.0
+            before = {"asset_id": a_id, "health_status": h_status, "failure_risk_score": risk}
+            after = {"asset_id": a_id, "health_status": "MAINTENANCE_SCHEDULED", "failure_risk_score": 0.10}
+            diff = {
+                "health_status": {"before": h_status, "after": "MAINTENANCE_SCHEDULED"},
+                "failure_risk_score": {"before": risk, "after": 0.10, "delta": round(0.10 - risk, 4)},
+            }
+            return before, after, diff
+
+    # 4. Production stoppage actions
+    if action_upper in {"PRODUCTION_STOP", "LINE_STOP", "SCHEDULE_OVERRIDE", "EMERGENCY_SHUTDOWN"}:
+        line_id = payload.get("production_line_id") or target_entity_id or "LINE-01"
+        before = {"production_line_id": line_id, "line_status": "RUNNING"}
+        after = {"production_line_id": line_id, "line_status": "STOPPED"}
+        diff = {"line_status": {"before": "RUNNING", "after": "STOPPED"}}
+        return before, after, diff
+
+    # 5. Quality / safety override actions
+    if action_upper in {"QUALITY_RELEASE_OVERRIDE", "RELEASE_QUALITY_HOLD", "SAFETY_HOLD_OVERRIDE", "OVERRIDE_SAFETY_ALERT"}:
+        entity = target_entity_id or item_id or "GENERAL"
+        before = {"entity_id": entity, "hold_status": "ACTIVE_HOLD"}
+        after = {"entity_id": entity, "hold_status": "OVERRIDDEN_BY_APPROVAL"}
+        diff = {"hold_status": {"before": "ACTIVE_HOLD", "after": "OVERRIDDEN_BY_APPROVAL"}}
+        return before, after, diff
+
+    # 6. Default fallback operational transition
+    entity = target_entity_id or item_id or "OPERATIONAL_STATE"
+    before = {"entity_id": entity, "status": "PENDING_EXECUTION"}
+    after = {"entity_id": entity, "status": "SIMULATED_APPLIED"}
+    diff = {"status": {"before": "PENDING_EXECUTION", "after": "SIMULATED_APPLIED"}}
+    return before, after, diff
+
+
 class SafeSimulationAdapter:
     """Safe simulation execution adapter for consequential supply chain actions."""
 
     @staticmethod
-    def execute(action_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Simulate action execution with deterministic outcome and reference identifiers."""
+    def execute(
+        action_type: str,
+        payload: Dict[str, Any],
+        before_state: Optional[Dict[str, Any]] = None,
+        after_state: Optional[Dict[str, Any]] = None,
+        diff: Optional[Dict[str, Any]] = None,
+        actor: str = "SystemExecutor",
+        approver: Optional[str] = None,
+        policy_result: Optional[str] = "PASS",
+    ) -> Dict[str, Any]:
+        """Simulate action execution with deterministic outcome, state transitions, and audit metadata."""
         ref_id = f"SIM-{action_type[:4]}-{uuid.uuid4().hex[:6].upper()}"
+        b_state = before_state or {"status": "PENDING_EXECUTION"}
+        a_state = after_state or {"status": "SIMULATED_APPLIED"}
+        s_diff = diff or {"status": {"before": "PENDING_EXECUTION", "after": "SIMULATED_APPLIED"}}
         return {
             "execution_mode": "SIMULATION",
             "adapter": "SafeSimulationAdapter",
@@ -82,6 +194,12 @@ class SafeSimulationAdapter:
             "reference_number": ref_id,
             "action_type": action_type,
             "target_entity": payload.get("item_id") or payload.get("supplier_id") or payload.get("order_id"),
+            "actor": actor,
+            "approver": approver,
+            "policy_result": policy_result,
+            "before_state": b_state,
+            "after_state": a_state,
+            "diff": s_diff,
             "details": f"Simulated {action_type} executed safely without live side-effects.",
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
@@ -319,14 +437,27 @@ def execute_action(
                 detail=err_msg,
             )
 
-        # 5. Execute action via Safe Simulation Adapter
+        # 5. Execute action via Safe Simulation Adapter with state transition tracking
         now = datetime.now(timezone.utc)
         cur.execute(
             "UPDATE action_queue SET status = 'EXECUTING' WHERE action_id = %s;",
             (str(val_action_uuid),),
         )
 
-        sim_result = SafeSimulationAdapter.execute(action_type, payload)
+        before_state, after_state, diff = _compute_simulation_state_transition(
+            conn, action_type, current[4], payload
+        )
+
+        sim_result = SafeSimulationAdapter.execute(
+            action_type=action_type,
+            payload=payload,
+            before_state=before_state,
+            after_state=after_state,
+            diff=diff,
+            actor=caller_id,
+            approver=current[8],
+            policy_result=precheck.overall_result,
+        )
         exec_id = uuid.uuid4()
 
         # Record execution attempt in action_execution_results
@@ -339,6 +470,39 @@ def execute_action(
             """,
             (str(exec_id), str(val_action_uuid), now, json.dumps(sim_result)),
         )
+
+        # Record audit event in event_log
+        event_id = str(uuid.uuid4())
+        try:
+            cur.execute(
+                """
+                INSERT INTO event_log (
+                    event_id, event_timestamp, event_type, entity_type, entity_id,
+                    scenario_id, workflow_run_id, actor_type, actor_id, status,
+                    reason_code, evidence_refs, payload_hash, source_channel
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                """,
+                (
+                    event_id, now, "ACTION_EXECUTED", "ACTION", str(val_action_uuid),
+                    str(current[1]), str(current[1]),
+                    "USER" if caller_id != "GovernedOrchestrator" else "SYSTEM", caller_id, "SUCCEEDED",
+                    "SAFE_SIMULATION_EXECUTION",
+                    json.dumps([{
+                        "action_id": str(val_action_uuid),
+                        "action_type": action_type,
+                        "policy_result": precheck.overall_result,
+                        "actor": caller_id,
+                        "approver": current[8],
+                        "before_state": before_state,
+                        "after_state": after_state,
+                        "diff": diff,
+                    }]),
+                    "", "ACTION_SERVICE",
+                ),
+            )
+        except Exception as a_exc:
+            logger.warning("Could not log action execution audit event: %s", a_exc)
 
         # Update action_queue to SUCCEEDED
         cur.execute(

@@ -181,17 +181,35 @@ def evaluate_policy(conn, req: PolicyEvaluationRequest) -> PolicyEvaluationRespo
                     )
                 )
 
-            # 4. SAFETY AND QUALITY RULES (FAIL-CLOSED)
-            elif domain in {"QUALITY", "SAFETY"}:
-                # Default pass unless an explicit safety flag was set in payload
-                if payload.get("quality_hold") or payload.get("safety_alert"):
+            # 4. QUALITY RULES
+            elif domain == "QUALITY":
+                if action_type in {"QUALITY_RELEASE_OVERRIDE", "RELEASE_QUALITY_HOLD", "OVERRIDE_QUALITY_HOLD"}:
+                    res = "NEEDS_APPROVAL"
+                    expl = "Quality release or hold override requires authorized human sign-off."
+                    needs_approval = True
+                    approval_domain = "QUALITY"
+                elif payload.get("quality_hold"):
                     res = "FAIL"
-                    expl = f"Critical safety or quality hold active in target area."
+                    expl = "Critical quality hold active in target area."
                     has_failure = True
                     rejection_reasons.append(expl)
+                elif payload.get("batch_id"):
+                    cur.execute(
+                        "SELECT COUNT(*) FROM quality_events WHERE batch_id = %s AND status NOT IN ('RELEASED', 'RESOLVED') AND severity IN ('HIGH', 'CRITICAL');",
+                        (payload.get("batch_id"),),
+                    )
+                    q_count = cur.fetchone()[0]
+                    if q_count > 0:
+                        res = "FAIL"
+                        expl = f"Unresolved HIGH/CRITICAL quality hold on batch {payload.get('batch_id')}."
+                        has_failure = True
+                        rejection_reasons.append(expl)
+                    else:
+                        res = "PASS"
+                        expl = f"No active quality hold detected on batch {payload.get('batch_id')}."
                 else:
                     res = "PASS"
-                    expl = f"No active {domain.lower()} hold detected."
+                    expl = "No active quality hold detected."
 
                 rule_results.append(
                     RuleEvaluationResult(
@@ -200,7 +218,89 @@ def evaluate_policy(conn, req: PolicyEvaluationRequest) -> PolicyEvaluationRespo
                         result=res,
                         condition=condition,
                         explanation=expl,
-                        details={},
+                        details={"action_type": action_type},
+                    )
+                )
+
+            # 5. SAFETY RULES
+            elif domain == "SAFETY":
+                if action_type in {"SAFETY_HOLD_OVERRIDE", "OVERRIDE_SAFETY_ALERT"}:
+                    res = "NEEDS_APPROVAL"
+                    expl = "Safety hold or alert override requires authorized human sign-off."
+                    needs_approval = True
+                    approval_domain = "SAFETY"
+                elif payload.get("safety_alert"):
+                    res = "FAIL"
+                    expl = "Critical safety alert active in target area."
+                    has_failure = True
+                    rejection_reasons.append(expl)
+                elif payload.get("work_area") or payload.get("facility_id"):
+                    area = payload.get("work_area") or payload.get("facility_id")
+                    cur.execute(
+                        "SELECT COUNT(*) FROM safety_events WHERE entity_id = %s AND status NOT IN ('CLOSED', 'RESOLVED') AND severity = 'CRITICAL';",
+                        (area,),
+                    )
+                    s_count = cur.fetchone()[0]
+                    if s_count > 0:
+                        res = "FAIL"
+                        expl = f"Unresolved CRITICAL safety event in affected work area ({area})."
+                        has_failure = True
+                        rejection_reasons.append(expl)
+                    else:
+                        res = "PASS"
+                        expl = f"No active safety hold detected in affected work area ({area})."
+                else:
+                    res = "PASS"
+                    expl = "No active safety hold detected."
+
+                rule_results.append(
+                    RuleEvaluationResult(
+                        rule_id=rule_id,
+                        domain=domain,
+                        result=res,
+                        condition=condition,
+                        explanation=expl,
+                        details={"action_type": action_type},
+                    )
+                )
+
+            # 6. MAINTENANCE & PRODUCTION ASSET RULES
+            elif domain == "MAINTENANCE":
+                if action_type in {"PRODUCTION_STOP", "LINE_STOP", "SCHEDULE_OVERRIDE", "EMERGENCY_SHUTDOWN"}:
+                    res = "NEEDS_APPROVAL"
+                    expl = "Production stoppage or line interruption requires human authorization."
+                    needs_approval = True
+                    approval_domain = "PRODUCTION"
+                elif action_type in {"TRIGGER_EMERGENCY_MAINTENANCE", "OVERRIDE_MAINTENANCE_SCHEDULE", "SHUTDOWN_ASSET"}:
+                    res = "NEEDS_APPROVAL"
+                    expl = "Maintenance override or emergency asset action requires human confirmation."
+                    needs_approval = True
+                    approval_domain = "MAINTENANCE"
+                else:
+                    asset_id = payload.get("asset_id") or (req.target_entity_id if req.target_entity_id and req.target_entity_id.startswith("AST-") else None)
+                    if asset_id:
+                        cur.execute("SELECT failure_risk_score FROM maintenance_assets WHERE asset_id = %s;", (asset_id,))
+                        m_row = cur.fetchone()
+                        if m_row and m_row[0] is not None and float(m_row[0]) >= 0.75:
+                            res = "NEEDS_APPROVAL"
+                            expl = f"Asset {asset_id} risk score ({float(m_row[0]):.2f}) >= 0.75 threshold: safety-critical action requires human confirmation."
+                            needs_approval = True
+                            approval_domain = "MAINTENANCE"
+                        else:
+                            res = "PASS"
+                            expl = f"Asset {asset_id} failure risk score within acceptable threshold."
+                    else:
+                        res = "PASS"
+                        expl = "No asset maintenance risk exceeded."
+
+                rule_results.append(
+                    RuleEvaluationResult(
+                        rule_id=rule_id,
+                        domain=domain,
+                        result=res,
+                        condition=condition,
+                        explanation=expl,
+                        details={"action_type": action_type},
                     )
                 )
 

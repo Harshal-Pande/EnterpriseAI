@@ -367,6 +367,7 @@ class TestGovernedOrchestratorUnit:
             input_overlay={"safety_alert": True},
         )
         assert result.status == "FAILED"
+        assert result.error_code == "SAFETY_HOLD_BLOCKED"
         assert "safety" in result.error.lower() or "hold" in result.error.lower()
         assert OrchestrationPhase.ACTION_EXECUTION.value not in result.phases_completed
 
@@ -465,6 +466,7 @@ class TestGovernedOrchestratorIntegration:
         )
 
         assert result.status == "BLOCKED"
+        assert result.error_code == "MISSING_EVIDENCE"
         assert "not found" in result.error.lower()
         assert len(result.missing_evidence) > 0
 

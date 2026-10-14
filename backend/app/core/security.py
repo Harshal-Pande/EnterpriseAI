@@ -117,6 +117,9 @@ class AuthUser:
             "PROCUREMENT",
             "LOGISTICS",
             "INVENTORY",
+            "QUALITY",
+            "SAFETY",
+            "PRODUCTION",
         }:
             return True
         return domain.upper() in [d.upper() for d in self.approval_domains]
@@ -140,7 +143,7 @@ def get_credential_registry() -> Dict[str, Tuple[UserRole, str, List[str], Optio
         registry[admin_key.strip()] = (
             UserRole.ADMIN,
             "admin_user",
-            ["FINANCE", "SUPPLY_CHAIN", "PROCUREMENT", "LOGISTICS"],
+            ["FINANCE", "SUPPLY_CHAIN", "PROCUREMENT", "LOGISTICS", "QUALITY", "SAFETY", "PRODUCTION"],
             None,
         )
 
@@ -158,7 +161,7 @@ def get_credential_registry() -> Dict[str, Tuple[UserRole, str, List[str], Optio
         registry[sc_key.strip()] = (
             UserRole.SUPPLY_CHAIN_APPROVER,
             "supply_chain_approver",
-            ["SUPPLY_CHAIN", "PROCUREMENT", "LOGISTICS"],
+            ["SUPPLY_CHAIN", "PROCUREMENT", "LOGISTICS", "INVENTORY", "QUALITY", "SAFETY", "PRODUCTION"],
             None,
         )
 

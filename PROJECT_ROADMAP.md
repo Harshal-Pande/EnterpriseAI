@@ -70,6 +70,20 @@
 **Current status**: **Completed, Hardened & Verified** (218/218 backend tests passing, 36/36 orchestration tests passing, 119/119 DB validation checks passing, Frontend build & lint clean).
 **Definition of completion**: Orchestration pipeline executes grounded agents, validates typed contracts, gates actions behind deterministic policies, persists state in PostgreSQL, surfaces truth to the UI, and passes all tests.
 
+## PHASE 5 — Policy Engine, Approvals, and Action Execution
+**Objective**: Safely apply approved decisions to simulated operational state with transactional gating, multi-domain policies, and state transition tracking.
+**Major tasks**:
+- Explicit policy checks for budget limits, supplier eligibility, inventory consistency, quality holds, safety events, and production-stop actions.
+- Distinguish `PROPOSED`, `APPROVED`, `REJECTED`, `EXECUTING`, `SUCCEEDED`, and `FAILED` action lifecycles.
+- Human approval gating for finance commitments (> 50M INR), safety-critical actions, quality release overrides, and production stoppages.
+- Multi-domain authorization allowing `SUPPLY_CHAIN_APPROVER` to approve `QUALITY`, `SAFETY`, and `PRODUCTION` actions.
+- Idempotent and transactional action execution (`FOR UPDATE` row locking, duplicate execution prevention).
+- Operational state transition tracking: capturing real before-state, projected after-state, and arithmetic deltas in `action_execution_results` and `event_log`.
+- Resolution of Phase 4 audit findings (seeded default order ID ORD-1042, typed OrchestrationErrorCode enum, and whitespace cleanup).
+**Dependencies**: Phase 4 Governed Multi-Agent Intelligence (Completed)
+**Current status**: **Completed, Hardened & Verified** (227/227 backend tests passing, 9/9 Phase 5 dedicated tests passing, 119/119 seed validation checks passing, Frontend build & lint clean).
+**Definition of completion**: Multi-domain policies evaluate deterministically, approval-required actions block execution, state transitions record before/after diffs in PostgreSQL, and all regression suites pass.
+
 ## PHASE 7 — Real-Time Events & WebSockets
 **Objective**: Stream agent workflow progress live to the UI.
 **Major tasks**: Configure WebSockets in FastAPI, update React to listen for state changes.
