@@ -365,7 +365,7 @@ For each phase, follow this loop:
 |---|---|
 | Phase 0 — Repository baseline | **Complete** — baseline report in `PHASE_0_BASELINE_REPORT.md` |
 | Phase 0.5 — Repository hygiene | **Complete** — checkpoint commit `827143d` |
-| Phase 1 — Domain model and dataset validation | **In progress / completing** — mappings, migrations, seed loader, validators, tests |
+| Phase 1 — Domain model and dataset validation | **Complete** — verified against PostgreSQL 18.6: 43 tables, 1,327 seed rows, 119 DB checks pass, 37/37 tests pass |
 | Phase 2 — PostgreSQL persistence and API | Starter only; no active database connection confirmed |
 | Phase 3 — Scenario scheduler | Not implemented as a persistent 300-second scheduler |
 | Phase 4 — Real agent orchestration | Stub/simulation; complete orchestration not implemented |
@@ -377,13 +377,21 @@ For each phase, follow this loop:
 
 ## 11. Immediate next task
 
-**Start with Phase 0 only.** Ask Antigravity to inspect the repository, run the available baseline checks, and produce a factual report. It must not start Phase 1 implementation until the baseline report is complete and reviewed.
-
-The goal is to establish what actually builds and runs today, not to generate more code before understanding the current state.
+**Phase 1 is verified and complete.** Proceed to Phase 2 (PostgreSQL Persistence & API Integration).
 
 ---
 
 ## Development log
+
+### 2026-10-14 — Phase 1 PostgreSQL verification gate passed
+- Verified PostgreSQL 18.6 running locally on port 5432. Created dedicated disposable test database `enterprise_ai_test`.
+- Applied migrations `001_operational_schema.sql` and `002_runtime_schema.sql`. Verified 43 tables, 43 PKs, 54 FKs, 360 CHECKs, 3 UNIQUEs, 73 indexes.
+- Verified migration idempotency, checksum mismatch detection, and transactional rollback on failure.
+- Loaded 1,327 seed rows across 31 mapped sheets with 0 rejected rows and 0 orphans. Verified idempotency (1,327 skipped on rerun).
+- Executed `validate_seed_data.py` against live database: 119 of 119 automated checks passed.
+- Pytest suite: 37 of 37 tests passed (27 unit tests + 10 PostgreSQL integration tests).
+- Frontend build and lint passed (`tsc -b && vite build` in 1.73s; 0 lint errors, 1 known warning).
+- Backend import (`app.main`) passed cleanly. FastAPI remains uncoupled from database as required.
 
 ### 2026-10-14 — Reference established
 - Recorded the current repository baseline based on the uploaded repository ingest.

@@ -1,502 +1,984 @@
 {
-  "generated_at": "2026-10-14T11:29:29.471294+00:00",
-  "workbook_path": "d:\\MajorProject\\EnterpriseAI\\project_reference\\enterprise_ai_industrial_dataset_v2.xlsx",
-  "sheets_inspected": 30,
-  "total_records_inspected": 1315,
-  "summary": {
-    "critical": 0,
-    "warning": 73,
-    "info": 0
+  "generated_at": "2026-10-14T12:45:35.734303+00:00",
+  "mode": "database",
+  "database_queried": true,
+  "pass": true,
+  "failed_count": 0,
+  "check_count": 119,
+  "count_reconciliation": {
+    "workbook_data_rows": 1677,
+    "mapped_import_rows": 1327,
+    "metadata_excluded_rows": 350,
+    "empty_runtime_workbook_sheets": [
+      "scenario_instances",
+      "agent_runs",
+      "decisions",
+      "action_queue",
+      "event_log",
+      "blockchain_anchors"
+    ],
+    "note": "1677 = all 40 sheets. 1327 = 31 mapped import sheets. 350 = README (8) + data_dictionary (37) + column_dictionary (305). Six runtime workbook sheets contribute 0 rows but still have tables."
   },
-  "sheets": [
+  "checks": [
     {
-      "sheet_name": "ref_entities",
-      "row_count": 4,
-      "column_count": 5,
-      "columns": [
-        "entity_id",
-        "entity_name",
-        "entity_type",
-        "country",
-        "status"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_entities",
+      "status": "PASS",
+      "sheet": "ref_entities",
+      "table": "entities",
+      "expected": 4,
+      "actual": 4,
+      "source_rows": 4,
+      "imported_rows": 4,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_departments",
-      "row_count": 11,
-      "column_count": 2,
-      "columns": [
-        "department_id",
-        "department_name"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_departments",
+      "status": "PASS",
+      "sheet": "ref_departments",
+      "table": "departments",
+      "expected": 11,
+      "actual": 11,
+      "source_rows": 11,
+      "imported_rows": 11,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_products",
-      "row_count": 11,
-      "column_count": 6,
-      "columns": [
-        "product_id",
-        "product_name",
-        "product_category",
-        "base_uom",
-        "reference_unit_cost_inr",
-        "status"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_products",
+      "status": "PASS",
+      "sheet": "ref_products",
+      "table": "products",
+      "expected": 11,
+      "actual": 11,
+      "source_rows": 11,
+      "imported_rows": 11,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_warehouses",
-      "row_count": 5,
-      "column_count": 7,
-      "columns": [
-        "warehouse_id",
-        "warehouse_name",
-        "entity_id",
-        "location_label",
-        "capacity_units",
-        "warehouse_type",
-        "status"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_warehouses",
+      "status": "PASS",
+      "sheet": "ref_warehouses",
+      "table": "warehouses",
+      "expected": 5,
+      "actual": 5,
+      "source_rows": 5,
+      "imported_rows": 5,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_suppliers",
-      "row_count": 8,
-      "column_count": 7,
-      "columns": [
-        "supplier_id",
-        "supplier_name",
-        "supplier_category",
-        "status",
-        "risk_band",
-        "historical_on_time_rate",
-        "default_lead_time_hours"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_suppliers",
+      "status": "PASS",
+      "sheet": "ref_suppliers",
+      "table": "suppliers",
+      "expected": 8,
+      "actual": 8,
+      "source_rows": 8,
+      "imported_rows": 8,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_supplier_offers",
-      "row_count": 6,
-      "column_count": 11,
-      "columns": [
-        "offer_id",
-        "supplier_id",
-        "item_id",
-        "unit_price_inr",
-        "price_uom",
-        "lead_time_hours",
-        "max_available_qty",
-        "on_time_rate",
-        "effective_from",
-        "effective_to",
-        "offer_status"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_supplier_offers",
+      "status": "PASS",
+      "sheet": "ref_supplier_offers",
+      "table": "supplier_offers",
+      "expected": 6,
+      "actual": 6,
+      "source_rows": 6,
+      "imported_rows": 6,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_roles",
-      "row_count": 7,
-      "column_count": 3,
-      "columns": [
-        "role_id",
-        "role_name",
-        "permissions_summary"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_roles",
+      "status": "PASS",
+      "sheet": "ref_roles",
+      "table": "roles",
+      "expected": 7,
+      "actual": 7,
+      "source_rows": 7,
+      "imported_rows": 7,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_users",
-      "row_count": 30,
-      "column_count": 5,
-      "columns": [
-        "user_id",
-        "display_name",
-        "role_id",
-        "entity_id",
-        "status"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_users",
+      "status": "PASS",
+      "sheet": "ref_users",
+      "table": "users",
+      "expected": 30,
+      "actual": 30,
+      "source_rows": 30,
+      "imported_rows": 30,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_production_lines",
-      "row_count": 5,
-      "column_count": 7,
-      "columns": [
-        "production_line_id",
-        "line_name",
-        "entity_id",
-        "process_stage",
-        "status",
-        "utilisation_pct",
-        "daily_capacity_mt"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_production_lines",
+      "status": "PASS",
+      "sheet": "ref_production_lines",
+      "table": "production_lines",
+      "expected": 5,
+      "actual": 5,
+      "source_rows": 5,
+      "imported_rows": 5,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_budgets",
-      "row_count": 4,
-      "column_count": 10,
-      "columns": [
-        "budget_id",
-        "entity_id",
-        "cost_center",
-        "period",
-        "currency",
-        "approved_limit_inr",
-        "committed_spend_inr",
-        "available_budget_inr",
-        "single_action_approval_threshold_inr",
-        "status"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_budgets",
+      "status": "PASS",
+      "sheet": "ref_budgets",
+      "table": "budgets",
+      "expected": 4,
+      "actual": 4,
+      "source_rows": 4,
+      "imported_rows": 4,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_supplier_contracts",
-      "row_count": 4,
-      "column_count": 9,
-      "columns": [
-        "contract_id",
-        "supplier_id",
-        "contract_category",
-        "effective_from",
-        "effective_to",
-        "contract_limit_inr",
-        "currency",
-        "status",
-        "owner_department"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_supplier_contracts",
+      "status": "PASS",
+      "sheet": "ref_supplier_contracts",
+      "table": "supplier_contracts",
+      "expected": 4,
+      "actual": 4,
+      "source_rows": 4,
+      "imported_rows": 4,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_shifts",
-      "row_count": 4,
-      "column_count": 6,
-      "columns": [
-        "shift_id",
-        "entity_id",
-        "start_local",
-        "end_local",
-        "duration_hours",
-        "status"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_shifts",
+      "status": "PASS",
+      "sheet": "ref_shifts",
+      "table": "shifts",
+      "expected": 4,
+      "actual": 4,
+      "source_rows": 4,
+      "imported_rows": 4,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "ref_reorder_policies",
-      "row_count": 55,
-      "column_count": 7,
-      "columns": [
-        "policy_id",
-        "item_id",
-        "warehouse_id",
-        "reorder_point_qty",
-        "safety_stock_qty",
-        "target_stock_qty",
-        "status"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_reorder_policies",
+      "status": "PASS",
+      "sheet": "ref_reorder_policies",
+      "table": "reorder_policies",
+      "expected": 55,
+      "actual": 55,
+      "source_rows": 55,
+      "imported_rows": 55,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "bill_of_materials",
-      "row_count": 5,
-      "column_count": 6,
-      "columns": [
-        "bom_line_id",
-        "output_product_id",
-        "input_item_id",
-        "quantity_per_output_unit",
-        "consumption_uom",
-        "version_status"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_bill_of_materials",
+      "status": "PASS",
+      "sheet": "bill_of_materials",
+      "table": "bill_of_materials",
+      "expected": 5,
+      "actual": 5,
+      "source_rows": 5,
+      "imported_rows": 5,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "business_rules",
-      "row_count": 10,
-      "column_count": 7,
-      "columns": [
-        "rule_id",
-        "domain",
-        "condition_expression",
-        "failure_action",
-        "severity",
-        "automation_mode",
-        "enabled"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_business_rules",
+      "status": "PASS",
+      "sheet": "business_rules",
+      "table": "business_rules",
+      "expected": 10,
+      "actual": 10,
+      "source_rows": 10,
+      "imported_rows": 10,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "inventory",
-      "row_count": 150,
-      "column_count": 9,
-      "columns": [
-        "inventory_id",
-        "item_id",
-        "warehouse_id",
-        "on_hand_qty",
-        "reserved_qty",
-        "available_qty",
-        "uom",
-        "as_of_timestamp",
-        "stock_signal"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_inventory",
+      "status": "PASS",
+      "sheet": "inventory",
+      "table": "inventory",
+      "expected": 150,
+      "actual": 150,
+      "source_rows": 150,
+      "imported_rows": 150,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "orders",
-      "row_count": 200,
-      "column_count": 9,
-      "columns": [
-        "order_id",
-        "customer_ref",
-        "entity_id",
-        "created_at",
-        "required_delivery_at",
-        "status",
-        "priority",
-        "currency",
-        "external_reference"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_orders",
+      "status": "PASS",
+      "sheet": "orders",
+      "table": "orders",
+      "expected": 200,
+      "actual": 200,
+      "source_rows": 200,
+      "imported_rows": 200,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "order_lines",
-      "row_count": 200,
-      "column_count": 6,
-      "columns": [
-        "order_line_id",
-        "order_id",
-        "product_id",
-        "requested_qty",
-        "unit_price_inr",
-        "uom"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_order_lines",
+      "status": "PASS",
+      "sheet": "order_lines",
+      "table": "order_lines",
+      "expected": 200,
+      "actual": 200,
+      "source_rows": 200,
+      "imported_rows": 200,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "production_batches",
-      "row_count": 60,
-      "column_count": 9,
-      "columns": [
-        "batch_id",
-        "production_line_id",
-        "output_product_id",
-        "planned_output_qty_mt",
-        "actual_output_qty_mt",
-        "planned_start",
-        "planned_end",
-        "status",
-        "risk_flag"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_production_batches",
+      "status": "PASS",
+      "sheet": "production_batches",
+      "table": "production_batches",
+      "expected": 60,
+      "actual": 60,
+      "source_rows": 60,
+      "imported_rows": 60,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "shipments",
-      "row_count": 120,
-      "column_count": 10,
-      "columns": [
-        "shipment_id",
-        "order_id",
-        "origin_warehouse_id",
-        "destination_warehouse_id",
-        "carrier_supplier_id",
-        "planned_dispatch_at",
-        "estimated_arrival_at",
-        "status",
-        "transport_mode",
-        "risk_flag"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_shipments",
+      "status": "PASS",
+      "sheet": "shipments",
+      "table": "shipments",
+      "expected": 120,
+      "actual": 120,
+      "source_rows": 120,
+      "imported_rows": 120,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "purchase_orders",
-      "row_count": 3,
-      "column_count": 10,
-      "columns": [
-        "po_id",
-        "supplier_id",
-        "item_id",
-        "quantity",
-        "unit_cost_inr",
-        "total_cost_inr",
-        "currency",
-        "created_at",
-        "status",
-        "budget_id"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_purchase_orders",
+      "status": "PASS",
+      "sheet": "purchase_orders",
+      "table": "purchase_orders",
+      "expected": 3,
+      "actual": 3,
+      "source_rows": 3,
+      "imported_rows": 3,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "goods_receipts",
-      "row_count": 2,
-      "column_count": 9,
-      "columns": [
-        "grn_id",
-        "po_id",
-        "supplier_id",
-        "item_id",
-        "received_qty",
-        "accepted_qty",
-        "received_at",
-        "inspection_status",
-        "quality_certificate_ref"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_goods_receipts",
+      "status": "PASS",
+      "sheet": "goods_receipts",
+      "table": "goods_receipts",
+      "expected": 2,
+      "actual": 2,
+      "source_rows": 2,
+      "imported_rows": 2,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "quality_events",
-      "row_count": 40,
-      "column_count": 8,
-      "columns": [
-        "quality_event_id",
-        "batch_id",
-        "product_id",
-        "detected_at",
-        "defect_code",
-        "severity",
-        "status",
-        "recommended_control"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_quality_events",
+      "status": "PASS",
+      "sheet": "quality_events",
+      "table": "quality_events",
+      "expected": 40,
+      "actual": 40,
+      "source_rows": 40,
+      "imported_rows": 40,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "maintenance_assets",
-      "row_count": 35,
-      "column_count": 8,
-      "columns": [
-        "asset_id",
-        "production_line_id",
-        "asset_name",
-        "last_signal_at",
-        "failure_risk_score",
-        "health_status",
-        "next_maintenance_due",
-        "recommended_action"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_maintenance_assets",
+      "status": "PASS",
+      "sheet": "maintenance_assets",
+      "table": "maintenance_assets",
+      "expected": 35,
+      "actual": 35,
+      "source_rows": 35,
+      "imported_rows": 35,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "maintenance_work_orders",
-      "row_count": 50,
-      "column_count": 8,
-      "columns": [
-        "work_order_id",
-        "asset_id",
-        "work_type",
-        "status",
-        "created_at",
-        "scheduled_for",
-        "priority",
-        "assigned_team_or_vendor"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_maintenance_work_orders",
+      "status": "PASS",
+      "sheet": "maintenance_work_orders",
+      "table": "maintenance_work_orders",
+      "expected": 50,
+      "actual": 50,
+      "source_rows": 50,
+      "imported_rows": 50,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "energy_readings",
-      "row_count": 240,
-      "column_count": 8,
-      "columns": [
-        "reading_id",
-        "entity_id",
-        "production_line_id",
-        "reading_at",
-        "energy_kwh",
-        "unit_rate_inr",
-        "signal",
-        "currency"
-      ],
-      "findings": [
-        {
-          "rule": "valid_status",
-          "severity": "WARNING",
-          "column": "signal",
-          "count": 69,
-          "examples": [
-            "HIGH_USAGE",
-            "HIGH_USAGE",
-            "HIGH_USAGE",
-            "HIGH_USAGE",
-            "HIGH_USAGE"
-          ]
-        }
-      ]
+      "check_id": "ROW_COUNT_energy_readings",
+      "status": "PASS",
+      "sheet": "energy_readings",
+      "table": "energy_readings",
+      "expected": 240,
+      "actual": 240,
+      "source_rows": 240,
+      "imported_rows": 240,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "safety_events",
-      "row_count": 25,
-      "column_count": 7,
-      "columns": [
-        "safety_event_id",
-        "entity_id",
-        "occurred_at",
-        "event_type",
-        "severity",
-        "status",
-        "description"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_safety_events",
+      "status": "PASS",
+      "sheet": "safety_events",
+      "table": "safety_events",
+      "expected": 25,
+      "actual": 25,
+      "source_rows": 25,
+      "imported_rows": 25,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "carrier_events",
-      "row_count": 2,
-      "column_count": 6,
-      "columns": [
-        "carrier_event_id",
-        "shipment_id",
-        "event_timestamp",
-        "event_type",
-        "description",
-        "source_supplier_id"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_carrier_events",
+      "status": "PASS",
+      "sheet": "carrier_events",
+      "table": "carrier_events",
+      "expected": 2,
+      "actual": 2,
+      "source_rows": 2,
+      "imported_rows": 2,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "feed_health",
-      "row_count": 4,
-      "column_count": 6,
-      "columns": [
-        "feed_id",
-        "source_name",
-        "last_success_at",
-        "consecutive_failures",
-        "health_status",
-        "max_age_seconds"
-      ],
-      "findings": []
+      "check_id": "ROW_COUNT_feed_health",
+      "status": "PASS",
+      "sheet": "feed_health",
+      "table": "feed_health",
+      "expected": 4,
+      "actual": 4,
+      "source_rows": 4,
+      "imported_rows": 4,
+      "excluded_rows": 0,
+      "rejected_rows": 0
     },
     {
-      "sheet_name": "scenario_templates",
-      "row_count": 15,
-      "column_count": 10,
-      "columns": [
-        "scenario_template_id",
-        "scenario_type",
-        "domain",
-        "description",
-        "linked_reference_id",
-        "base_record_id",
-        "injection_method",
-        "agents_involved",
-        "expected_response",
-        "guardrail"
-      ],
-      "findings": [
-        {
-          "rule": "valid_status",
-          "severity": "WARNING",
-          "column": "domain",
-          "count": 4,
-          "examples": [
-            "Cross-functional",
-            "General",
-            "Production",
-            "Data Quality"
-          ]
-        }
+      "check_id": "ROW_COUNT_scenario_templates",
+      "status": "PASS",
+      "sheet": "scenario_templates",
+      "table": "scenario_templates",
+      "expected": 15,
+      "actual": 15,
+      "source_rows": 15,
+      "imported_rows": 15,
+      "excluded_rows": 0,
+      "rejected_rows": 0
+    },
+    {
+      "check_id": "ROW_COUNT_simulation_config",
+      "status": "PASS",
+      "sheet": "simulation_config",
+      "table": "simulation_config",
+      "expected": 12,
+      "actual": 12,
+      "source_rows": 12,
+      "imported_rows": 12,
+      "excluded_rows": 0,
+      "rejected_rows": 0
+    },
+    {
+      "check_id": "ROW_COUNT_scheduler_state",
+      "status": "PASS",
+      "table": "scheduler_state",
+      "expected": 1,
+      "actual": 1,
+      "note": "SQL seed row, not a workbook sheet"
+    },
+    {
+      "check_id": "EMPTY_RUNTIME_scenario_instances",
+      "status": "PASS",
+      "table": "scenario_instances",
+      "expected": 0,
+      "actual": 0,
+      "note": "Runtime table; workbook sheet is header-only or schema-only"
+    },
+    {
+      "check_id": "EMPTY_RUNTIME_agent_runs",
+      "status": "PASS",
+      "table": "agent_runs",
+      "expected": 0,
+      "actual": 0,
+      "note": "Runtime table; workbook sheet is header-only or schema-only"
+    },
+    {
+      "check_id": "EMPTY_RUNTIME_agent_findings",
+      "status": "PASS",
+      "table": "agent_findings",
+      "expected": 0,
+      "actual": 0,
+      "note": "Runtime table; workbook sheet is header-only or schema-only"
+    },
+    {
+      "check_id": "EMPTY_RUNTIME_decisions",
+      "status": "PASS",
+      "table": "decisions",
+      "expected": 0,
+      "actual": 0,
+      "note": "Runtime table; workbook sheet is header-only or schema-only"
+    },
+    {
+      "check_id": "EMPTY_RUNTIME_action_queue",
+      "status": "PASS",
+      "table": "action_queue",
+      "expected": 0,
+      "actual": 0,
+      "note": "Runtime table; workbook sheet is header-only or schema-only"
+    },
+    {
+      "check_id": "EMPTY_RUNTIME_policy_evaluations",
+      "status": "PASS",
+      "table": "policy_evaluations",
+      "expected": 0,
+      "actual": 0,
+      "note": "Runtime table; workbook sheet is header-only or schema-only"
+    },
+    {
+      "check_id": "EMPTY_RUNTIME_approval_requests",
+      "status": "PASS",
+      "table": "approval_requests",
+      "expected": 0,
+      "actual": 0,
+      "note": "Runtime table; workbook sheet is header-only or schema-only"
+    },
+    {
+      "check_id": "EMPTY_RUNTIME_action_execution_results",
+      "status": "PASS",
+      "table": "action_execution_results",
+      "expected": 0,
+      "actual": 0,
+      "note": "Runtime table; workbook sheet is header-only or schema-only"
+    },
+    {
+      "check_id": "EMPTY_RUNTIME_event_log",
+      "status": "PASS",
+      "table": "event_log",
+      "expected": 0,
+      "actual": 0,
+      "note": "Runtime table; workbook sheet is header-only or schema-only"
+    },
+    {
+      "check_id": "EMPTY_RUNTIME_blockchain_anchors",
+      "status": "PASS",
+      "table": "blockchain_anchors",
+      "expected": 0,
+      "actual": 0,
+      "note": "Runtime table; workbook sheet is header-only or schema-only"
+    },
+    {
+      "check_id": "PK_UNIQUE_entities",
+      "status": "PASS",
+      "table": "entities",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_departments",
+      "status": "PASS",
+      "table": "departments",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_products",
+      "status": "PASS",
+      "table": "products",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_warehouses",
+      "status": "PASS",
+      "table": "warehouses",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_suppliers",
+      "status": "PASS",
+      "table": "suppliers",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_supplier_offers",
+      "status": "PASS",
+      "table": "supplier_offers",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_roles",
+      "status": "PASS",
+      "table": "roles",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_users",
+      "status": "PASS",
+      "table": "users",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_production_lines",
+      "status": "PASS",
+      "table": "production_lines",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_budgets",
+      "status": "PASS",
+      "table": "budgets",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_supplier_contracts",
+      "status": "PASS",
+      "table": "supplier_contracts",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_shifts",
+      "status": "PASS",
+      "table": "shifts",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_reorder_policies",
+      "status": "PASS",
+      "table": "reorder_policies",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_bill_of_materials",
+      "status": "PASS",
+      "table": "bill_of_materials",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_business_rules",
+      "status": "PASS",
+      "table": "business_rules",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_inventory",
+      "status": "PASS",
+      "table": "inventory",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_orders",
+      "status": "PASS",
+      "table": "orders",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_order_lines",
+      "status": "PASS",
+      "table": "order_lines",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_production_batches",
+      "status": "PASS",
+      "table": "production_batches",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_shipments",
+      "status": "PASS",
+      "table": "shipments",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_purchase_orders",
+      "status": "PASS",
+      "table": "purchase_orders",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_goods_receipts",
+      "status": "PASS",
+      "table": "goods_receipts",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_quality_events",
+      "status": "PASS",
+      "table": "quality_events",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_maintenance_assets",
+      "status": "PASS",
+      "table": "maintenance_assets",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_maintenance_work_orders",
+      "status": "PASS",
+      "table": "maintenance_work_orders",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_energy_readings",
+      "status": "PASS",
+      "table": "energy_readings",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_safety_events",
+      "status": "PASS",
+      "table": "safety_events",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_carrier_events",
+      "status": "PASS",
+      "table": "carrier_events",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_feed_health",
+      "status": "PASS",
+      "table": "feed_health",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_scenario_templates",
+      "status": "PASS",
+      "table": "scenario_templates",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "PK_UNIQUE_simulation_config",
+      "status": "PASS",
+      "table": "simulation_config",
+      "duplicate_keys": 0
+    },
+    {
+      "check_id": "FK_warehouses_entity_id",
+      "status": "PASS",
+      "child_table": "warehouses",
+      "parent_table": "entities",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_users_role_id",
+      "status": "PASS",
+      "child_table": "users",
+      "parent_table": "roles",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_users_entity_id",
+      "status": "PASS",
+      "child_table": "users",
+      "parent_table": "entities",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_production_lines_entity_id",
+      "status": "PASS",
+      "child_table": "production_lines",
+      "parent_table": "entities",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_budgets_entity_id",
+      "status": "PASS",
+      "child_table": "budgets",
+      "parent_table": "entities",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_supplier_contracts_supplier_id",
+      "status": "PASS",
+      "child_table": "supplier_contracts",
+      "parent_table": "suppliers",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_shifts_entity_id",
+      "status": "PASS",
+      "child_table": "shifts",
+      "parent_table": "entities",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_supplier_offers_supplier_id",
+      "status": "PASS",
+      "child_table": "supplier_offers",
+      "parent_table": "suppliers",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_supplier_offers_item_id",
+      "status": "PASS",
+      "child_table": "supplier_offers",
+      "parent_table": "products",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_reorder_policies_item_id",
+      "status": "PASS",
+      "child_table": "reorder_policies",
+      "parent_table": "products",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_reorder_policies_warehouse_id",
+      "status": "PASS",
+      "child_table": "reorder_policies",
+      "parent_table": "warehouses",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_bill_of_materials_output_product_id",
+      "status": "PASS",
+      "child_table": "bill_of_materials",
+      "parent_table": "products",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_bill_of_materials_input_item_id",
+      "status": "PASS",
+      "child_table": "bill_of_materials",
+      "parent_table": "products",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_inventory_item_id",
+      "status": "PASS",
+      "child_table": "inventory",
+      "parent_table": "products",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_inventory_warehouse_id",
+      "status": "PASS",
+      "child_table": "inventory",
+      "parent_table": "warehouses",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_orders_entity_id",
+      "status": "PASS",
+      "child_table": "orders",
+      "parent_table": "entities",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_order_lines_order_id",
+      "status": "PASS",
+      "child_table": "order_lines",
+      "parent_table": "orders",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_order_lines_product_id",
+      "status": "PASS",
+      "child_table": "order_lines",
+      "parent_table": "products",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_production_batches_production_line_id",
+      "status": "PASS",
+      "child_table": "production_batches",
+      "parent_table": "production_lines",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_production_batches_output_product_id",
+      "status": "PASS",
+      "child_table": "production_batches",
+      "parent_table": "products",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_shipments_order_id",
+      "status": "PASS",
+      "child_table": "shipments",
+      "parent_table": "orders",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_shipments_origin_warehouse_id",
+      "status": "PASS",
+      "child_table": "shipments",
+      "parent_table": "warehouses",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_shipments_destination_warehouse_id",
+      "status": "PASS",
+      "child_table": "shipments",
+      "parent_table": "warehouses",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_shipments_carrier_supplier_id",
+      "status": "PASS",
+      "child_table": "shipments",
+      "parent_table": "suppliers",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_purchase_orders_supplier_id",
+      "status": "PASS",
+      "child_table": "purchase_orders",
+      "parent_table": "suppliers",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_purchase_orders_item_id",
+      "status": "PASS",
+      "child_table": "purchase_orders",
+      "parent_table": "products",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_purchase_orders_budget_id",
+      "status": "PASS",
+      "child_table": "purchase_orders",
+      "parent_table": "budgets",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_goods_receipts_po_id",
+      "status": "PASS",
+      "child_table": "goods_receipts",
+      "parent_table": "purchase_orders",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_goods_receipts_supplier_id",
+      "status": "PASS",
+      "child_table": "goods_receipts",
+      "parent_table": "suppliers",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_goods_receipts_item_id",
+      "status": "PASS",
+      "child_table": "goods_receipts",
+      "parent_table": "products",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_quality_events_batch_id",
+      "status": "PASS",
+      "child_table": "quality_events",
+      "parent_table": "production_batches",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_quality_events_product_id",
+      "status": "PASS",
+      "child_table": "quality_events",
+      "parent_table": "products",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_maintenance_assets_production_line_id",
+      "status": "PASS",
+      "child_table": "maintenance_assets",
+      "parent_table": "production_lines",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_maintenance_work_orders_asset_id",
+      "status": "PASS",
+      "child_table": "maintenance_work_orders",
+      "parent_table": "maintenance_assets",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_energy_readings_entity_id",
+      "status": "PASS",
+      "child_table": "energy_readings",
+      "parent_table": "entities",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_energy_readings_production_line_id",
+      "status": "PASS",
+      "child_table": "energy_readings",
+      "parent_table": "production_lines",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_safety_events_entity_id",
+      "status": "PASS",
+      "child_table": "safety_events",
+      "parent_table": "entities",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_carrier_events_shipment_id",
+      "status": "PASS",
+      "child_table": "carrier_events",
+      "parent_table": "shipments",
+      "orphans": 0
+    },
+    {
+      "check_id": "FK_carrier_events_source_supplier_id",
+      "status": "PASS",
+      "child_table": "carrier_events",
+      "parent_table": "suppliers",
+      "orphans": 0
+    },
+    {
+      "check_id": "INVENTORY_ARITHMETIC",
+      "status": "PASS",
+      "mismatched_rows": 0
+    },
+    {
+      "check_id": "PO_TOTAL_ARITHMETIC",
+      "status": "PASS",
+      "mismatched_rows": 0
+    },
+    {
+      "check_id": "BUDGET_ARITHMETIC",
+      "status": "PASS",
+      "mismatched_rows": 0
+    },
+    {
+      "check_id": "GRN_ACCEPTED_LTE_RECEIVED",
+      "status": "PASS",
+      "mismatched_rows": 0
+    },
+    {
+      "check_id": "DQ01_LINKED_REFERENCE_NULL",
+      "status": "PASS",
+      "non_null_linked_reference_id": 0,
+      "note": "Workbook linked_reference_id stored severity; import must set FK column NULL"
+    },
+    {
+      "check_id": "DQ02_ENABLED_TRUE",
+      "status": "PASS",
+      "not_enabled": 0
+    },
+    {
+      "check_id": "DQ01_SEVERITY_VALUES",
+      "status": "PASS",
+      "values": [
+        "CRITICAL",
+        "HIGH",
+        "LOW",
+        "MEDIUM"
       ]
     }
-  ],
-  "errors": []
+  ]
 }
