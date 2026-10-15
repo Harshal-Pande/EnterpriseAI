@@ -88,29 +88,21 @@ from fastapi.responses import JSONResponse
 
 # Configure CORS for frontend access
 cors_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS") or os.environ.get("CORS_ORIGINS")
-if cors_origins_env:
+if cors_origins_env and cors_origins_env.strip() != "*":
     allowed_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
-else:
-    allowed_origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
-
-allow_wildcard = "*" in allowed_origins
-if allow_wildcard:
     app.add_middleware(
         CORSMiddleware,
+        allow_origins=allowed_origins,
         allow_origin_regex=r"^https?://.*",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 else:
+    # Default: allow all HTTP/HTTPS origins (Vercel, Render, localhost) with credentials
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=allowed_origins,
+        allow_origin_regex=r"^https?://.*",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
