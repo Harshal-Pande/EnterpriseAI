@@ -150,15 +150,26 @@ def get_provider_info(
     mode = provider.get_mode().value
     is_sim = mode == "SIMULATION"
 
+    gemini_keys_count = len(provider.gemini_keys) if hasattr(provider, "gemini_keys") else 0
+    openrouter_enabled = (
+        provider.openrouter_config.enabled if hasattr(provider, "openrouter_config") else False
+    )
+    openrouter_model = (
+        provider.openrouter_config.model_name if hasattr(provider, "openrouter_config") else None
+    )
+
     return {
         "mode": mode,
         "model_name": provider.get_model_name(),
         "is_simulation": is_sim,
+        "gemini_keys_configured": gemini_keys_count,
+        "openrouter_enabled": openrouter_enabled,
+        "openrouter_model": openrouter_model,
         "description": (
             "Deterministic simulation provider — generates structured recommendations "
             "grounded in PostgreSQL evidence without external API calls."
             if is_sim
-            else "Live LLM provider — connects to external AI service."
+            else f"Live LLM provider — connects to Gemini ({gemini_keys_count} keys in cyclic pool) with OpenRouter fallback (enabled={openrouter_enabled})."
         ),
     }
 

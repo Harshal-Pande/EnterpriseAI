@@ -29,6 +29,7 @@ except ImportError:
 
 load_project_env()
 os.environ["APP_ENVIRONMENT"] = "development"
+os.environ["LLM_PROVIDER_MODE"] = "SIMULATION"
 
 WORKBOOK_PATH = REPO_ROOT / "project_reference" / "enterprise_ai_industrial_dataset_v2.xlsx"
 

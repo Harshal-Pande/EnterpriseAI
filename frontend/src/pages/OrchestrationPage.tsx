@@ -197,6 +197,11 @@ export const OrchestrationPage: React.FC = () => {
           >
             <Brain className="w-3 h-3" />
             {providerInfo.mode} — {providerInfo.model_name}
+            {providerInfo.openrouter_enabled && (
+              <span className="ml-1.5 px-1 py-0.2 rounded text-[8px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                + OpenRouter
+              </span>
+            )}
           </div>
         )}
 
@@ -476,9 +481,13 @@ export const OrchestrationPage: React.FC = () => {
                         >
                           {step.status}
                         </span>
-                        {step.is_simulation && (
+                        {step.is_simulation ? (
                           <span className="px-1.5 py-0.5 rounded text-[8px] font-mono text-violet-400 bg-violet-500/10 border border-violet-500/20">
                             SIM
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                            LIVE {step.provider_name ? `• ${step.provider_name.toUpperCase()}` : ''} {step.key_id ? `(${step.key_id})` : ''} {step.fallback_occurred ? '⟲' : ''}
                           </span>
                         )}
                         {isExpanded ? (

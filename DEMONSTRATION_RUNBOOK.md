@@ -36,7 +36,12 @@ The application expects configurations loaded from `backend/.env` or repository 
 | `EXPLORER_TX_URL_PREFIX` | **Optional** | Block explorer URL prefix |
 | `VITE_API_BASE_URL` | **Frontend Config** | Backend API base URL (`http://localhost:8000`) |
 | `NEO4J_URI` | **Optional** | Bolt URI (`bolt://localhost:7687`) — falls back cleanly to RelationalGraphEngine if offline |
-| `LLM_PROVIDER_MODE` | **Optional** | `SIMULATION` (default deterministic engine) or `LIVE` |
+| `LLM_PROVIDER_MODE` | **Optional** | `SIMULATION` (deterministic engine) or `LIVE` (multi-key Gemini + OpenRouter) |
+| `LLM_MODEL_NAME` | **Optional** | Primary model (`gemini-3.8-flash`) |
+| `GEMINI_API_KEY_1..7`| **Multi-Key Pool** | Up to 7 keys in agent-specific cyclic order |
+| `OPENROUTER_ENABLED` | **Optional** | `true` to enable OpenRouter fallback |
+| `OPENROUTER_API_KEY` | **Optional** | OpenRouter credentials |
+| `OPENROUTER_MODEL`   | **Optional** | Model identifier on OpenRouter (`google/gemini-3.8-flash`) |
 
 ---
 
@@ -190,7 +195,7 @@ To ensure complete presentation honesty, present these architectural distinction
 | **Relational Database** | **LIVE** | Live PostgreSQL instance storing orders, inventory, suppliers, audit log |
 | **Ethereum Blockchain** | **LIVE (Read-Only)** | Verified on-chain contract `0xf7aE...` on Sepolia block #11915814 via Alchemy RPC |
 | **Knowledge Graph** | **FALLBACK (Active)** | RelationalGraphEngine querying PostgreSQL; live Neo4j daemon is blocked/offline |
-| **Agent Reasoning** | **DETERMINISTIC SIMULATION** | Domain synthesis engine (`deterministic-simulation-v1`) grounded in DB data; no external LLM tokens |
+| **Agent Reasoning** | **LIVE / SIMULATION** | Dual mode: Live Gemini (gemini-3.8-flash) + OpenRouter fallback with deterministic Simulation option |
 | **Action Execution** | **SIMULATED ADAPTER** | Safe state transitions recorded in PostgreSQL without triggering physical trucks or orders |
 
 ---

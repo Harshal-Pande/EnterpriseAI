@@ -116,6 +116,9 @@ class AgentStepResult(BaseModel):
     llm_reasoning: Optional[str] = None
     llm_confidence: Optional[float] = None
     is_simulation: bool = True
+    provider_name: Optional[str] = None
+    key_id: Optional[str] = None
+    fallback_occurred: bool = False
     agent_run_id: Optional[str] = None
     duration_ms: Optional[float] = None
     evidence_refs: List[Dict[str, Any]] = Field(default_factory=list)
@@ -633,6 +636,9 @@ class GovernedOrchestrator:
                 step_result.llm_confidence = llm_response.confidence
                 step_result.is_simulation = llm_response.is_simulation
                 step_result.evidence_refs = llm_response.evidence_refs
+                step_result.provider_name = llm_response.provider_name
+                step_result.key_id = llm_response.key_id
+                step_result.fallback_occurred = llm_response.fallback_occurred
 
             except LLMProviderError as llm_err:
                 if self.llm_provider.get_mode() == ProviderMode.LIVE:
@@ -696,6 +702,9 @@ class GovernedOrchestrator:
         except Exception as exc:
             logger.error("Agent %s failed in phase %s: %s", agent_name, phase.value, exc)
             step_result.status = "FAILED"
+            if step_result.duration_ms is None:
+                step_end = datetime.now(timezone.utc)
+                step_result.duration_ms = (step_end - step_start).total_seconds() * 1000
             if not step_result.error_code:
                 if isinstance(exc, LLMProviderTimeoutError):
                     step_result.error_code = OrchestrationErrorCode.PROVIDER_TIMEOUT.value

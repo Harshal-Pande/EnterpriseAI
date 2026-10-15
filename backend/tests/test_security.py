@@ -70,6 +70,7 @@ def test_viewer_role_is_forbidden_from_executing_actions(client: TestClient):
 
 def test_production_mode_requires_valid_api_key(client: TestClient, monkeypatch):
     """In production mode, missing or invalid X-API-Key yields HTTP 401."""
+    monkeypatch.setenv("APP_ENVIRONMENT", "production")
     monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.setenv("API_KEY", "super-secret-prod-token")
 

@@ -321,6 +321,9 @@ export interface OrchestrationAgentStep {
   llm_reasoning?: string;
   llm_confidence?: number;
   is_simulation: boolean;
+  provider_name?: string;
+  key_id?: string;
+  fallback_occurred?: boolean;
   agent_run_id?: string;
   duration_ms?: number;
   evidence_refs: Record<string, any>[];
@@ -359,6 +362,9 @@ export interface ProviderInfo {
   mode: string;
   model_name: string;
   is_simulation: boolean;
+  gemini_keys_configured?: number;
+  openrouter_enabled?: boolean;
+  openrouter_model?: string;
   description: string;
 }
 
