@@ -8,6 +8,7 @@
 .env
 .env.local
 .env.*.local
+.neon
 # Allow the template
 !.env.example
 
