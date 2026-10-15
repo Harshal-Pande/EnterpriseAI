@@ -16,7 +16,7 @@ except ImportError:
         from db.connection import load_project_env
 load_project_env()
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
@@ -60,6 +60,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+import uuid
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
 # Configure CORS for frontend access
 cors_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS")
 if cors_origins_env:
@@ -80,29 +84,76 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc: HTTPException):
+    correlation_id = getattr(request.state, "correlation_id", f"corr-{uuid.uuid4().hex[:8]}")
+    msg = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": msg,
+            "error": {
+                "code": f"HTTP_{exc.status_code}",
+                "message": msg,
+                "details": exc.detail if not isinstance(exc.detail, str) else None,
+                "correlation_id": correlation_id,
+            },
+        },
+        headers=getattr(exc, "headers", None),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc: RequestValidationError):
+    correlation_id = getattr(request.state, "correlation_id", f"corr-{uuid.uuid4().hex[:8]}")
+    errors = exc.errors()
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": errors,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Request parameter or body validation failed",
+                "details": errors,
+                "correlation_id": correlation_id,
+            },
+        },
+    )
+
+
 viewer_auth = [Depends(require_role(UserRole.VIEWER))]
 
-app.include_router(health.router, prefix="/api", tags=["health"])
-app.include_router(orders.router, prefix="/api/orders", tags=["orders"], dependencies=viewer_auth)
-app.include_router(inventory.router, prefix="/api/inventory", tags=["inventory"], dependencies=viewer_auth)
-app.include_router(suppliers.router, prefix="/api/suppliers", tags=["suppliers"], dependencies=viewer_auth)
-app.include_router(workflow.router, prefix="/api/workflow", tags=["workflow"], dependencies=viewer_auth)
-app.include_router(agents.router, prefix="/api/agents", tags=["agents"], dependencies=viewer_auth)
-app.include_router(audit.router, prefix="/api/audit", tags=["audit"], dependencies=viewer_auth)
-app.include_router(graph.router, prefix="/api/graph", tags=["graph"], dependencies=viewer_auth)
-app.include_router(scheduler.router, prefix="/api/scheduler", tags=["scheduler"], dependencies=viewer_auth)
-app.include_router(policies.router, prefix="/api/policies", tags=["policies"], dependencies=viewer_auth)
-app.include_router(approvals.router, prefix="/api/approvals", tags=["approvals"], dependencies=viewer_auth)
-app.include_router(actions.router, prefix="/api/actions", tags=["actions"], dependencies=viewer_auth)
-app.include_router(
-    orchestration.router,
-    prefix="/api/orchestration",
-    tags=["orchestration"],
-    dependencies=[Depends(require_role(UserRole.VIEWER))],
-)
-app.include_router(ws.router, prefix="/api", tags=["websocket"])
+# Routers mounted under both /api and /api/v1 for 100% contract compatibility
+routers = [
+    (health.router, "", ["health"], []),
+    (orders.router, "/orders", ["orders"], viewer_auth),
+    (inventory.router, "/inventory", ["inventory"], viewer_auth),
+    (suppliers.router, "/suppliers", ["suppliers"], viewer_auth),
+    (workflow.router, "/workflow", ["workflow"], viewer_auth),
+    (agents.router, "/agents", ["agents"], viewer_auth),
+    (audit.router, "/audit", ["audit"], viewer_auth),
+    (graph.router, "/graph", ["graph"], viewer_auth),
+    (scheduler.router, "/scheduler", ["scheduler"], viewer_auth),
+    (policies.router, "/policies", ["policies"], viewer_auth),
+    (approvals.router, "/approvals", ["approvals"], viewer_auth),
+    (actions.router, "/actions", ["actions"], viewer_auth),
+    (orchestration.router, "/orchestration", ["orchestration"], viewer_auth),
+    (ws.router, "", ["websocket"], []),
+]
+
+for router_obj, subprefix, tags, deps in routers:
+    # Mount primary /api
+    app.include_router(router_obj, prefix=f"/api{subprefix}", tags=tags, dependencies=deps)
+    # Mount alias /api/v1
+    app.include_router(router_obj, prefix=f"/api/v1{subprefix}", tags=[f"v1-{t}" for t in tags], dependencies=deps)
 
 
 @app.get("/")
 def read_root():
-    return {"message": "Enterprise AI Mesh API is running."}
+    return {
+        "service": "Enterprise AI Mesh API",
+        "version": "0.2.0",
+        "status": "healthy",
+        "endpoints": ["/api", "/api/v1", "/api/health", "/api/health/ready", "/docs"],
+    }

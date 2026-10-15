@@ -35,9 +35,13 @@ class InventoryItem(BaseModel):
 class InventorySummary(BaseModel):
     total_skus: int
     total_on_hand_qty: float
+    total_on_hand: Optional[float] = None
+    total_on_hand_mt: Optional[float] = None
     total_available_qty: float
+    total_available: Optional[float] = None
     total_reserved_qty: float
     normal_count: int
     low_stock_count: int
     critical_count: int
     out_of_stock_count: int
+    reorder_required_count: Optional[int] = None

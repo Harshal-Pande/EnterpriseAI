@@ -50,15 +50,25 @@ def get_inventory_summary(conn=Depends(get_db)):
             detail="Database query failed while retrieving inventory summary",
         ) from exc
 
+    on_hand_val = float(r[1]) if r and r[1] is not None else 0.0
+    avail_val = float(r[2]) if r and r[2] is not None else 0.0
+    low_cnt = int(r[5]) if r and r[5] is not None else 0
+    crit_cnt = int(r[6]) if r and r[6] is not None else 0
+    out_cnt = int(r[7]) if r and r[7] is not None else 0
+
     return InventorySummary(
         total_skus=int(r[0]) if r and r[0] is not None else 0,
-        total_on_hand_qty=float(r[1]) if r and r[1] is not None else 0.0,
-        total_available_qty=float(r[2]) if r and r[2] is not None else 0.0,
+        total_on_hand_qty=on_hand_val,
+        total_on_hand=on_hand_val,
+        total_on_hand_mt=on_hand_val,
+        total_available_qty=avail_val,
+        total_available=avail_val,
         total_reserved_qty=float(r[3]) if r and r[3] is not None else 0.0,
         normal_count=int(r[4]) if r and r[4] is not None else 0,
-        low_stock_count=int(r[5]) if r and r[5] is not None else 0,
-        critical_count=int(r[6]) if r and r[6] is not None else 0,
-        out_of_stock_count=int(r[7]) if r and r[7] is not None else 0,
+        low_stock_count=low_cnt,
+        critical_count=crit_cnt,
+        out_of_stock_count=out_cnt,
+        reorder_required_count=low_cnt + crit_cnt + out_cnt,
     )
 
 

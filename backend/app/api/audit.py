@@ -305,8 +305,17 @@ def anchor_event_digest(
 @router.post("/verify/{event_id}", response_model=VerificationResult)
 def verify_event_anchor(
     event_id: str,
-    payload: dict,
+    payload: Optional[dict] = None,
     conn=Depends(get_db),
 ):
     """Verify an audit event payload by recomputing its canonical hash against stored anchor digest."""
-    return verify_anchor_integrity(conn, event_id, payload)
+    return verify_anchor_integrity(conn, event_id, payload or {})
+
+
+@router.get("/verify/{event_id}", response_model=VerificationResult)
+def verify_event_anchor_get(
+    event_id: str,
+    conn=Depends(get_db),
+):
+    """Read-only verification of an audit event against stored anchor digest."""
+    return verify_anchor_integrity(conn, event_id, {})

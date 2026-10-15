@@ -26,7 +26,9 @@ router = APIRouter()
 @router.get("/status")
 def get_scheduler_status(conn=Depends(get_db)) -> Dict[str, Any]:
     """Retrieve observable status, lease locking state, and last outcome of the scenario scheduler."""
-    return default_scheduler.get_status(conn)
+    st = default_scheduler.get_status(conn)
+    st["running"] = st.get("is_running", False)
+    return st
 
 
 @router.post("/trigger", status_code=status.HTTP_200_OK)
