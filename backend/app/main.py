@@ -87,7 +87,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 # Configure CORS for frontend access
-cors_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS")
+cors_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS") or os.environ.get("CORS_ORIGINS")
 if cors_origins_env:
     allowed_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
 else:
@@ -98,13 +98,24 @@ else:
         "http://127.0.0.1:3000",
     ]
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+allow_wildcard = "*" in allowed_origins
+if allow_wildcard:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"^https?://.*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
 
 
 @app.exception_handler(HTTPException)
