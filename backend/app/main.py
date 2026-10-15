@@ -1,6 +1,20 @@
 import asyncio
 import os
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+try:
+    from backend.db.connection import load_project_env
+except ImportError:
+    try:
+        from db.connection import load_project_env
+    except ImportError:
+        _bdir = Path(__file__).resolve().parent.parent
+        if str(_bdir) not in sys.path:
+            sys.path.insert(0, str(_bdir))
+        from db.connection import load_project_env
+load_project_env()
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
