@@ -10,6 +10,7 @@ from app.api import (
     agents,
     approvals,
     audit,
+    graph,
     health,
     inventory,
     orchestration,
@@ -74,6 +75,7 @@ app.include_router(suppliers.router, prefix="/api/suppliers", tags=["suppliers"]
 app.include_router(workflow.router, prefix="/api/workflow", tags=["workflow"], dependencies=viewer_auth)
 app.include_router(agents.router, prefix="/api/agents", tags=["agents"], dependencies=viewer_auth)
 app.include_router(audit.router, prefix="/api/audit", tags=["audit"], dependencies=viewer_auth)
+app.include_router(graph.router, prefix="/api/graph", tags=["graph"], dependencies=viewer_auth)
 app.include_router(scheduler.router, prefix="/api/scheduler", tags=["scheduler"], dependencies=viewer_auth)
 app.include_router(policies.router, prefix="/api/policies", tags=["policies"], dependencies=viewer_auth)
 app.include_router(approvals.router, prefix="/api/approvals", tags=["approvals"], dependencies=viewer_auth)

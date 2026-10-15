@@ -106,6 +106,35 @@ class SupervisorAgent:
             {"agent": "LogisticsAgent", "status": log_data.get("logistics_status")},
         ]
 
+        # Knowledge Graph Relationship-Aware Grounding (Phase 8)
+        graph_context: Dict[str, Any] = {}
+        if conn and inv_data.get("shortage_qty", 0) > 0:
+            try:
+                from app.models.graph import DisruptionImpactRequest
+                from app.services.graph_service import default_graph_service
+
+                item_id = inv_data.get("item_id", "PRD-STEEL-01")
+                impact_res = default_graph_service.trace_impact(
+                    conn,
+                    DisruptionImpactRequest(
+                        entity_type="Product",
+                        entity_id=item_id,
+                        severity="MEDIUM",
+                        max_depth=2,
+                        simulate_alternatives=True,
+                    ),
+                )
+                graph_context = {
+                    "graph_engine": impact_res.graph_engine,
+                    "affected_orders_count": len(impact_res.affected_order_ids),
+                    "revenue_at_risk_inr": impact_res.total_revenue_at_risk_inr,
+                    "alternative_suppliers_found": len(impact_res.alternative_suppliers),
+                    "mitigation_recommendation": impact_res.mitigation_recommendation,
+                }
+                evidence_refs.append({"agent": "KnowledgeGraph", "context": graph_context})
+            except Exception as graph_exc:
+                logger.debug("Knowledge graph enhancement skipped: %s", graph_exc)
+
         # If connected to DB and valid UUID scenario exists, record in decisions table
         decision_id = str(uuid.uuid4())
         if conn and scenario_id:

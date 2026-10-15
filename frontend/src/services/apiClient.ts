@@ -496,4 +496,85 @@ export const apiClient = {
     apiFetch<{ ticket: string; expires_in: number; user_id: string; role: string }>('/api/ws/ticket', {
       method: 'POST',
     }),
+
+  // Knowledge Graph (Phase 8)
+  getKnowledgeGraph: (type?: string, q?: string, limit = 100) => {
+    const params = new URLSearchParams();
+    if (type) params.append('type', type);
+    if (q) params.append('q', q);
+    params.append('limit', String(limit));
+    return apiFetch<BackendGraphResponse>(`/api/graph?${params.toString()}`);
+  },
+  getGraphStatus: () =>
+    apiFetch<BackendGraphStatus>('/api/graph/status'),
+  analyzeDisruptionImpact: (req: { entity_type: string; entity_id: string; severity?: string; max_depth?: number; simulate_alternatives?: boolean }) =>
+    apiFetch<BackendDisruptionImpactResponse>('/api/graph/impact', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+  syncKnowledgeGraph: () =>
+    apiFetch<{ status: string; synced_nodes: number; synced_edges: number; duration_ms: number; message: string }>('/api/graph/sync', {
+      method: 'POST',
+    }),
+  getEntityProvenance: (entityId: string, depth = 2) =>
+    apiFetch<BackendGraphResponse>(`/api/graph/provenance/${encodeURIComponent(entityId)}?depth=${depth}`),
 };
+
+export interface BackendGraphNode {
+  id: string;
+  label: string;
+  type: string;
+  properties: Record<string, any>;
+  status?: string;
+  source_table?: string;
+  source_id?: string;
+}
+
+export interface BackendGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+  label?: string;
+  properties: Record<string, any>;
+  directed: boolean;
+}
+
+export interface BackendGraphResponse {
+  nodes: BackendGraphNode[];
+  edges: BackendGraphEdge[];
+  node_count: number;
+  edge_count: number;
+  query_time_ms: number;
+  engine: string;
+  timestamp: string;
+}
+
+export interface BackendGraphStatus {
+  status: string;
+  engine: string;
+  connected: boolean;
+  uri?: string;
+  node_count: number;
+  relationship_count: number;
+  available_labels: string[];
+  available_relationship_types: string[];
+  last_synced_at?: string;
+  error_message?: string;
+}
+
+export interface BackendDisruptionImpactResponse {
+  disruption_origin: string;
+  origin_type: string;
+  severity: string;
+  affected_order_ids: string[];
+  affected_product_ids: string[];
+  affected_warehouse_ids: string[];
+  total_revenue_at_risk_inr: number;
+  alternative_suppliers: any[];
+  traversal_paths: any[][];
+  mitigation_recommendation: string;
+  graph_engine: string;
+  analyzed_at: string;
+}
+

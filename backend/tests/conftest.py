@@ -28,6 +28,7 @@ except ImportError:
         from connection import get_database_url, load_project_env  # noqa: E402
 
 load_project_env()
+os.environ["APP_ENVIRONMENT"] = "development"
 
 WORKBOOK_PATH = REPO_ROOT / "project_reference" / "enterprise_ai_industrial_dataset_v2.xlsx"
 
