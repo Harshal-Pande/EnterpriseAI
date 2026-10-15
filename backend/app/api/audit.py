@@ -319,3 +319,44 @@ def verify_event_anchor_get(
 ):
     """Read-only verification of an audit event against stored anchor digest."""
     return verify_anchor_integrity(conn, event_id, {})
+
+
+@router.get("/chain/verify")
+def verify_audit_chain_endpoint(
+    from_seq: int = Query(1, ge=1, description="Starting sequence number to verify"),
+    limit: int = Query(1000, ge=1, le=5000, description="Max events to verify in batch"),
+    conn=Depends(get_db),
+):
+    """Verify cryptographic SHA-256 hash chaining across event_log entries."""
+    from app.services.audit_chain import verify_chain
+    return verify_chain(conn, from_seq=from_seq, limit=limit)
+
+
+@router.post("/chain/checkpoint")
+def create_chain_checkpoint_endpoint(
+    payload: dict,
+    conn=Depends(get_db),
+):
+    """Compute Merkle tree root over event range and anchor batch checkpoint."""
+    from app.services.audit_chain import create_batch_merkle_checkpoint
+
+    start_seq = payload.get("start_seq")
+    end_seq = payload.get("end_seq")
+    if start_seq is None or end_seq is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Fields 'start_seq' and 'end_seq' are required.",
+        )
+    try:
+        return create_batch_merkle_checkpoint(
+            conn,
+            start_seq=int(start_seq),
+            end_seq=int(end_seq),
+            actor_id=payload.get("actor_id", "operator"),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+

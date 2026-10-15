@@ -19,8 +19,7 @@ from urllib.parse import urljoin
 try:
     import httpx
 except ImportError:
-    print("Error: httpx is required. Install via pip install httpx", file=sys.stderr)
-    sys.exit(2)
+    httpx = None
 
 BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
 OPERATOR_KEY = os.environ.get("OPERATOR_API_KEY", "dev-operator-key")
@@ -79,9 +78,31 @@ CONTRACTS: List[Dict[str, Any]] = [
 
 
 def run_contract_checks() -> int:
-    client = httpx.Client(base_url=BASE_URL, timeout=10.0)
+    in_process = "--in-process" in sys.argv
+    client = None
+    if not in_process and httpx is not None:
+        try:
+            test_c = httpx.Client(base_url=BASE_URL, timeout=1.0)
+            test_c.get("/api/health")
+            client = httpx.Client(base_url=BASE_URL, timeout=10.0)
+        except Exception:
+            client = None
+
+    if client is None:
+        print(f"Server at {BASE_URL} not reachable or --in-process requested. Running in-process via TestClient...")
+        from starlette.testclient import TestClient
+        from pathlib import Path
+        backend_dir = Path(__file__).resolve().parent.parent
+        sys.path.insert(0, str(backend_dir))
+        from db.connection import load_project_env
+        load_project_env()
+        from app.main import app
+        from app.db.database import init_db_pool
+        init_db_pool()
+        client = TestClient(app)
+
     print(f"\n=======================================================")
-    print(f" CONTRACT CHECK SUITE — Target: {BASE_URL}")
+    print(f" CONTRACT CHECK SUITE — Mode: {'In-Process TestClient' if not hasattr(client, 'base_url') else BASE_URL}")
     print(f"=======================================================\n")
 
     total = len(CONTRACTS)

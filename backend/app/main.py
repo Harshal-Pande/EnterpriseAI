@@ -1,8 +1,12 @@
 import asyncio
+import logging
 import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+logger = logging.getLogger("enterpriseai.main")
+
 
 try:
     from backend.db.connection import load_project_env
@@ -32,9 +36,12 @@ from app.api import (
     policies,
     scheduler,
     suppliers,
+    system,
+    tasks,
     workflow,
     ws,
 )
+from app.core.config import validate_startup_config
 from app.core.events import default_event_manager
 from app.core.security import UserRole, require_role
 from app.db.database import close_db_pool, init_db_pool
@@ -43,12 +50,27 @@ from app.services.scheduler_service import default_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Validate environment credentials and refuse startup if defaults are used in production
+    validate_startup_config()
     # Initialize connection pool if configured (does not block startup if DB is down)
     init_db_pool()
     default_event_manager.set_loop(asyncio.get_running_loop())
     default_scheduler.start()
+    # Start in-process task worker if explicitly enabled (Phase P4)
+    if os.environ.get("ENABLE_TASK_WORKER", "false").lower() in ("true", "1"):
+        try:
+            from app.worker import start_default_worker
+            start_default_worker()
+        except Exception as _worker_err:
+            logger.warning("Task worker failed to start: %s", _worker_err)
     yield
     default_scheduler.stop()
+    # Stop task worker if running
+    try:
+        from app.worker import stop_default_worker
+        stop_default_worker()
+    except Exception:
+        pass
     # Cleanly close all connections in pool on application shutdown
     close_db_pool()
 
@@ -139,6 +161,8 @@ routers = [
     (approvals.router, "/approvals", ["approvals"], viewer_auth),
     (actions.router, "/actions", ["actions"], viewer_auth),
     (orchestration.router, "/orchestration", ["orchestration"], viewer_auth),
+    (tasks.router, "/tasks", ["tasks"], viewer_auth),
+    (system.router, "", ["system"], viewer_auth),
     (ws.router, "", ["websocket"], []),
 ]
 

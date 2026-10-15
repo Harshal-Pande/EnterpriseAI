@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.core.security import AuthUser, UserRole, require_role
 from app.db.database import get_db
 from app.models.order import Order, OrderLine
 
@@ -292,3 +293,26 @@ def get_order(order_id: str, conn=Depends(get_db)):
 def create_order(order_data: dict):
     """Starter implementation for order creation (preserved as-is)."""
     return {"status": "created", "order_id": "ORD-1043"}
+
+
+@router.patch("/{order_id}/status")
+def update_order_status(
+    order_id: str,
+    payload: dict,
+    current_user: AuthUser = Depends(require_role(UserRole.OPERATOR)),
+    conn=Depends(get_db),
+):
+    """Transition an order through its lifecycle state machine."""
+    from app.services.order_service import transition_order_status
+
+    new_status = payload.get("status")
+    if not new_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Field 'status' is required in payload.",
+        )
+
+    reason = payload.get("reason")
+    actor_id = payload.get("actor_id", "operator")
+    return transition_order_status(conn, order_id, new_status, reason=reason, actor_id=actor_id)
+

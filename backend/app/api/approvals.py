@@ -54,6 +54,7 @@ def get_approval_detail(approval_id: str, conn=Depends(get_db)):
 
 
 @router.post("/{approval_id}/decision", response_model=ApprovalRequestRecord)
+@router.post("/{approval_id}/decide", response_model=ApprovalRequestRecord)
 def submit_approval_decision(
     approval_id: str,
     req: ApprovalDecisionRequest,

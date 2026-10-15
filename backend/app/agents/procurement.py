@@ -22,8 +22,12 @@ class ProcurementAgent:
 
     def run(self, state: Dict[str, Any], conn=None) -> Dict[str, Any]:
         """Query real supplier offers from PostgreSQL and select best active candidate."""
+        from app.services.data_tools import get_supplier_offers
+
         item_id = state.get("item_id") or "PRD-STEEL-01"
         shortage_qty = float(state.get("shortage_qty") or state.get("quantity") or 50.0)
+        agent_run_id = state.get("agent_run_id")
+        scenario_id = state.get("scenario_id")
 
         selected_supplier_id = None
         selected_supplier_name = None
@@ -32,48 +36,30 @@ class ProcurementAgent:
         lead_time = 48
         evaluated_count = 0
         evidence_refs = []
+        is_single_source = False
 
         if conn:
-            with conn.cursor() as cur:
-                # Query active offers for this product, ordered by price and on-time rate
-                cur.execute(
-                    """
-                    SELECT
-                        so.offer_id,
-                        so.supplier_id,
-                        s.supplier_name,
-                        so.unit_price_inr,
-                        so.lead_time_hours,
-                        s.historical_on_time_rate
-                    FROM supplier_offers so
-                    JOIN suppliers s ON so.supplier_id = s.supplier_id
-                    WHERE so.item_id = %s
-                      AND so.offer_status = 'ACTIVE'
-                      AND s.status = 'ACTIVE'
-                    ORDER BY so.unit_price_inr ASC, s.historical_on_time_rate DESC NULLS LAST
-                    LIMIT 5;
-                    """,
-                    (item_id,),
-                )
-                offers = cur.fetchall()
-                evaluated_count = len(offers)
+            offers_res = get_supplier_offers(
+                conn,
+                item_id=item_id,
+                required_qty=shortage_qty,
+                agent_run_id=agent_run_id,
+                scenario_id=scenario_id,
+            )
+            evaluated_count = offers_res["offers_count"]
+            is_single_source = offers_res["is_single_source"]
+            evidence_refs.extend(offers_res["evidence_refs"])
 
-                if offers:
-                    best = offers[0]
-                    selected_offer_id = str(best[0])
-                    selected_supplier_id = str(best[1])
-                    selected_supplier_name = str(best[2])
-                    unit_price = float(best[3])
-                    lead_time = int(best[4]) if best[4] is not None else 48
-                    evidence_refs.append({
-                        "type": "DATABASE_RECORD",
-                        "table": "supplier_offers",
-                        "offer_id": selected_offer_id,
-                        "supplier_id": selected_supplier_id,
-                        "unit_price_inr": unit_price,
-                    })
-                else:
-                    # Fall back to best active general supplier
+            best = offers_res.get("best_offer")
+            if best:
+                selected_offer_id = best["offer_id"]
+                selected_supplier_id = best["supplier_id"]
+                selected_supplier_name = best["supplier_name"]
+                unit_price = best["unit_price_inr"]
+                lead_time = best["lead_time_hours"]
+            else:
+                # Fall back to best active general supplier
+                with conn.cursor() as cur:
                     cur.execute(
                         """
                         SELECT supplier_id, supplier_name, historical_on_time_rate
@@ -110,4 +96,6 @@ class ProcurementAgent:
             procurement_status=proc_status,
             evidence_refs=evidence_refs,
         )
-        return result.model_dump()
+        out_dict = result.model_dump()
+        out_dict["is_single_source"] = is_single_source
+        return out_dict

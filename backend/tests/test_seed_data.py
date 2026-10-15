@@ -13,6 +13,13 @@ from validate_seed_data import validate  # noqa: E402
 def _prepare(monkeypatch, test_database_url):
     monkeypatch.setenv("TEST_DATABASE_URL", test_database_url)
     assert run(dry_run=False, env_var="TEST_DATABASE_URL") == 0
+    from db.connection import connect
+    c = connect("TEST_DATABASE_URL")
+    with c.cursor() as cur:
+        cur.execute("SET app.allow_event_log_mutation = true;")
+        cur.execute("DELETE FROM evidence_references WHERE evidence_id IS NOT NULL; DELETE FROM agent_tool_calls WHERE tool_call_id IS NOT NULL; DELETE FROM inter_agent_messages WHERE message_id IS NOT NULL; DELETE FROM task_queue WHERE task_id IS NOT NULL; DELETE FROM task_batches WHERE batch_id IS NOT NULL; DELETE FROM event_log WHERE event_id IS NOT NULL; DELETE FROM action_queue WHERE action_id IS NOT NULL; DELETE FROM policy_evaluations WHERE policy_eval_id IS NOT NULL; DELETE FROM approval_requests WHERE approval_id IS NOT NULL; DELETE FROM agent_runs WHERE agent_run_id IS NOT NULL; DELETE FROM decisions WHERE decision_id IS NOT NULL; DELETE FROM scenario_instances WHERE scenario_id IS NOT NULL;")
+        c.commit()
+    c.close()
 
 
 @pytest.mark.integration

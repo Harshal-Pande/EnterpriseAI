@@ -140,6 +140,13 @@ def acquire_connection() -> PGConnection:
         if conn.closed:
             pool.putconn(conn, close=True)
             conn = pool.getconn()
+        try:
+            with conn.cursor() as cur:
+                # Set safe statement and lock timeouts per connection (Task P11)
+                cur.execute("SET statement_timeout = 15000; SET lock_timeout = 5000;")
+                conn.commit()
+        except Exception:
+            pass
         return conn
     except PoolError as exc:
         logger.error("Connection pool exhausted: %s", exc)

@@ -79,3 +79,24 @@ def test_conn(test_database_url):
         yield conn
     finally:
         conn.close()
+
+
+@pytest.fixture
+def client():
+    """TestClient configured with developer viewer credentials."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app, headers={"X-API-Key": "dev-viewer-key"}) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def operator_client():
+    """TestClient configured with operator credentials."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app, headers={"X-API-Key": "dev-operator-key"}) as test_client:
+        yield test_client
+

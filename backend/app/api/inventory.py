@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.core.security import AuthUser, UserRole, require_role
 from app.db.database import get_db
 from app.models.inventory import InventoryItem, InventorySummary
 
@@ -283,3 +284,39 @@ def get_inventory_item(inventory_id: str, conn=Depends(get_db)):
         shortage=shortage,
         as_of_timestamp=r[15].isoformat() if r[15] else None,
     )
+
+
+@router.post("/reserve")
+def reserve_inventory(
+    payload: dict,
+    current_user: AuthUser = Depends(require_role(UserRole.OPERATOR)),
+    conn=Depends(get_db),
+):
+    """Reserve inventory stock transactionally using row locks, movements, and reservations."""
+    from app.services.action_adapters import DatabaseActionAdapter, ActionExecutionError
+    import uuid
+
+    action_id = str(uuid.uuid4())
+    try:
+        result = DatabaseActionAdapter.execute(
+            conn=conn,
+            action_type="RESERVE_INVENTORY",
+            payload=payload,
+            action_id=action_id,
+            actor_id=current_user.user_id,
+        )
+        conn.commit()
+        return result
+    except ActionExecutionError as exc:
+        conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Inventory reservation failed: {exc}",
+        )
+

@@ -22,43 +22,31 @@ class FinanceAgent:
 
     def run(self, state: Dict[str, Any], conn=None) -> Dict[str, Any]:
         """Query real budget limits and approval thresholds from PostgreSQL budgets table."""
+        from app.services.data_tools import check_budget_headroom
+
         estimated_spend = float(state.get("estimated_cost") or 5000.0)
+        cost_center = state.get("cost_center")
+        agent_run_id = state.get("agent_run_id")
+        scenario_id = state.get("scenario_id")
 
         budget_id = None
-        cost_center = None
         available_budget = 1000000.0  # Safe fallback if DB not connected
         threshold_limit = 50000.0     # Default threshold for human approval
         evidence_refs = []
 
         if conn:
-            with conn.cursor() as cur:
-                # Query active budget record
-                cur.execute(
-                    """
-                    SELECT
-                        budget_id,
-                        cost_center,
-                        available_budget_inr,
-                        single_action_approval_threshold_inr
-                    FROM budgets
-                    WHERE status = 'ACTIVE'
-                    ORDER BY available_budget_inr DESC
-                    LIMIT 1;
-                    """,
-                )
-                row = cur.fetchone()
-                if row:
-                    budget_id = str(row[0])
-                    cost_center = str(row[1])
-                    available_budget = float(row[2]) if row[2] is not None else available_budget
-                    threshold_limit = float(row[3]) if row[3] is not None else threshold_limit
-                    evidence_refs.append({
-                        "type": "DATABASE_RECORD",
-                        "table": "budgets",
-                        "budget_id": budget_id,
-                        "available_budget_inr": available_budget,
-                        "threshold_limit_inr": threshold_limit,
-                    })
+            b_res = check_budget_headroom(
+                conn,
+                cost_center=cost_center,
+                proposed_spend=estimated_spend,
+                agent_run_id=agent_run_id,
+                scenario_id=scenario_id,
+            )
+            budget_id = b_res["budget_id"]
+            cost_center = b_res["cost_center"]
+            available_budget = b_res["available_budget"]
+            threshold_limit = b_res["threshold_limit"]
+            evidence_refs.extend(b_res["evidence_refs"])
 
         # Deterministic evaluation of spend against budget and single action threshold
         if estimated_spend > available_budget:

@@ -258,6 +258,128 @@ class RelationalGraphEngine:
                         )
                     )
 
+            # 4.5. Bill of Materials (BOM) multi-tier input-to-output mapping
+            cur.execute("""
+                SELECT bom_line_id, output_product_id, input_item_id, quantity_per_output_unit
+                FROM bill_of_materials
+                WHERE version_status = 'ACTIVE';
+            """)
+            for r in cur.fetchall():
+                in_nid = cls._format_node_id("prod", r[2])
+                out_nid = cls._format_node_id("prod", r[1])
+                if in_nid in nodes and out_nid in nodes:
+                    edges.append(
+                        KnowledgeGraphEdge(
+                            id=f"e-{in_nid}-input_to-{out_nid}",
+                            source=in_nid,
+                            target=out_nid,
+                            type="INPUT_TO",
+                            label="INPUT_TO",
+                            properties={"qty_per_unit": float(r[3])},
+                        )
+                    )
+
+            # 4.6. Production Lines & Batches
+            cur.execute("SELECT production_line_id, line_name, status FROM production_lines LIMIT 10;")
+            for r in cur.fetchall():
+                pl_nid = cls._format_node_id("line", r[0])
+                nodes[pl_nid] = KnowledgeGraphNode(
+                    id=pl_nid,
+                    label=r[1],
+                    type="ProductionLine",
+                    properties={"status": r[2]},
+                    status=r[2],
+                    source_table="production_lines",
+                    source_id=r[0],
+                )
+
+            cur.execute("""
+                SELECT batch_id, production_line_id, output_product_id, status, COALESCE(planned_output_qty_mt, 0.0)
+                FROM production_batches
+                LIMIT 15;
+            """)
+            for r in cur.fetchall():
+                b_nid = cls._format_node_id("batch", r[0])
+                pl_nid = cls._format_node_id("line", r[1])
+                p_nid = cls._format_node_id("prod", r[2])
+                nodes[b_nid] = KnowledgeGraphNode(
+                    id=b_nid,
+                    label=f"Batch {r[0]}",
+                    type="ProductionBatch",
+                    properties={"status": r[3], "quantity_mt": float(r[4])},
+                    status=r[3],
+                    source_table="production_batches",
+                    source_id=r[0],
+                )
+                if pl_nid in nodes:
+                    edges.append(
+                        KnowledgeGraphEdge(
+                            id=f"e-{pl_nid}-runs-{b_nid}",
+                            source=pl_nid,
+                            target=b_nid,
+                            type="RUNS",
+                            label="RUNS",
+                            properties={},
+                        )
+                    )
+                if p_nid in nodes:
+                    edges.append(
+                        KnowledgeGraphEdge(
+                            id=f"e-{b_nid}-produces-{p_nid}",
+                            source=b_nid,
+                            target=p_nid,
+                            type="PRODUCES",
+                            label="PRODUCES",
+                            properties={},
+                        )
+                    )
+
+            # 4.7. Carriers & Transport Lanes (if table exists)
+            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'carriers';")
+            if cur.fetchone():
+                cur.execute("SELECT carrier_id, carrier_name, carrier_type, on_time_rate, status FROM carriers LIMIT 10;")
+                for r in cur.fetchall():
+                    c_nid = cls._format_node_id("carrier", r[0])
+                    nodes[c_nid] = KnowledgeGraphNode(
+                        id=c_nid,
+                        label=r[1],
+                        type="Carrier",
+                        properties={"type": r[2], "on_time_rate": float(r[3]) if r[3] else None, "status": r[4]},
+                        status=r[4],
+                        source_table="carriers",
+                        source_id=r[0],
+                    )
+
+            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'transport_lanes';")
+            if cur.fetchone():
+                cur.execute("""
+                    SELECT lane_id, origin_city, dest_city, carrier_id, mode, transit_days_min
+                    FROM transport_lanes WHERE status = 'ACTIVE' LIMIT 20;
+                """)
+                for r in cur.fetchall():
+                    l_nid = cls._format_node_id("lane", r[0])
+                    c_nid = cls._format_node_id("carrier", r[3])
+                    nodes[l_nid] = KnowledgeGraphNode(
+                        id=l_nid,
+                        label=f"{r[1]} -> {r[2]} ({r[4]})",
+                        type="TransportLane",
+                        properties={"origin": r[1], "destination": r[2], "mode": r[4], "transit_days": r[5]},
+                        status="ACTIVE",
+                        source_table="transport_lanes",
+                        source_id=r[0],
+                    )
+                    if c_nid in nodes:
+                        edges.append(
+                            KnowledgeGraphEdge(
+                                id=f"e-{c_nid}-operates-{l_nid}",
+                                source=c_nid,
+                                target=l_nid,
+                                type="OPERATES",
+                                label="OPERATES",
+                                properties={},
+                            )
+                        )
+
             # Fallback supplier relationships if offers table has few entries
             if len(edges) < 3:
                 # Link suppliers to products by category heuristic or first product
@@ -322,25 +444,27 @@ class RelationalGraphEngine:
                 )
 
             # 6. Order Lines -> Products
-            cur.execute("""
-                SELECT ol.order_id, ol.product_id, ol.requested_qty, ol.unit_price_inr
-                FROM order_lines ol
-                LIMIT 40;
-            """)
-            for r in cur.fetchall():
-                ord_nid = cls._format_node_id("ord", r[0])
-                prod_nid = cls._format_node_id("prod", r[1])
-                if ord_nid in nodes and prod_nid in nodes:
-                    edges.append(
-                        KnowledgeGraphEdge(
-                            id=f"e-{ord_nid}-requires-{prod_nid}",
-                            source=ord_nid,
-                            target=prod_nid,
-                            type="REQUIRES",
-                            label="REQUIRES",
-                            properties={"qty": r[2], "unit_price": float(r[3]) if r[3] else 0.0},
+            if orders_rows:
+                ord_ids = [r[0] for r in orders_rows]
+                cur.execute("""
+                    SELECT ol.order_id, ol.product_id, ol.requested_qty, ol.unit_price_inr
+                    FROM order_lines ol
+                    WHERE ol.order_id = ANY(%s);
+                """, (ord_ids,))
+                for r in cur.fetchall():
+                    ord_nid = cls._format_node_id("ord", r[0])
+                    prod_nid = cls._format_node_id("prod", r[1])
+                    if ord_nid in nodes and prod_nid in nodes:
+                        edges.append(
+                            KnowledgeGraphEdge(
+                                id=f"e-{ord_nid}-requires-{prod_nid}",
+                                source=ord_nid,
+                                target=prod_nid,
+                                type="REQUIRES",
+                                label="REQUIRES",
+                                properties={"qty": float(r[2]) if r[2] else 0.0, "unit_price": float(r[3]) if r[3] else 0.0},
+                            )
                         )
-                    )
 
             # 7. Inventory Items -> Warehouse & Product
             cur.execute("""
