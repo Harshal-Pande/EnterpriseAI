@@ -155,7 +155,7 @@ def readiness_check():
         from app.services.scheduler_service import default_scheduler
         sched_status = default_scheduler.get_status()
         sched_latency = round((time.perf_counter() - t0) * 1000, 2)
-        sched_running = sched_status.get("running", False)
+        sched_running = sched_status.get("running", False) or sched_status.get("is_running", False)
         subsystems["scheduler"] = {
             "state": "live" if sched_running else "unavailable",
             "reason": "Scheduler thread running with lease" if sched_running else "Scheduler stopped",
@@ -187,10 +187,15 @@ def readiness_check():
     try:
         from app.services.graph_service import get_graph_service
         graph_svc = get_graph_service()
-        graph_status = graph_svc.get_status()
+        graph_status_raw = graph_svc.get_status()
+        graph_status = (
+            graph_status_raw.model_dump()
+            if hasattr(graph_status_raw, "model_dump")
+            else (graph_status_raw.dict() if hasattr(graph_status_raw, "dict") else graph_status_raw)
+        )
         graph_latency = round((time.perf_counter() - t0) * 1000, 2)
         engine_name = graph_status.get("engine", "relational_fallback")
-        is_neo4j = graph_status.get("connected", False) and engine_name == "neo4j"
+        is_neo4j = graph_status.get("connected", False) and str(engine_name).lower() == "neo4j"
         subsystems["graph"] = {
             "state": "live" if is_neo4j else "fallback",
             "reason": "Connected to Neo4j graph database" if is_neo4j else "RelationalGraphEngine querying PostgreSQL (Docker daemon inactive)",

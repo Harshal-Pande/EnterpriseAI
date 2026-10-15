@@ -976,3 +976,9 @@ class KnowledgeGraphService:
 
 default_graph_service = KnowledgeGraphService()
 graph_service = default_graph_service
+
+
+def get_graph_service() -> KnowledgeGraphService:
+    """Return the default KnowledgeGraphService instance."""
+    return default_graph_service
+

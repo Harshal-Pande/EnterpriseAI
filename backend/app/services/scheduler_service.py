@@ -965,8 +965,11 @@ class ScenarioScheduler:
                 "worker_id": self.worker_id,
             }
 
-    def get_status(self, conn) -> Dict[str, Any]:
+    def get_status(self, conn=None) -> Dict[str, Any]:
         """Fetch current scheduler configuration, open scenario counts, and execution statistics."""
+        if conn is None:
+            with get_db_connection() as c:
+                return self.get_status(c)
         sql = """
             SELECT
                 scheduler_name, enabled, interval_seconds,
