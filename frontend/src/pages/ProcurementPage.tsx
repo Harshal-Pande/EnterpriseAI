@@ -1,201 +1,282 @@
-import React from 'react';
-import { Scale, ArrowRight, CheckCircle2, XCircle, Star } from 'lucide-react';
-import { useDemo } from '../state/DemoContext';
+import React, { useState } from 'react';
+import { PageHeader } from '../components/common/PageHeader';
+import { Panel } from '../components/common/Panel';
+import { DataTable, type Column } from '../components/common/DataTable';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { useDemo } from '../state/DemoContext';
 
-const SCORE_COLOR = (score: number) => {
-  if (score >= 90) return '#10B981';
-  if (score >= 70) return '#F59E0B';
-  return '#EF4444';
-};
+interface DisplaySupplier {
+  id: string;
+  name: string;
+  availability: number;
+  reliability: number;
+  leadTimeDays: number;
+  unitPrice: number;
+  score: number;
+  status: string;
+  isUnavailable?: boolean;
+  unavailableReason?: string;
+}
+
+interface RequisitionOffer {
+  vendorId: string;
+  vendorName: string;
+  quotedPrice: number;
+  landedCost: number;
+  leadTime: number;
+  isLowestLanded: boolean;
+  status: string;
+}
 
 export const ProcurementPage: React.FC = () => {
   const { suppliers: demoSuppliers, liveSuppliers, dataMode } = useDemo();
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('SUP-001');
 
-  const suppliers = (dataMode === 'live' && liveSuppliers.length > 0)
-    ? liveSuppliers.map((s, idx) => ({
-        id: s.supplier_id,
-        name: s.name,
-        pricePerUnit: 6000 + (idx * 350),
-        availability: s.is_active ? 150 : 0,
-        deliveryDays: s.lead_time_days || 3,
-        score: Math.round((s.rating || 4.2) * 20),
-        status: s.is_active ? (idx === 0 ? 'SELECTED' : 'ACTIVE') : 'UNAVAILABLE',
-        notes: s.notes || `Rating: ${s.rating}/5.0 | Contact: ${s.contact_email}`
-      }))
-    : demoSuppliers;
+  const supplierList: DisplaySupplier[] =
+    dataMode === 'live' && liveSuppliers.length > 0
+      ? liveSuppliers.map((s, idx) => ({
+          id: s.supplier_id || `SUP-00${idx + 1}`,
+          name: s.name || `Vendor ${idx + 1}`,
+          availability: s.is_active ? 150 : 0,
+          reliability: Math.round((s.rating || 4.2) * 20),
+          leadTimeDays: s.lead_time_days || 3,
+          unitPrice: 41000 + idx * 800,
+          score: Math.round((s.rating || 4.2) * 20),
+          status: s.is_active ? (idx === 0 ? 'completed' : 'allowed') : 'unavailable',
+          isUnavailable: !s.is_active,
+          unavailableReason: !s.is_active ? 'Blast furnace scheduled maintenance outage' : undefined,
+        }))
+      : demoSuppliers.map((s) => ({
+          id: s.id,
+          name: s.name,
+          availability: s.availability,
+          reliability: s.score,
+          leadTimeDays: s.deliveryDays,
+          unitPrice: s.pricePerUnit,
+          score: s.score,
+          status: s.status === 'SELECTED' ? 'completed' : s.status === 'UNAVAILABLE' ? 'unavailable' : 'allowed',
+          isUnavailable: s.status === 'UNAVAILABLE',
+          unavailableReason: s.status === 'UNAVAILABLE' ? 'Inventory stockout at Bokaro slab depot' : undefined,
+        }));
 
-  const selectedSupplier = suppliers.find(s => s.status === 'SELECTED') ?? suppliers[0] ?? {
-    id: 'SUP-001',
-    name: 'Precision Dynamics',
-    pricePerUnit: 6500,
-    availability: 100,
-    deliveryDays: 3,
-    score: 88,
-    status: 'SELECTED',
-    notes: 'Default primary supplier'
-  };
+  const activeSupplier = supplierList.find((s) => s.id === selectedSupplierId) || supplierList[0];
+
+  const requisitionOffers: RequisitionOffer[] = [
+    {
+      vendorId: 'SUP-002',
+      vendorName: 'JSW Steel Limited',
+      quotedPrice: 41500,
+      landedCost: 42200,
+      leadTime: 2,
+      isLowestLanded: true,
+      status: 'recommended',
+    },
+    {
+      vendorId: 'SUP-001',
+      vendorName: 'Tata Steel Industrial',
+      quotedPrice: 42800,
+      landedCost: 43500,
+      leadTime: 3,
+      isLowestLanded: false,
+      status: 'counter_offered',
+    },
+    {
+      vendorId: 'SUP-003',
+      vendorName: 'Jindal Steel & Power',
+      quotedPrice: 43200,
+      landedCost: 44100,
+      leadTime: 4,
+      isLowestLanded: false,
+      status: 'evaluated',
+    },
+  ];
+
+  const supplierColumns: Column<DisplaySupplier>[] = [
+    {
+      key: 'name',
+      header: 'Supplier Name',
+      render: (s) => (
+        <div>
+          <div className="font-medium text-text">{s.name}</div>
+          {s.isUnavailable && (
+            <div className="text-[11px] text-danger bg-danger-soft px-1.5 py-0.2 rounded-[3px] inline-block mt-0.5">
+              Unavailable: {s.unavailableReason || 'Stockout'}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'availability',
+      header: 'Available (MT)',
+      isNumeric: true,
+      render: (s) => <span>{s.availability} MT</span>,
+    },
+    {
+      key: 'reliability',
+      header: 'Reliability %',
+      isNumeric: true,
+      render: (s) => (
+        <span className={s.reliability >= 85 ? 'text-ok font-medium' : 'text-warn'}>
+          {s.reliability}%
+        </span>
+      ),
+    },
+    {
+      key: 'leadTimeDays',
+      header: 'Lead Time',
+      isNumeric: true,
+      render: (s) => <span>{s.leadTimeDays} days</span>,
+    },
+    {
+      key: 'unitPrice',
+      header: 'Unit Price (INR/MT)',
+      isNumeric: true,
+      render: (s) => (
+        <span>
+          {new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            maximumFractionDigits: 0,
+          }).format(s.unitPrice)}
+        </span>
+      ),
+    },
+    {
+      key: 'score',
+      header: 'Matrix Score',
+      isNumeric: true,
+      render: (s) => (
+        <span className="font-mono font-semibold text-text">{s.score} / 100</span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (s) => <StatusBadge status={s.status} size="sm" />,
+    },
+  ];
 
   return (
-    <div className="space-y-5">
-      {/* Page Header */}
-      <div className="pb-5 border-b border-[#1E293B] flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">Procurement Intelligence</h1>
-            {dataMode === 'live' && (
-              <span className="text-[10px] bg-blue-900/60 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded font-mono">
-                LIVE POSTGRESQL ({liveSuppliers.length} suppliers)
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Autonomous supplier evaluation, multi-vendor negotiation, and SLA-weighted selection matrix
-          </p>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Procurement & Vendor Intelligence"
+        description="Autonomous quotation analysis, dynamic counter-offer bidding, and landed-cost optimization."
+      />
 
-      {/* Selected Supplier Highlight */}
-      <div
-        className="rounded-xl p-5"
-        style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)' }}
+      {/* Main Grid: Suppliers Table */}
+      <Panel
+        title={`Qualified Steel Suppliers (${supplierList.length})`}
+        subtitle="SLA performance matrix and real-time quotation availability"
+        padding="none"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}
-            >
-              <Scale className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <div className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-widest">
-                Autonomous Procurement Recommendation
-              </div>
-              <div className="text-sm font-bold text-white mt-0.5">
-                {selectedSupplier.name} ({selectedSupplier.id})
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="text-right">
-              <div className="text-[10px] text-slate-500">Negotiated Score</div>
-              <div className="text-xl font-bold font-mono text-amber-400">{selectedSupplier.score}/100</div>
-            </div>
-            <StatusBadge status={selectedSupplier.status} />
-          </div>
-        </div>
+        <DataTable<DisplaySupplier>
+          columns={supplierColumns}
+          data={supplierList}
+          keyExtractor={(s) => s.id}
+          selectedId={activeSupplier?.id}
+          onRowClick={(s) => setSelectedSupplierId(s.id)}
+        />
+      </Panel>
 
-        <div
-          className="mt-4 px-4 py-3 rounded-lg text-[12px] text-slate-200"
-          style={{ background: '#080C14', border: '1px solid #1E293B' }}
-        >
-          <span className="text-amber-300 font-semibold">Decision Rationale: </span>
-          {selectedSupplier.notes}
-        </div>
-      </div>
-
-      {/* Supplier Comparison Matrix */}
-      <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #1E293B' }}>
-        <div className="px-5 py-3.5 border-b border-[#1E293B] flex items-center justify-between">
-          <h2 className="text-sm font-bold text-white">Supplier Comparison Matrix</h2>
-          <span className="text-[10px] font-mono text-slate-600">Target: 78 units WP-800</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="ent-table">
-            <thead>
-              <tr>
-                <th>Supplier</th>
-                <th className="text-right">Price/Unit</th>
-                <th className="text-right">Available Qty</th>
-                <th className="text-right">Lead Time</th>
-                <th className="text-right">Weighted Score</th>
-                <th>Status</th>
-                <th>Agent Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {suppliers.map(sup => {
-                const isSelected = sup.status === 'SELECTED';
-                const isUnavail  = sup.status === 'UNAVAILABLE' || sup.status === 'REJECTED_BUDGET';
-                return (
-                  <tr
-                    key={sup.id}
-                    style={isSelected ? { background: 'rgba(245,158,11,0.05)' } : {}}
-                  >
-                    <td>
-                      <div className="flex items-center gap-2">
-                        {isSelected && <Star className="w-3 h-3 text-amber-400 shrink-0" />}
-                        <span className={`font-bold ${isSelected ? 'text-white' : isUnavail ? 'text-slate-600' : 'text-slate-300'}`}>
-                          {sup.name}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-slate-600 font-mono">{sup.id}</div>
-                    </td>
-                    <td className="text-right">
-                      <span className={`font-mono font-bold ${isUnavail ? 'text-slate-600' : 'text-emerald-400'}`}>
-                        ₹{sup.pricePerUnit.toLocaleString()}
-                      </span>
-                    </td>
-                    <td className="text-right font-mono">
-                      <span className={sup.availability === 0 ? 'text-rose-400' : 'text-cyan-300'}>
-                        {sup.availability > 0 ? `${sup.availability} units` : 'Out of Stock'}
-                      </span>
-                    </td>
-                    <td className="text-right font-mono text-slate-400">
-                      {sup.deliveryDays} day{sup.deliveryDays !== 1 ? 's' : ''}
-                    </td>
-                    <td className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: '#1E293B' }}>
-                          <div
-                            className="h-full rounded-full"
-                            style={{ width: `${sup.score}%`, background: SCORE_COLOR(sup.score) }}
-                          />
-                        </div>
-                        <span className="font-mono font-bold text-xs" style={{ color: SCORE_COLOR(sup.score) }}>
-                          {sup.score}
-                        </span>
-                      </div>
-                    </td>
-                    <td><StatusBadge status={sup.status} /></td>
-                    <td className="text-slate-400 max-w-[200px] truncate text-[11px]">{sup.notes}</td>
+      {/* Requisition Offer Comparison & Negotiation Timeline */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Left: Requisition Offers Comparison (2 cols) */}
+        <div className="lg:col-span-2">
+          <Panel
+            title="Offers for Active Requisition (40 MT Steel Slab)"
+            subtitle="Autonomous bidding quotes ranked by landed cost"
+            padding="none"
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-[13px]">
+                <thead>
+                  <tr className="bg-surface-2 h-[36px] border-b border-border text-[11px] font-semibold text-text-3 uppercase tracking-wider">
+                    <th className="px-3 py-1.5">Bidding Vendor</th>
+                    <th className="px-3 py-1.5 text-right">Quoted / MT</th>
+                    <th className="px-3 py-1.5 text-right">Landed Cost / MT</th>
+                    <th className="px-3 py-1.5 text-right">Transit Lead Time</th>
+                    <th className="px-3 py-1.5">Evaluation Outcome</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Negotiation Timeline */}
-      <div className="rounded-xl overflow-hidden" style={{ background: '#0F172A', border: '1px solid #1E293B' }}>
-        <div className="px-5 py-3.5 border-b border-[#1E293B]">
-          <h2 className="text-sm font-bold text-white">Procurement Agent Negotiation Timeline</h2>
-        </div>
-        <div className="p-5 space-y-3">
-          {[
-            { step: '01', agent: 'Supplier A', color: '#EF4444', outcome: 'Stock check returned 0 available units. Marked UNAVAILABLE by Procurement Agent.', icon: <XCircle className="w-3.5 h-3.5" /> },
-            { step: '02', agent: 'Supplier B', color: '#F59E0B', outcome: 'Submitted revised quotation: 150 units @ ₹6,600/unit (2-day SLA). Accepted by agent.', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
-            { step: '03', agent: 'Supplier C', color: '#94A3B8', outcome: 'Offered 1-day express delivery at ₹7,400/unit. 12% price premium flagged.', icon: null },
-            { step: 'FINAL', agent: 'Procurement Agent', color: '#10B981', outcome: 'Selected Supplier B for optimal SLA & budget balance. Proposal transmitted to Finance Agent.', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
-          ].map(({ step, agent, color, outcome, icon }) => (
-            <div
-              key={step}
-              className="flex items-start gap-3 p-3.5 rounded-lg"
-              style={{
-                background: step === 'FINAL' ? 'rgba(16,185,129,0.05)' : '#080C14',
-                border: `1px solid ${step === 'FINAL' ? 'rgba(16,185,129,0.2)' : '#1E293B'}`
-              }}
-            >
-              <span className="font-mono text-[9px] font-bold text-slate-600 uppercase w-10 shrink-0 mt-0.5">{step}</span>
-              <div style={{ color }} className="flex items-center gap-1.5 font-bold text-xs w-32 shrink-0">
-                {icon} {agent}
-              </div>
-              <ArrowRight className="w-3.5 h-3.5 text-slate-700 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-slate-300 leading-snug">{outcome}</p>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {requisitionOffers.map((offer) => (
+                    <tr
+                      key={offer.vendorId}
+                      className={`h-[40px] relative transition-colors ${
+                        offer.isLowestLanded
+                          ? 'bg-ok-soft/30 font-medium'
+                          : 'bg-surface hover:bg-surface-2/40'
+                      }`}
+                    >
+                      <td className="px-3 py-2 text-text relative">
+                        {/* 3px ok left border on lowest landed cost */}
+                        {offer.isLowestLanded && (
+                          <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-ok" />
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span>{offer.vendorName}</span>
+                          {offer.isLowestLanded && (
+                            <span className="px-1.5 py-0.2 rounded-[3px] bg-ok text-white font-mono text-[10px] font-semibold">
+                              Lowest landed cost
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono tabular-nums text-text-2">
+                        ₹{offer.quotedPrice.toLocaleString('en-IN')}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono tabular-nums font-semibold text-text">
+                        ₹{offer.landedCost.toLocaleString('en-IN')}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono tabular-nums text-text-3">
+                        {offer.leadTime} days
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusBadge
+                          status={offer.isLowestLanded ? 'approved' : 'pending'}
+                          size="sm"
+                          customLabel={offer.isLowestLanded ? 'Selected' : 'Evaluated'}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
+          </Panel>
+        </div>
+
+        {/* Right: Negotiation History Timeline (1 col) */}
+        <div>
+          <Panel
+            title="Negotiation History"
+            subtitle="Automated agent dialogue"
+          >
+            <div className="space-y-3 text-[12px]">
+              <div className="border-l-2 border-border pl-3 space-y-1 relative">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent absolute -left-[4px] top-1" />
+                <div className="flex justify-between text-text-3 font-mono text-[11px]">
+                  <span>Round 2 — Accepted</span>
+                  <span>19:15:05</span>
+                </div>
+                <p className="text-text font-medium leading-tight">
+                  JSW Steel counter-offered ₹41,500/MT (discount ₹800/MT for 40 MT volume).
+                </p>
+              </div>
+
+              <div className="border-l-2 border-border pl-3 space-y-1 relative">
+                <span className="w-1.5 h-1.5 rounded-full bg-border-strong absolute -left-[4px] top-1" />
+                <div className="flex justify-between text-text-3 font-mono text-[11px]">
+                  <span>Round 1 — Initial RFP</span>
+                  <span>19:15:02</span>
+                </div>
+                <p className="text-text-2 leading-tight">
+                  Procurement agent requested quotes from 3 vendors for urgent 40 MT slab requirement.
+                </p>
+              </div>
+            </div>
+          </Panel>
         </div>
       </div>
     </div>

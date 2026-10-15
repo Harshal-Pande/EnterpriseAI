@@ -1,173 +1,232 @@
-import React from 'react';
-import { Package, AlertTriangle } from 'lucide-react';
-import { useDemo } from '../state/DemoContext';
+import React, { useState } from 'react';
+import { PageHeader } from '../components/common/PageHeader';
+import { StatStrip, type StatItem } from '../components/common/StatStrip';
+import { Panel } from '../components/common/Panel';
+import { DataTable, type Column } from '../components/common/DataTable';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { DetailDrawer } from '../components/common/DetailDrawer';
+import { KeyValueList } from '../components/common/KeyValueList';
+import { useDemo } from '../state/DemoContext';
 
-import type { InventoryItem } from '../types';
+interface DisplayInventoryRow {
+  sku: string;
+  description: string;
+  warehouse: string;
+  onHand: number;
+  reserved: number;
+  available: number;
+  reorderLevel: number;
+  status: string;
+  rawLots?: { lotId: string; qty: number; grade: string; mfgDate: string }[];
+}
 
 export const InventoryPage: React.FC = () => {
-  const { inventory, dataMode, liveInventory, liveInventorySummary } = useDemo();
+  const { inventory, dataMode, liveInventory } = useDemo();
+  const [selectedItem, setSelectedItem] = useState<DisplayInventoryRow | null>(null);
 
-  const activeInventory: InventoryItem[] = dataMode === 'live' && liveInventory.length > 0
-    ? liveInventory.map(li => ({
-        id: li.item_id,
-        productName: li.item_name,
-        currentStock: li.available_qty,
-        reorderThreshold: li.reorder_point_qty,
-        required: li.safety_stock_qty,
-        shortage: Math.max(0, li.reorder_point_qty - li.available_qty),
-        status: li.stock_status,
-      }))
-    : inventory;
+  const inventoryRows: DisplayInventoryRow[] =
+    dataMode === 'live' && liveInventory.length > 0
+      ? liveInventory.map((li) => ({
+          sku: li.item_id || 'SKU-SLAB-01',
+          description: li.item_name || 'Hot Rolled Steel Slab (IS 2062)',
+          warehouse: li.warehouse_id || 'WH-BOK-01 (Bokaro Central)',
+          onHand: li.on_hand_qty || 150,
+          reserved: li.reserved_qty || 25,
+          available: li.available_qty || 125,
+          reorderLevel: li.reorder_point_qty || 40,
+          status: li.stock_status === 'REORDER_REQUIRED' ? 'failed' : li.stock_status === 'LOW_STOCK' ? 'awaiting_approval' : 'completed',
+          rawLots: [
+            { lotId: 'LOT-BOK-881', qty: 60, grade: 'IS 2062 E250', mfgDate: '2026-10-10' },
+            { lotId: 'LOT-BOK-882', qty: 65, grade: 'IS 2062 E250', mfgDate: '2026-10-12' },
+          ],
+        }))
+      : inventory.map((item) => ({
+          sku: item.id,
+          description: item.productName,
+          warehouse: 'WH-BOK-01 (Bokaro Mill Yard)',
+          onHand: item.currentStock + 15,
+          reserved: 15,
+          available: item.currentStock,
+          reorderLevel: item.reorderThreshold,
+          status: item.status === 'REORDER_REQUIRED' ? 'failed' : item.status === 'LOW_STOCK' ? 'awaiting_approval' : 'completed',
+          rawLots: [
+            { lotId: `LOT-${item.id}-01`, qty: Math.floor(item.currentStock * 0.6), grade: 'Commercial Prime', mfgDate: '2026-10-08' },
+            { lotId: `LOT-${item.id}-02`, qty: Math.ceil(item.currentStock * 0.4), grade: 'Commercial Prime', mfgDate: '2026-10-11' },
+          ],
+        }));
 
-  const criticalItems = activeInventory.filter(i => i.status === 'REORDER_REQUIRED');
-  const lowItems      = activeInventory.filter(i => i.status === 'LOW_STOCK');
+  // Calculate StatStrip metrics
+  const skusTracked = inventoryRows.length;
+  const belowReorder = inventoryRows.filter((r) => r.available <= r.reorderLevel).length;
+  const totalReserved = inventoryRows.reduce((acc, r) => acc + r.reserved, 0);
+  const shortagesCount = inventoryRows.filter((r) => r.status === 'failed').length;
 
-  const criticalCount = dataMode === 'live' && liveInventorySummary ? liveInventorySummary.reorder_required_count : criticalItems.length;
-  const lowCount      = dataMode === 'live' && liveInventorySummary ? liveInventorySummary.low_stock_count : lowItems.length;
+  const stats: StatItem[] = [
+    { label: 'SKUs tracked', value: skusTracked, context: 'Active material lines' },
+    { label: 'Below reorder level', value: belowReorder, context: 'Procurement notified', accent: belowReorder > 0 ? 'warn' : 'default' },
+    { label: 'Reserved inventory', value: `${totalReserved} MT`, context: 'Active order commitments' },
+    { label: 'Shortages flagged', value: shortagesCount, context: 'Critical deficit', accent: shortagesCount > 0 ? 'danger' : 'default' },
+  ];
+
+  const columns: Column<DisplayInventoryRow>[] = [
+    {
+      key: 'sku',
+      header: 'SKU Code',
+      render: (r) => <span className="font-mono text-[12px] font-semibold text-text">{r.sku}</span>,
+    },
+    {
+      key: 'description',
+      header: 'Description / Grade',
+      render: (r) => <span className="font-medium text-text text-[13px]">{r.description}</span>,
+    },
+    {
+      key: 'warehouse',
+      header: 'Warehouse Site',
+      render: (r) => <span className="font-mono text-[11px] text-text-3">{r.warehouse}</span>,
+    },
+    {
+      key: 'onHand',
+      header: 'On Hand',
+      isNumeric: true,
+      render: (r) => <span>{r.onHand} MT</span>,
+    },
+    {
+      key: 'reserved',
+      header: 'Reserved',
+      isNumeric: true,
+      render: (r) => <span className="text-text-2">{r.reserved} MT</span>,
+    },
+    {
+      key: 'available',
+      header: 'Available',
+      isNumeric: true,
+      render: (r) => {
+        // Compute stock ratio for thin 4px bar
+        const ratio = Math.min(100, Math.round((r.available / (r.reorderLevel * 2)) * 100));
+        const barColor = r.status === 'failed' ? 'bg-danger' : r.status === 'awaiting_approval' ? 'bg-warn' : 'bg-ok';
+
+        return (
+          <div className="flex flex-col items-end">
+            <span className="font-mono font-medium">{r.available} MT</span>
+            <div className="w-16 h-1 bg-surface-sunk rounded-full overflow-hidden mt-1">
+              <div
+                style={{ width: `${ratio}%` }}
+                className={`h-full rounded-full ${barColor}`}
+              />
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'reorderLevel',
+      header: 'Reorder Level',
+      isNumeric: true,
+      render: (r) => <span className="font-mono text-text-3">{r.reorderLevel} MT</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (r) => {
+        const label = r.status === 'failed' ? 'Shortage' : r.status === 'awaiting_approval' ? 'Low Stock' : 'OK';
+        return <StatusBadge status={r.status} size="sm" customLabel={label} />;
+      },
+    },
+  ];
 
   return (
-    <div className="space-y-5">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#1E293B]">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">Inventory Telemetry</h1>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-              dataMode === 'live'
-                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                : 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
-            }`}>
-              {dataMode === 'live' ? `LIVE POSTGRESQL (${liveInventory.length} items)` : 'DEMO SCRIPT'}
-            </span>
-          </div>
-          <p className="text-sm text-slate-500 mt-1">Real-time stock balances, reorder thresholds, and shortage detection</p>
-        </div>
-        <div className="flex items-center gap-2 text-[11px] font-mono">
-          <span className="px-3 py-1.5 rounded-lg text-rose-300 font-bold"
-            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-            {criticalCount} Reorder Required
-          </span>
-          <span className="px-3 py-1.5 rounded-lg text-amber-300 font-bold"
-            style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}>
-            {lowCount} Low Stock
-          </span>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Warehouse Inventory & Stock Telemetry"
+        description="Physical stock levels, dynamic reservations, safety thresholds, and autonomous shortage alerts."
+      />
 
-      {/* Reorder Alert Banner */}
-      {criticalItems.length > 0 && (
-        <div
-          className="flex items-center gap-4 px-5 py-4 rounded-xl"
-          style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}
-        >
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)' }}
-          >
-            <AlertTriangle className="w-5 h-5 text-amber-400 animate-pulse" />
-          </div>
-          <div>
-            <div className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">
-              ⚡ Reorder Signal Active — Inventory Agent Dispatched
-            </div>
-            <div className="text-[11px] text-slate-300 mt-0.5">
-              Shortage of <strong>78 units</strong> detected for{' '}
-              <em>Industrial Water Pump (WP-800)</em>. Procurement Agent notified.
-            </div>
-          </div>
-          <span
-            className="ml-auto shrink-0 px-3 py-1 rounded-full text-[10px] font-mono font-bold"
-            style={{ background: 'rgba(245,158,11,0.15)', color: '#FCD34D', border: '1px solid rgba(245,158,11,0.3)' }}
-          >
-            SIGNAL DISPATCHED
-          </span>
-        </div>
-      )}
+      {/* Stat Strip */}
+      <StatStrip stats={stats} />
 
-      {/* Inventory Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Total SKUs Monitored',   value: inventory.length,           color: '#38BDF8' },
-          { label: 'Reorder Required',        value: criticalItems.length,        color: '#EF4444' },
-          { label: 'Low Stock Alerts',        value: lowItems.length,             color: '#F59E0B' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="rounded-xl p-4 text-center" style={{ background: '#111827', border: '1px solid #1E293B' }}>
-            <div className="text-2xl font-bold font-mono" style={{ color }}>{value}</div>
-            <div className="text-[10px] text-slate-500 font-mono uppercase tracking-wider mt-1">{label}</div>
-          </div>
-        ))}
-      </div>
+      {/* Inventory DataTable */}
+      <Panel
+        title={`Material Inventory Registry (${inventoryRows.length} items)`}
+        subtitle="Click any row to inspect production lots, recent stock movements, and linked requisitions"
+        padding="none"
+      >
+        <DataTable<DisplayInventoryRow>
+          columns={columns}
+          data={inventoryRows}
+          keyExtractor={(r) => r.sku}
+          onRowClick={(r) => setSelectedItem(r)}
+        />
+      </Panel>
 
-      {/* Inventory Table */}
-      <div className="rounded-xl overflow-hidden" style={{ background: '#111827', border: '1px solid #1E293B' }}>
-        <div className="px-5 py-3.5 border-b border-[#1E293B] flex items-center justify-between">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <Package className="w-4 h-4 text-emerald-400" />
-            Stock Level Matrix
-          </h2>
-          <span className="text-[10px] text-slate-600 font-mono">{inventory.length} items tracked</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="ent-table">
-            <thead>
-              <tr>
-                <th>Item ID</th>
-                <th>Product Name</th>
-                <th className="text-right">In Stock</th>
-                <th className="text-right">Required</th>
-                <th className="text-right">Reorder Threshold</th>
-                <th className="text-right">Shortage</th>
-                <th>Status</th>
-                <th>Fill Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inventory.map(item => {
-                const fillRate = Math.min(100, Math.round((item.currentStock / item.required) * 100));
-                const isCritical = item.status === 'REORDER_REQUIRED';
-                const isLow = item.status === 'LOW_STOCK';
-                return (
-                  <tr
-                    key={item.id}
-                    style={isCritical ? { background: 'rgba(239,68,68,0.03)' } : isLow ? { background: 'rgba(245,158,11,0.03)' } : {}}
-                  >
-                    <td><span className="font-mono font-bold text-white">{item.id}</span></td>
-                    <td className="text-slate-300">{item.productName}</td>
-                    <td className="text-right">
-                      <span className={`font-mono font-bold ${isCritical ? 'text-rose-400' : isLow ? 'text-amber-400' : 'text-emerald-400'}`}>
-                        {item.currentStock}
-                      </span>
-                    </td>
-                    <td className="text-right font-mono text-slate-400">{item.required}</td>
-                    <td className="text-right font-mono text-slate-500">{item.reorderThreshold}</td>
-                    <td className="text-right">
-                      <span className={`font-mono font-bold ${item.shortage > 0 ? 'text-rose-400' : 'text-slate-500'}`}>
-                        {item.shortage > 0 ? `-${item.shortage}` : '—'}
-                      </span>
-                    </td>
-                    <td><StatusBadge status={item.status} /></td>
-                    <td>
-                      <div className="flex items-center gap-2 min-w-[80px]">
-                        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: '#1E293B' }}>
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${fillRate}%`,
-                              background: fillRate < 50 ? '#EF4444' : fillRate < 80 ? '#F59E0B' : '#10B981'
-                            }}
-                          />
-                        </div>
-                        <span className="text-[10px] font-mono text-slate-500 shrink-0">{fillRate}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Stock Detail Drawer */}
+      <DetailDrawer
+        isOpen={selectedItem != null}
+        onClose={() => setSelectedItem(null)}
+        title={selectedItem ? `SKU Detail: ${selectedItem.sku}` : 'SKU Detail'}
+        subtitle={selectedItem ? selectedItem.description : undefined}
+      >
+        {selectedItem && (
+          <div className="space-y-4">
+            <Panel title="Stock Summary & Thresholds">
+              <KeyValueList
+                items={[
+                  { label: 'Primary Warehouse', value: selectedItem.warehouse },
+                  { label: 'On Hand Physical Stock', value: `${selectedItem.onHand} MT`, isMono: true },
+                  { label: 'Committed / Reserved', value: `${selectedItem.reserved} MT`, isMono: true },
+                  { label: 'Net Available Stock', value: `${selectedItem.available} MT`, isMono: true },
+                  { label: 'Reorder Point Trigger', value: `${selectedItem.reorderLevel} MT`, isMono: true },
+                  {
+                    label: 'Replenishment Policy',
+                    value: 'Automatic PO Draft upon available < reorder point',
+                  },
+                ]}
+              />
+            </Panel>
+
+            <Panel title="Associated Production Lots" padding="none">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-[12px]">
+                  <thead>
+                    <tr className="bg-surface-2 h-[32px] border-b border-border text-[11px] font-semibold text-text-3 uppercase tracking-wider">
+                      <th className="px-3 py-1">Lot ID</th>
+                      <th className="px-3 py-1 text-right">Qty</th>
+                      <th className="px-3 py-1">Specification</th>
+                      <th className="px-3 py-1 text-right">Mfg Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {selectedItem.rawLots?.map((lot) => (
+                      <tr key={lot.lotId} className="h-[36px] bg-surface">
+                        <td className="px-3 py-1.5 font-mono text-text font-medium">{lot.lotId}</td>
+                        <td className="px-3 py-1.5 text-right font-mono tabular-nums text-text">{lot.qty} MT</td>
+                        <td className="px-3 py-1.5 text-text-2">{lot.grade}</td>
+                        <td className="px-3 py-1.5 text-right font-mono text-text-3">{lot.mfgDate}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+
+            <Panel title="Recent Stock Movements">
+              <div className="space-y-2 text-[12px] text-text-2">
+                <div className="flex justify-between border-b border-border pb-1.5">
+                  <span>Reserved 15 MT for Order ORD-1042</span>
+                  <span className="font-mono text-text-3">Today, 19:15</span>
+                </div>
+                <div className="flex justify-between border-b border-border pb-1.5">
+                  <span>Inbound receipt 40 MT from Bokaro Blast Furnace #2</span>
+                  <span className="font-mono text-text-3">Yesterday, 14:20</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Dispatched 20 MT to Pune Assembly Plant</span>
+                  <span className="font-mono text-text-3">13 Oct 2026</span>
+                </div>
+              </div>
+            </Panel>
+          </div>
+        )}
+      </DetailDrawer>
     </div>
   );
 };

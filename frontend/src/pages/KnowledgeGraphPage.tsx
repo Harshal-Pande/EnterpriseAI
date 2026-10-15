@@ -1,221 +1,27 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  ArrowRight,
-  RefreshCw,
-  AlertTriangle,
-  Database,
-  Layers,
-  Network,
-  Activity,
-  ShieldCheck,
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useDemo } from '../state/DemoContext';
-import { apiClient } from '../services/apiClient';
-import type {
-  BackendGraphStatus,
-  BackendDisruptionImpactResponse,
-  BackendGraphResponse,
-} from '../services/apiClient';
+import { PageHeader } from '../components/common/PageHeader';
+import { Panel } from '../components/common/Panel';
+import { KeyValueList } from '../components/common/KeyValueList';
+import { apiClient, type BackendGraphStatus } from '../services/apiClient';
 import type { GraphNode, GraphEdge } from '../types';
 
-/* ─────────────────────────────────────────────────
-   Node visual config per entity type
-───────────────────────────────────────────────── */
-const NODE_STYLE: Record<string, {
-  color: string;
-  border: string;
-  bg: string;
-  activeBg: string;
-  typeLabel: string;
-}> = {
-  Customer:  { color: '#38BDF8', border: '#1D4ED8',             bg: 'rgba(56,189,248,0.07)',  activeBg: 'rgba(56,189,248,0.15)',  typeLabel: 'CUSTOMER'  },
-  Order:     { color: '#F8FAFC', border: 'rgba(248,250,252,0.4)',bg: 'rgba(248,250,252,0.05)', activeBg: 'rgba(248,250,252,0.12)', typeLabel: 'ORDER'     },
-  Product:   { color: '#34D399', border: '#065F46',             bg: 'rgba(52,211,153,0.07)',  activeBg: 'rgba(52,211,153,0.15)',  typeLabel: 'PRODUCT'   },
-  Supplier:  { color: '#FCD34D', border: '#92400E',             bg: 'rgba(252,211,77,0.07)',  activeBg: 'rgba(252,211,77,0.15)',  typeLabel: 'SUPPLIER'  },
-  Warehouse: { color: '#C084FC', border: '#4C1D95',             bg: 'rgba(192,132,252,0.07)', activeBg: 'rgba(192,132,252,0.15)', typeLabel: 'WAREHOUSE' },
-  InventoryItem: { color: '#FB923C', border: '#9A3412',         bg: 'rgba(251,146,60,0.07)',  activeBg: 'rgba(251,146,60,0.15)',  typeLabel: 'INVENTORY' },
-};
-
-const DEFAULT_STYLE = {
-  color: '#94A3B8',
-  border: '#334155',
-  bg: 'rgba(148,163,184,0.07)',
-  activeBg: 'rgba(148,163,184,0.15)',
-  typeLabel: 'ENTITY',
-};
-
-/* ─────────────────────────────────────────────────
-   Structured layout positions
-   Canvas is 740 × 480 (SVG viewBox)
-───────────────────────────────────────────────── */
-const BASE_CENTERS: Record<string, { cx: number; cy: number }> = {
-  'cust-1':    { cx: 370, cy: 55  },  // top center
-  'ord-1042':  { cx: 370, cy: 190 },  // center
-  'prod-800':  { cx: 185, cy: 335 },  // bottom left
-  'wh-nagpur': { cx: 370, cy: 395 },  // bottom center
-  'sup-b':     { cx: 555, cy: 335 },  // bottom right
-};
-
-const NODE_W2 = 80;
-const NODE_H2 = 38;
-
-function midpoint(a: { cx: number; cy: number }, b: { cx: number; cy: number }) {
-  return { x: (a.cx + b.cx) / 2, y: (a.cy + b.cy) / 2 };
+interface ExtendedGraphNode extends GraphNode {
+  category: 'Customer' | 'Order' | 'Product' | 'Warehouse' | 'Supplier' | 'Shipment';
+  x: number;
+  y: number;
 }
 
-function clampToBox(
-  fromCenter: { cx: number; cy: number },
-  toCenter:   { cx: number; cy: number }
-): { x: number; y: number } {
-  const dx = toCenter.cx - fromCenter.cx;
-  const dy = toCenter.cy - fromCenter.cy;
-  const len = Math.sqrt(dx * dx + dy * dy) || 1;
-  const nx = dx / len;
-  const ny = dy / len;
-  const tMaxX = NODE_W2 / Math.abs(nx || 0.001);
-  const tMaxY = NODE_H2 / Math.abs(ny || 0.001);
-  const t = Math.min(tMaxX, tMaxY);
-  return { x: toCenter.cx - nx * t, y: toCenter.cy - ny * t };
-}
-
-/* ─────────────────────────────────────────────────
-   Node Card component
-───────────────────────────────────────────────── */
-interface NodeCardProps {
-  node: GraphNode;
-  pos: { cx: number; cy: number };
-  isSelected: boolean;
-  isDimmed: boolean;
-  isAffected: boolean;
-  onClick: () => void;
-}
-
-const NodeCard: React.FC<NodeCardProps> = ({
-  node,
-  pos,
-  isSelected,
-  isDimmed,
-  isAffected,
-  onClick,
-}) => {
-  const s = NODE_STYLE[node.type] || DEFAULT_STYLE;
-  const isOrder = node.type === 'Order';
-  const w = isOrder ? 176 : 160;
-  const h = isOrder ? 86 : 76;
-
-  return (
-    <foreignObject
-      x={pos.cx - w / 2}
-      y={pos.cy - h / 2}
-      width={w}
-      height={h}
-      style={{ overflow: 'visible' }}
-    >
-      <div
-        onClick={onClick}
-        title={`${node.type}: ${node.label}`}
-        style={{
-          width: `${w}px`,
-          height: `${h}px`,
-          background: isAffected
-            ? 'rgba(239,68,68,0.15)'
-            : isSelected
-            ? s.activeBg
-            : s.bg,
-          border: `${isSelected ? '2px' : '1px'} solid ${
-            isAffected
-              ? '#EF4444'
-              : isSelected
-              ? s.color
-              : isDimmed
-              ? '#1E293B'
-              : s.border
-          }`,
-          borderRadius: '10px',
-          padding: '8px 12px',
-          cursor: 'pointer',
-          opacity: isDimmed ? 0.35 : 1,
-          boxShadow: isAffected
-            ? '0 0 18px rgba(239,68,68,0.35)'
-            : isSelected
-            ? `0 0 16px ${s.color}25`
-            : 'none',
-          transition: 'all 0.15s ease',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          gap: '2px',
-          userSelect: 'none',
-        }}
-      >
-        <div className="flex items-center justify-between">
-          <div
-            style={{
-              fontSize: '9px',
-              fontFamily: 'JetBrains Mono, monospace',
-              fontWeight: 700,
-              color: isAffected ? '#EF4444' : s.color,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}
-          >
-            {s.typeLabel}
-          </div>
-          {isAffected && (
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-          )}
-        </div>
-        <div
-          style={{
-            fontSize: isOrder ? '13px' : '12px',
-            fontWeight: 700,
-            color: '#F1F5F9',
-            lineHeight: '1.2',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {node.label}
-        </div>
-        {node.status && (
-          <div
-            style={{
-              fontSize: '9px',
-              fontFamily: 'JetBrains Mono, monospace',
-              color: isAffected ? '#F87171' : s.color,
-              marginTop: '1px',
-            }}
-          >
-            ● {node.status}
-          </div>
-        )}
-        {!node.status && (
-          <div
-            style={{
-              fontSize: '9px',
-              color: '#475569',
-              fontFamily: 'JetBrains Mono, monospace',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {Object.entries(node.details || {})
-              .map(([k, v]) => `${k}: ${v}`)
-              .slice(0, 1)
-              .join(' · ')}
-          </div>
-        )}
-      </div>
-    </foreignObject>
-  );
+const CATEGORY_CSS_VARS: Record<string, string> = {
+  Customer: '--n-customer',
+  Order: '--n-order',
+  Product: '--n-product',
+  Warehouse: '--n-warehouse',
+  Supplier: '--n-supplier',
+  Shipment: '--n-shipment',
 };
 
-/* ─────────────────────────────────────────────────
-   Main Page
-───────────────────────────────────────────────── */
-export const KnowledgeGraphPage: React.FC = () => {
+export const KnowledgeGraphPage: React.FC<{ onNavigate?: (screen: any) => void }> = ({ onNavigate }) => {
   const {
     graphNodes: demoNodes,
     graphEdges: demoEdges,
@@ -224,883 +30,626 @@ export const KnowledgeGraphPage: React.FC = () => {
   } = useDemo();
 
   const [graphStatus, setGraphStatus] = useState<BackendGraphStatus | null>(null);
-  const [liveNodes, setLiveNodes] = useState<GraphNode[]>(demoNodes);
-  const [liveEdges, setLiveEdges] = useState<GraphEdge[]>(demoEdges);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [nodes, setNodes] = useState<ExtendedGraphNode[]>([]);
+  const [edges, setEdges] = useState<GraphEdge[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTypes, setSelectedTypes] = useState<Record<string, boolean>>({
+    Customer: true,
+    Order: true,
+    Product: true,
+    Warehouse: true,
+    Supplier: true,
+    Shipment: true,
+  });
 
-  const [queryText, setQueryText] = useState('');
-  const [activeTab, setActiveTab] = useState<'inspector' | 'impact' | 'provenance'>('inspector');
-  const [typeFilter, setTypeFilter] = useState<string>('ALL');
+  // Zoom & Pan state
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
-  // Disruption Impact Simulator state
-  const [impactOrigin, setImpactOrigin] = useState<string>('sup-b');
-  const [impactSeverity, setImpactSeverity] = useState<string>('HIGH');
-  const [impactResult, setImpactResult] = useState<BackendDisruptionImpactResponse | null>(null);
-  const [isAnalyzingImpact, setIsAnalyzingImpact] = useState<boolean>(false);
+  // Impact Tracing state
+  const [impactHops, setImpactHops] = useState(2);
+  const [impactedNodeIds, setImpactedNodeIds] = useState<Set<string> | null>(null);
 
-  // Provenance inspection state
-  const [provenanceResponse, setProvenanceResponse] = useState<BackendGraphResponse | null>(null);
-  const [isLoadingProvenance, setIsLoadingProvenance] = useState<boolean>(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Load Graph Status & Live Nodes on mount
+  // Fetch backend graph status on mount
   useEffect(() => {
     let isMounted = true;
     apiClient
       .getGraphStatus()
-      .then((status) => {
-        if (isMounted) setGraphStatus(status);
+      .then(st => {
+        if (isMounted) setGraphStatus(st);
       })
-      .catch((err) => {
-        console.warn('Backend graph status check failed:', err);
+      .catch(() => {
+        // Fallback status
       });
 
     apiClient
-      .getKnowledgeGraph(undefined, undefined, 150)
-      .then((res) => {
+      .getKnowledgeGraph(undefined, undefined, 100)
+      .then(res => {
         if (!isMounted || !res.nodes || res.nodes.length === 0) return;
-        const convertedNodes: GraphNode[] = res.nodes.map((n) => ({
-          id: n.id,
-          label: n.label,
-          type: (n.type as any) || 'Product',
-          status: n.status || 'Active',
-          details: n.properties || {},
-          x: 0,
-          y: 0,
-        }));
-        const convertedEdges: GraphEdge[] = res.edges.map((e) => ({
+        const mappedNodes: ExtendedGraphNode[] = res.nodes.map((n, idx) => {
+          const type = (n.type as any) || 'Product';
+          const angle = (idx / res.nodes.length) * 2 * Math.PI;
+          const radius = 180;
+          return {
+            id: n.id,
+            label: n.label,
+            type,
+            category: (['Customer', 'Order', 'Product', 'Warehouse', 'Supplier', 'Shipment'].includes(type)
+              ? type
+              : 'Product') as any,
+            status: n.status,
+            details: n.properties || {},
+            x: 360 + Math.cos(angle) * radius,
+            y: 260 + Math.sin(angle) * radius,
+          };
+        });
+        const mappedEdges: GraphEdge[] = res.edges.map(e => ({
           id: e.id,
           source: e.source,
           target: e.target,
           label: e.label || e.type,
         }));
-        setLiveNodes(convertedNodes);
-        setLiveEdges(convertedEdges);
+        setNodes(mappedNodes);
+        setEdges(mappedEdges);
       })
-      .catch((err) => {
-        console.warn('Fallback to context demo graph nodes:', err);
+      .catch(() => {
+        // Use demo nodes with structured layout
+        const structured: ExtendedGraphNode[] = [
+          { ...demoNodes[0], category: 'Customer', x: 200, y: 140 },
+          { ...demoNodes[1], category: 'Order', x: 380, y: 220 },
+          { ...demoNodes[2], category: 'Product', x: 560, y: 150 },
+          { ...demoNodes[3], category: 'Supplier', x: 620, y: 310 },
+          { ...demoNodes[4], category: 'Warehouse', x: 260, y: 340 },
+          {
+            id: 'shp-8841',
+            label: 'SHP-8841 (Concor Rail)',
+            type: 'Shipment' as any,
+            category: 'Shipment',
+            status: 'In Transit',
+            details: { Carrier: 'Concor Express', Mode: 'Rail Freight', SLA: '48h buffer' },
+            x: 460,
+            y: 370,
+          },
+        ];
+        const structuredEdges: GraphEdge[] = [
+          ...demoEdges,
+          { id: 'e5', source: 'ord-1042', target: 'shp-8841', label: 'dispatched via' },
+        ];
+        setNodes(structured);
+        setEdges(structuredEdges);
       });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [demoNodes, demoEdges]);
 
-  const handleSyncGraph = async () => {
-    try {
-      setIsSyncing(true);
-      setSyncFeedback(null);
-      const res = await apiClient.syncKnowledgeGraph();
-      setSyncFeedback(`Synced ${res.synced_nodes} nodes & ${res.synced_edges} edges in ${res.duration_ms.toFixed(1)}ms`);
-      const updatedStatus = await apiClient.getGraphStatus();
-      setGraphStatus(updatedStatus);
-    } catch (err: any) {
-      setSyncFeedback(`Sync error: ${err.message || 'Failed to sync'}`);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleRunImpactAnalysis = async () => {
-    try {
-      setIsAnalyzingImpact(true);
-      const res = await apiClient.analyzeDisruptionImpact({
-        entity_type: 'Supplier',
-        entity_id: impactOrigin,
-        severity: impactSeverity,
-        simulate_alternatives: true,
-      });
-      setImpactResult(res);
-      setActiveTab('impact');
-    } catch (err: any) {
-      console.error('Impact analysis error:', err);
-    } finally {
-      setIsAnalyzingImpact(false);
-    }
-  };
-
-  const handleFetchProvenance = async (entityId: string) => {
-    try {
-      setIsLoadingProvenance(true);
-      setActiveTab('provenance');
-      const res = await apiClient.getEntityProvenance(entityId, 2);
-      setProvenanceResponse(res);
-    } catch (err: any) {
-      console.error('Provenance fetch error:', err);
-    } finally {
-      setIsLoadingProvenance(false);
-    }
-  };
-
-  // Node position map with dynamic placement for novel nodes
-  const nodeCenters = useMemo(() => {
-    const centers: Record<string, { cx: number; cy: number }> = { ...BASE_CENTERS };
-    let dynamicIdx = 0;
-    liveNodes.forEach((node) => {
-      if (!centers[node.id]) {
-        // Place around canvas perimeter dynamically
-        const angle = (dynamicIdx * (2 * Math.PI)) / 10;
-        centers[node.id] = {
-          cx: Math.round(370 + 260 * Math.cos(angle)),
-          cy: Math.round(230 + 160 * Math.sin(angle)),
-        };
-        dynamicIdx++;
-      }
-    });
-    return centers;
-  }, [liveNodes]);
-
-  // Selected node
-  const selectedNode =
-    liveNodes.find((n) => n.id === selectedGraphNodeId) ??
-    liveNodes[0] ?? {
-      id: 'ord-1042',
-      label: 'Order #1042',
-      type: 'Order',
-      status: 'Delayed',
-      details: {},
-      x: 0,
-      y: 0,
-    };
-
-  const selectedStyle = NODE_STYLE[selectedNode.type] || DEFAULT_STYLE;
-
-  // Filtered nodes
+  // Compute active nodes based on search and type filters
   const filteredNodes = useMemo(() => {
-    return liveNodes.filter((node) => {
-      const matchesType = typeFilter === 'ALL' || node.type === typeFilter;
-      const matchesQuery =
-        !queryText ||
-        node.label.toLowerCase().includes(queryText.toLowerCase()) ||
-        node.id.toLowerCase().includes(queryText.toLowerCase()) ||
-        node.type.toLowerCase().includes(queryText.toLowerCase());
-      return matchesType && matchesQuery;
+    return nodes.filter(n => {
+      if (!selectedTypes[n.category]) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q);
+      }
+      return true;
     });
-  }, [liveNodes, typeFilter, queryText]);
+  }, [nodes, selectedTypes, searchQuery]);
 
-  // Affected node IDs from active disruption simulation
-  const affectedNodeIds = useMemo(() => {
-    if (!impactResult) return new Set<string>();
-    const ids = new Set<string>();
-    ids.add(impactResult.disruption_origin);
-    impactResult.affected_order_ids.forEach((id) => ids.add(id));
-    impactResult.affected_product_ids.forEach((id) => ids.add(id));
-    impactResult.affected_warehouse_ids.forEach((id) => ids.add(id));
-    return ids;
-  }, [impactResult]);
+  const filteredNodeIds = useMemo(() => new Set(filteredNodes.map(n => n.id)), [filteredNodes]);
 
-  // Connected nodes to selection
-  const relatedNodeIds = useMemo(() => {
-    const set = new Set<string>();
-    if (selectedGraphNodeId) {
-      liveEdges.forEach((e) => {
-        if (e.source === selectedGraphNodeId) set.add(e.target);
-        if (e.target === selectedGraphNodeId) set.add(e.source);
-      });
-      set.add(selectedGraphNodeId);
+  const filteredEdges = useMemo(() => {
+    return edges.filter(e => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target));
+  }, [edges, filteredNodeIds]);
+
+  // Selected node & neighbors
+  const selectedNode = useMemo(() => {
+    return nodes.find(n => n.id === selectedGraphNodeId) || null;
+  }, [nodes, selectedGraphNodeId]);
+
+  const neighborNodeIds = useMemo(() => {
+    if (!selectedGraphNodeId) return new Set<string>();
+    const neighbors = new Set<string>();
+    for (const edge of edges) {
+      if (edge.source === selectedGraphNodeId) neighbors.add(edge.target);
+      if (edge.target === selectedGraphNodeId) neighbors.add(edge.source);
     }
-    return set;
-  }, [liveEdges, selectedGraphNodeId]);
+    return neighbors;
+  }, [edges, selectedGraphNodeId]);
 
-  const hasSelection = selectedGraphNodeId != null;
+  // Trace Impact BFS
+  const handleTraceImpact = useCallback(() => {
+    if (!selectedGraphNodeId) return;
+    const visited = new Set<string>([selectedGraphNodeId]);
+    let currentLevel = [selectedGraphNodeId];
 
-  // Highlighted edges
-  const highlightedEdgeIds = useMemo(() => {
-    return new Set(
-      liveEdges
-        .filter(
-          (e) =>
-            e.source === selectedGraphNodeId || e.target === selectedGraphNodeId
-        )
-        .map((e) => e.id)
-    );
-  }, [liveEdges, selectedGraphNodeId]);
+    for (let hop = 0; hop < impactHops; hop++) {
+      const nextLevel: string[] = [];
+      for (const curr of currentLevel) {
+        for (const e of edges) {
+          const neighbor = e.source === curr ? e.target : e.target === curr ? e.source : null;
+          if (neighbor && !visited.has(neighbor)) {
+            visited.add(neighbor);
+            nextLevel.push(neighbor);
+          }
+        }
+      }
+      currentLevel = nextLevel;
+      if (currentLevel.length === 0) break;
+    }
+    setImpactedNodeIds(visited);
+  }, [selectedGraphNodeId, impactHops, edges]);
 
-  const SVG_W = 740;
-  const SVG_H = 480;
+  const handleClearImpact = () => {
+    setImpactedNodeIds(null);
+  };
+
+  // Canvas drawing loop throttled to rAF
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+
+    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+    }
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, width, height);
+
+    // Apply zoom & pan
+    ctx.translate(width / 2 + pan.x, height / 2 + pan.y);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-width / 2, -height / 2);
+
+    // Read resolved design tokens from DOM
+    const computed = getComputedStyle(canvas);
+    const getVar = (name: string) => computed.getPropertyValue(name).trim();
+    const accentColor = getVar('--accent');
+    const borderStrong = getVar('--border-strong');
+    const borderNormal = getVar('--border');
+    const textColor = getVar('--text');
+    const surface2 = getVar('--surface-2');
+    const surfaceColor = getVar('--surface');
+
+    // Node lookup map for positions
+    const nodeMap = new Map(filteredNodes.map(n => [n.id, n]));
+
+    // Draw Edges (1px)
+    for (const edge of filteredEdges) {
+      const src = nodeMap.get(edge.source);
+      const tgt = nodeMap.get(edge.target);
+      if (!src || !tgt) continue;
+
+      const isImpactedEdge =
+        impactedNodeIds && impactedNodeIds.has(src.id) && impactedNodeIds.has(tgt.id);
+
+      ctx.beginPath();
+      ctx.moveTo(src.x, src.y);
+      ctx.lineTo(tgt.x, tgt.y);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = isImpactedEdge ? accentColor : borderStrong;
+      ctx.globalAlpha = impactedNodeIds && !isImpactedEdge ? 0.2 : 0.6;
+      ctx.stroke();
+    }
+
+    // Draw Nodes
+    for (const node of filteredNodes) {
+      const isSelected = node.id === selectedGraphNodeId;
+      const isHovered = node.id === hoveredNodeId;
+      const isNeighbor = neighborNodeIds.has(node.id);
+      const isImpacted = impactedNodeIds?.has(node.id);
+      const isDimmed = impactedNodeIds && !isImpacted;
+
+      ctx.globalAlpha = isDimmed ? 0.2 : 1.0;
+
+      const varName = CATEGORY_CSS_VARS[node.category] || '--text-3';
+      const nodeColor = getVar(varName);
+
+      // Outer ring for selected / impact
+      if (isSelected || isImpacted) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, 22, 0, 2 * Math.PI);
+        ctx.fillStyle = isSelected ? `${accentColor}33` : `${borderStrong}33`;
+        ctx.fill();
+        ctx.lineWidth = isSelected ? 2.5 : 1.5;
+        ctx.strokeStyle = isSelected ? accentColor : borderStrong;
+        ctx.stroke();
+      } else if (isHovered) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, 20, 0, 2 * Math.PI);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = accentColor;
+        ctx.stroke();
+      }
+
+      // Main Node Circle
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, 16, 0, 2 * Math.PI);
+      ctx.fillStyle = nodeColor;
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = surfaceColor;
+      ctx.stroke();
+
+      // Labels: only on hover, selection, and for the selected node's neighbors
+      if (isSelected || isHovered || isNeighbor) {
+        ctx.font = '500 12px "IBM Plex Sans", sans-serif';
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+
+        // Background label pill
+        const text = node.label;
+        const textWidth = ctx.measureText(text).width;
+        ctx.fillStyle = surface2;
+        ctx.fillRect(node.x - textWidth / 2 - 4, node.y - 34, textWidth + 8, 16);
+        ctx.strokeStyle = borderNormal;
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(node.x - textWidth / 2 - 4, node.y - 34, textWidth + 8, 16);
+
+        ctx.fillStyle = textColor;
+        ctx.fillText(text, node.x, node.y - 21);
+      }
+    }
+
+    ctx.restore();
+  }, [
+    filteredNodes,
+    filteredEdges,
+    pan,
+    zoom,
+    selectedGraphNodeId,
+    hoveredNodeId,
+    neighborNodeIds,
+    impactedNodeIds,
+  ]);
+
+  // Request Animation Frame loop
+  useEffect(() => {
+    let animId: number;
+    const renderLoop = () => {
+      draw();
+      animId = requestAnimationFrame(renderLoop);
+    };
+    animId = requestAnimationFrame(renderLoop);
+    return () => cancelAnimationFrame(animId);
+  }, [draw]);
+
+  // Transform canvas mouse coordinates to world coordinates
+  const getWorldCoord = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const canvasX = clientX - rect.left;
+    const canvasY = clientY - rect.top;
+
+    // Inverse transform
+    const worldX = (canvasX - width / 2 - pan.x) / zoom + width / 2;
+    const worldY = (canvasY - height / 2 - pan.y) / zoom + height / 2;
+    return { x: worldX, y: worldY };
+  };
+
+  // Find node under cursor
+  const findNodeAt = (clientX: number, clientY: number) => {
+    const { x, y } = getWorldCoord(clientX, clientY);
+    for (const node of filteredNodes) {
+      const dx = node.x - x;
+      const dy = node.y - y;
+      if (Math.sqrt(dx * dx + dy * dy) <= 20) {
+        return node;
+      }
+    }
+    return null;
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const clickedNode = findNodeAt(e.clientX, e.clientY);
+    if (clickedNode) {
+      setSelectedGraphNodeId(clickedNode.id);
+      return;
+    }
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isDragging) {
+      setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+      return;
+    }
+    const node = findNodeAt(e.clientX, e.clientY);
+    setHoveredNodeId(node ? node.id : null);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    setZoom(z => Math.max(0.4, Math.min(3.0, z * factor)));
+  };
+
+  const handleFit = () => {
+    if (filteredNodes.length === 0) return;
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
+  };
+
+  const handleReset = () => {
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
+    setSelectedGraphNodeId(null);
+    setImpactedNodeIds(null);
+  };
+
+  // Determine truthful backend status
+  const isNeo4j =
+    graphStatus?.connected &&
+    (graphStatus?.engine?.toLowerCase().includes('neo4j') || false);
+
+  const nodeCount = graphStatus?.node_count || nodes.length;
+  const edgeCount = graphStatus?.relationship_count || edges.length;
 
   return (
-    <div className="space-y-5">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#1E293B]">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">
-              Knowledge Graph & Impact Ontology
-            </h1>
+    <div className="space-y-6">
+      <PageHeader
+        title="Supply Chain Knowledge Graph"
+        description="Multi-tier provenance, material dependencies, and disruption impact tracing."
+        actions={
+          <div className="flex items-center gap-2">
             <span
-              className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold flex items-center gap-1.5"
-              style={{
-                background: graphStatus?.connected
-                  ? 'rgba(16,185,129,0.1)'
-                  : 'rgba(99,102,241,0.1)',
-                border: `1px solid ${
-                  graphStatus?.connected
-                    ? 'rgba(16,185,129,0.3)'
-                    : 'rgba(99,102,241,0.3)'
-                }`,
-                color: graphStatus?.connected ? '#34D399' : '#818CF8',
-              }}
+              className={`px-2.5 py-1 rounded-[4px] border text-12 font-medium ${
+                isNeo4j
+                  ? 'bg-ok-soft text-ok border-ok/40'
+                  : 'bg-warn-soft text-warn border-warn/40'
+              }`}
             >
-              <Database className="w-3 h-3" />
-              {graphStatus?.engine
-                ? graphStatus.engine.toUpperCase()
-                : 'RELATIONAL HYBRID'}
-              {graphStatus?.connected ? ' (LIVE)' : ' (ACTIVE)'}
+              {isNeo4j ? 'Neo4j (live)' : 'Relational fallback'} · {nodeCount} nodes · {edgeCount} relationships
             </span>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Enterprise relationship mesh: Multi-hop disruption traversal, entity provenance, and AI dependency grounding
-          </p>
-        </div>
+        }
+      />
 
-        {/* Header Actions */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSyncGraph}
-            disabled={isSyncing}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-medium transition cursor-pointer"
-            style={{
-              background: '#0F172A',
-              border: '1px solid #1E293B',
-              color: '#94A3B8',
-            }}
-          >
-            <RefreshCw
-              className={`w-3.5 h-3.5 text-cyan-400 ${
-                isSyncing ? 'animate-spin' : ''
-              }`}
-            />
-            {isSyncing ? 'Syncing...' : 'Sync Graph'}
-          </button>
-
-          <div className="relative">
-            <input
-              type="text"
-              id="graph-query"
-              placeholder="Query entities, IDs..."
-              value={queryText}
-              onChange={(e) => setQueryText(e.target.value)}
-              className="h-9 pl-3 pr-4 w-52 text-[12px] text-slate-200 placeholder-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
-              style={{ background: '#0F172A', border: '1px solid #1E293B' }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {syncFeedback && (
-        <div
-          className="p-3 rounded-lg text-xs font-mono flex items-center justify-between"
-          style={{
-            background: 'rgba(56,189,248,0.08)',
-            border: '1px solid rgba(56,189,248,0.2)',
-            color: '#38BDF8',
-          }}
-        >
-          <span>{syncFeedback}</span>
-          <button
-            onClick={() => setSyncFeedback(null)}
-            className="text-slate-500 hover:text-white"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {/* Filter and Legend Bar */}
-      <div className="flex items-center justify-between gap-4 flex-wrap pb-1">
-        <div className="flex items-center gap-1.5">
-          {['ALL', 'Order', 'Product', 'Supplier', 'Warehouse', 'Customer'].map(
-            (t) => (
-              <button
-                key={t}
-                onClick={() => setTypeFilter(t)}
-                className="px-2.5 py-1 rounded-md text-[10px] font-mono transition"
-                style={{
-                  background:
-                    typeFilter === t ? 'rgba(56,189,248,0.15)' : '#0F172A',
-                  border: `1px solid ${
-                    typeFilter === t ? '#38BDF8' : '#1E293B'
-                  }`,
-                  color: typeFilter === t ? '#38BDF8' : '#64748B',
-                }}
-              >
-                {t}
-              </button>
-            )
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          {Object.entries(NODE_STYLE)
-            .slice(0, 5)
-            .map(([type, s]) => (
-              <div
-                key={type}
-                className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500"
-              >
-                <span
-                  className="w-2.5 h-2.5 rounded-sm shrink-0"
-                  style={{ background: s.color, opacity: 0.8 }}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
+        {/* Left Column: Search & Entity Filters */}
+        <div className="space-y-4">
+          <Panel title="Graph Filters" subtitle="Entity classes & search">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-12 text-text-3 mb-1">Search Nodes</label>
+                <input
+                  type="text"
+                  placeholder="ID or label..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-[4px] border border-border bg-surface text-13 text-text focus:outline-none focus:border-accent"
                 />
-                {type}
               </div>
-            ))}
-        </div>
-      </div>
 
-      {/* Main Content Area */}
-      <div className="flex flex-col lg:flex-row gap-5 items-start">
-        {/* ── Left / Canvas ── */}
-        <div
-          className="flex-1 w-full rounded-xl overflow-hidden canvas-dot-grid relative"
-          style={{
-            background: '#080C14',
-            border: '1px solid #1E293B',
-          }}
-        >
-          <svg
-            id="knowledge-graph-canvas"
-            viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-            width="100%"
-            style={{ display: 'block', minHeight: '440px' }}
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            {/* Arrow markers */}
-            <defs>
-              <marker
-                id="arrow-dim"
-                markerWidth="6"
-                markerHeight="6"
-                refX="5"
-                refY="3"
-                orient="auto"
-              >
-                <path d="M0,0 L6,3 L0,6 Z" fill="#1E293B" />
-              </marker>
-              <marker
-                id="arrow-active"
-                markerWidth="6"
-                markerHeight="6"
-                refX="5"
-                refY="3"
-                orient="auto"
-              >
-                <path d="M0,0 L6,3 L0,6 Z" fill="#38BDF8" />
-              </marker>
-              <marker
-                id="arrow-affected"
-                markerWidth="6"
-                markerHeight="6"
-                refX="5"
-                refY="3"
-                orient="auto"
-              >
-                <path d="M0,0 L6,3 L0,6 Z" fill="#EF4444" />
-              </marker>
-            </defs>
-
-            {/* Render Edges */}
-            {liveEdges.map((edge) => {
-              const fromCenter = nodeCenters[edge.source];
-              const toCenter = nodeCenters[edge.target];
-              if (!fromCenter || !toCenter) return null;
-
-              const isHighlighted = highlightedEdgeIds.has(edge.id);
-              const isAffected =
-                affectedNodeIds.has(edge.source) &&
-                affectedNodeIds.has(edge.target);
-              const isDimmed = hasSelection && !isHighlighted && !isAffected;
-
-              const fromPt = clampToBox(toCenter, fromCenter);
-              const toPt = clampToBox(fromCenter, toCenter);
-              const mid = midpoint(fromCenter, toCenter);
-
-              const dx = toCenter.cx - fromCenter.cx;
-              const dy = toCenter.cy - fromCenter.cy;
-              const len = Math.sqrt(dx * dx + dy * dy) || 1;
-              const perpX = (-dy / len) * 10;
-              const perpY = (dx / len) * 10;
-
-              return (
-                <g key={edge.id}>
-                  <line
-                    x1={fromPt.x}
-                    y1={fromPt.y}
-                    x2={toPt.x}
-                    y2={toPt.y}
-                    stroke={
-                      isAffected
-                        ? '#EF4444'
-                        : isHighlighted
-                        ? '#38BDF8'
-                        : isDimmed
-                        ? '#1A2336'
-                        : '#243350'
-                    }
-                    strokeWidth={isAffected ? 2 : isHighlighted ? 1.5 : 1}
-                    markerEnd={`url(#${
-                      isAffected
-                        ? 'arrow-affected'
-                        : isHighlighted
-                        ? 'arrow-active'
-                        : 'arrow-dim'
-                    })`}
-                    strokeDasharray={isHighlighted || isAffected ? '0' : '4 4'}
-                    className={
-                      isHighlighted || isAffected ? 'animate-dash-flow' : ''
-                    }
-                    opacity={isDimmed ? 0.25 : 1}
-                  />
-                  <text
-                    x={mid.x + perpX}
-                    y={mid.y + perpY}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize="9"
-                    fontFamily="JetBrains Mono, monospace"
-                    fill={
-                      isAffected
-                        ? '#F87171'
-                        : isHighlighted
-                        ? '#94A3B8'
-                        : isDimmed
-                        ? '#1E293B'
-                        : '#334155'
-                    }
-                    opacity={isDimmed ? 0 : 1}
-                  >
-                    {edge.label}
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* Render Nodes */}
-            {filteredNodes.map((node) => {
-              const pos = nodeCenters[node.id];
-              if (!pos) return null;
-              const isSelected = node.id === selectedGraphNodeId;
-              const isAffected = affectedNodeIds.has(node.id);
-              const isDimmed =
-                hasSelection &&
-                !relatedNodeIds.has(node.id) &&
-                !affectedNodeIds.has(node.id);
-
-              return (
-                <NodeCard
-                  key={node.id}
-                  node={node}
-                  pos={pos}
-                  isSelected={isSelected}
-                  isDimmed={isDimmed}
-                  isAffected={isAffected}
-                  onClick={() => setSelectedGraphNodeId(node.id)}
-                />
-              );
-            })}
-          </svg>
-
-          {/* Canvas Bottom Overlay */}
-          <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-[10px] font-mono text-slate-500">
-            <span>
-              ENTITIES: {filteredNodes.length} / {liveNodes.length} · EDGES: {liveEdges.length}
-            </span>
-            <span>
-              SOURCE OF TRUTH: PostgreSQL · GRAPH TRAVERSAL: Active
-            </span>
-          </div>
-        </div>
-
-        {/* ── Right Inspector & Tool Panel ── */}
-        <div
-          className="w-full lg:w-96 rounded-xl overflow-hidden flex flex-col shrink-0"
-          style={{
-            background: '#0F172A',
-            border: `1px solid ${selectedStyle.border}`,
-          }}
-        >
-          {/* Tabs */}
-          <div className="flex border-b border-[#1E293B] bg-[#0A0F1D]">
-            <button
-              onClick={() => setActiveTab('inspector')}
-              className={`flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-                activeTab === 'inspector'
-                  ? 'text-cyan-400 border-b-2 border-cyan-400 bg-cyan-950/20'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              Inspector
-            </button>
-            <button
-              onClick={() => setActiveTab('impact')}
-              className={`flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-                activeTab === 'impact'
-                  ? 'text-amber-400 border-b-2 border-amber-400 bg-amber-950/20'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              Impact Simulator
-            </button>
-            <button
-              onClick={() => setActiveTab('provenance')}
-              className={`flex-1 py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
-                activeTab === 'provenance'
-                  ? 'text-indigo-400 border-b-2 border-indigo-400 bg-indigo-950/20'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Network className="w-3.5 h-3.5" />
-              Provenance
-            </button>
-          </div>
-
-          {/* Tab 1: Entity Inspector */}
-          {activeTab === 'inspector' && (
-            <div>
-              <div
-                className="px-4 py-4 border-b"
-                style={{
-                  borderColor: selectedStyle.border,
-                  background: selectedStyle.activeBg,
-                }}
-              >
-                <div
-                  className="text-[9px] font-mono font-bold uppercase tracking-widest mb-1"
-                  style={{ color: selectedStyle.color }}
-                >
-                  {selectedStyle.typeLabel} ENTITY
+              <div>
+                <label className="block text-12 text-text-3 mb-2">Entity Types</label>
+                <div className="space-y-2">
+                  {Object.entries(CATEGORY_CSS_VARS).map(([cat, varName]) => (
+                    <label key={cat} className="flex items-center gap-2 text-13 text-text cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!selectedTypes[cat]}
+                        onChange={e =>
+                          setSelectedTypes(prev => ({ ...prev, [cat]: e.target.checked }))
+                        }
+                        className="rounded-[2px] border-border text-accent focus:ring-0"
+                      />
+                      <span
+                        className="inline-block w-2.5 h-2.5 rounded-[2px] shrink-0"
+                        style={{ backgroundColor: `var(${varName})` }}
+                      />
+                      <span>{cat}</span>
+                    </label>
+                  ))}
                 </div>
-                <h2 className="text-base font-extrabold text-white leading-tight">
-                  {selectedNode.label}
-                </h2>
-                {selectedNode.status && (
-                  <div
-                    className="text-[11px] font-mono mt-1 font-bold"
-                    style={{ color: selectedStyle.color }}
+              </div>
+
+              {/* Trace Impact Tool */}
+              <div className="pt-3 border-t border-border">
+                <label className="block text-12 font-medium text-text mb-1">Trace Impact</label>
+                <p className="text-12 text-text-3 mb-2">
+                  Find all entities connected within N hops of the selected node.
+                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-12 text-text-2">Hops:</span>
+                  <select
+                    value={impactHops}
+                    onChange={e => setImpactHops(Number(e.target.value))}
+                    className="px-2 py-1 rounded-[4px] border border-border bg-surface text-12 font-mono text-text"
                   >
-                    ● {selectedNode.status}
-                  </div>
+                    <option value={1}>1 hop</option>
+                    <option value={2}>2 hops</option>
+                    <option value={3}>3 hops</option>
+                    <option value={4}>4 hops</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleTraceImpact}
+                    disabled={!selectedGraphNodeId}
+                    className="flex-1 px-3 py-1.5 rounded-[4px] bg-accent text-white text-12 font-medium hover:bg-accent-hover disabled:bg-surface-2 disabled:text-text-3 disabled:cursor-not-allowed"
+                  >
+                    Trace impact
+                  </button>
+                  {impactedNodeIds && (
+                    <button
+                      onClick={handleClearImpact}
+                      className="px-3 py-1.5 rounded-[4px] border border-border bg-surface text-12 text-text-2 hover:bg-surface-2"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {impactedNodeIds && (
+                  <p className="text-12 text-accent mt-2 font-mono">
+                    ● {impactedNodeIds.size} impacted nodes identified
+                  </p>
                 )}
               </div>
+            </div>
+          </Panel>
+        </div>
 
-              <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
-                {/* Properties */}
+        {/* Center: Canvas Viewport */}
+        <div className="lg:col-span-2 space-y-4">
+          <Panel
+            title="Topology Canvas"
+            subtitle="Interactive knowledge graph with 1px edge hierarchy"
+            actions={
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleFit}
+                  className="px-2 py-1 rounded-[4px] border border-border bg-surface text-12 text-text-2 hover:bg-surface-2"
+                >
+                  Fit
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="px-2 py-1 rounded-[4px] border border-border bg-surface text-12 text-text-2 hover:bg-surface-2"
+                >
+                  Reset
+                </button>
+              </div>
+            }
+            padding="none"
+          >
+            <div className="relative w-full h-[520px] bg-surface-sunk overflow-hidden cursor-grab active:cursor-grabbing">
+              <canvas
+                ref={canvasRef}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
+                className="w-full h-full block"
+              />
+              <div className="absolute bottom-2 left-3 text-11 font-mono text-text-3 pointer-events-none">
+                Zoom: {(zoom * 100).toFixed(0)}% · Click node to inspect · Drag to pan
+              </div>
+            </div>
+          </Panel>
+
+          {/* Accessible Text Alternative */}
+          <Panel title="Visible Nodes Summary" subtitle="Accessible list view of active graph entities">
+            <div className="text-12 text-text-2 space-y-1 max-h-36 overflow-y-auto">
+              {filteredNodes.map(n => (
+                <div key={n.id} className="flex items-center justify-between py-0.5 border-b border-border/50">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: `var(${CATEGORY_CSS_VARS[n.category] || '--text-3'})` }}
+                    />
+                    <span className="font-mono text-12 text-text">{n.id}</span>
+                    <span className="text-12 text-text-2">· {n.label}</span>
+                  </div>
+                  <span className="text-11 text-text-3">{n.category}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+
+        {/* Right Column: Node Inspector */}
+        <div className="space-y-4">
+          <Panel title="Node Inspector" subtitle="Entity properties and relationships">
+            {selectedNode ? (
+              <div className="space-y-4">
                 <div>
-                  <div className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest mb-2">
-                    Properties & Relational State
+                  <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className="w-3 h-3 rounded-[2px]"
+                      style={{ backgroundColor: `var(${CATEGORY_CSS_VARS[selectedNode.category] || '--text-3'})` }}
+                    />
+                    <span className="text-11 uppercase font-semibold text-text-3 tracking-wide">
+                      {selectedNode.category}
+                    </span>
                   </div>
-                  <div className="space-y-1.5">
-                    {Object.entries(selectedNode.details || {}).map(([k, v]) => (
-                      <div
-                        key={k}
-                        className="flex items-center justify-between px-3 py-1.5 rounded-lg"
-                        style={{
-                          background: '#080C14',
-                          border: '1px solid #1E293B',
-                        }}
-                      >
-                        <span className="text-[11px] text-slate-500 font-mono">
-                          {k}
-                        </span>
-                        <span className="text-[11px] text-slate-200 font-mono font-medium">
-                          {String(v)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <h3 className="text-15 font-semibold text-text">{selectedNode.label}</h3>
+                  <div className="font-mono text-12 text-text-3">{selectedNode.id}</div>
                 </div>
 
-                {/* Direct Relationships */}
+                {/* Properties definition list */}
                 <div>
-                  <div className="text-[9px] font-mono font-bold text-slate-500 uppercase tracking-widest mb-2">
-                    Direct Relationships ({liveEdges.filter((e) => e.source === selectedNode.id || e.target === selectedNode.id).length})
-                  </div>
-                  {liveEdges
-                    .filter(
-                      (e) =>
-                        e.source === selectedNode.id ||
-                        e.target === selectedNode.id
-                    )
-                    .map((edge) => {
-                      const otherId =
-                        edge.source === selectedNode.id
-                          ? edge.target
-                          : edge.source;
-                      const otherNode = liveNodes.find((n) => n.id === otherId);
-                      const otherStyle = otherNode
-                        ? NODE_STYLE[otherNode.type] || DEFAULT_STYLE
-                        : DEFAULT_STYLE;
+                  <h4 className="text-12 font-medium text-text mb-2">Properties</h4>
+                  <KeyValueList
+                    items={Object.entries(selectedNode.details || {}).map(([k, v]) => ({
+                      label: k,
+                      value: String(v),
+                    }))}
+                  />
+                </div>
+
+                {/* Direct Neighbors */}
+                <div>
+                  <h4 className="text-12 font-medium text-text mb-2">Neighbors ({neighborNodeIds.size})</h4>
+                  <div className="space-y-1.5">
+                    {Array.from(neighborNodeIds).map(nbrId => {
+                      const nbr = nodes.find(n => n.id === nbrId);
+                      if (!nbr) return null;
                       return (
                         <button
-                          key={edge.id}
-                          onClick={() => setSelectedGraphNodeId(otherId)}
-                          className="w-full flex items-center justify-between px-3 py-2 rounded-lg mb-1.5 transition text-left cursor-pointer"
-                          style={{
-                            background: '#080C14',
-                            border: '1px solid #1E293B',
-                          }}
+                          key={nbrId}
+                          onClick={() => setSelectedGraphNodeId(nbrId)}
+                          className="w-full text-left p-2 rounded-[4px] border border-border bg-surface hover:bg-surface-2 flex items-center justify-between"
                         >
-                          <div className="min-w-0">
-                            <div className="text-[11px] font-bold text-white truncate">
-                              {otherNode?.label ?? otherId}
-                            </div>
-                            <div
-                              className="text-[10px] font-mono mt-0.5"
-                              style={{ color: otherStyle.color }}
-                            >
-                              {otherNode?.type ?? 'Entity'} ·{' '}
-                              <span className="text-slate-500">
-                                {edge.label}
-                              </span>
-                            </div>
+                          <div>
+                            <div className="text-12 font-medium text-text">{nbr.label}</div>
+                            <div className="text-11 font-mono text-text-3">{nbr.id}</div>
                           </div>
-                          <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0 ml-2" />
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: `var(${CATEGORY_CSS_VARS[nbr.category] || '--text-3'})` }}
+                          />
                         </button>
                       );
                     })}
-                </div>
-
-                {/* Cypher Query Preview */}
-                <div
-                  className="rounded-lg p-3"
-                  style={{
-                    background: '#080C14',
-                    border: '1px solid rgba(99,102,241,0.2)',
-                  }}
-                >
-                  <div className="text-[9px] font-mono font-bold text-indigo-400 uppercase tracking-widest mb-1.5">
-                    Parameterized Cypher Pattern
-                  </div>
-                  <div className="font-mono text-[10px] text-slate-400 leading-relaxed break-all">
-                    MATCH (n {'{'}id: &quot;{selectedNode.id}&quot;{'}'})-[r]-(m)
-                    <br />
-                    RETURN n, r, m LIMIT 25;
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex gap-2 pt-1">
+                {/* Open source record link */}
+                <div className="pt-2 border-t border-border">
                   <button
-                    onClick={() => handleFetchProvenance(selectedNode.id)}
-                    className="flex-1 py-2 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center justify-center gap-1.5"
-                    style={{
-                      background: selectedStyle.activeBg,
-                      color: selectedStyle.color,
-                      border: `1px solid ${selectedStyle.border}`,
+                    onClick={() => {
+                      if (!onNavigate) return;
+                      if (selectedNode.category === 'Order') onNavigate('orders');
+                      else if (selectedNode.category === 'Product' || selectedNode.category === 'Warehouse') onNavigate('inventory');
+                      else if (selectedNode.category === 'Supplier') onNavigate('procurement');
+                      else if (selectedNode.category === 'Shipment') onNavigate('logistics');
                     }}
+                    className="text-12 font-medium text-accent hover:underline flex items-center gap-1"
                   >
-                    <Network className="w-3.5 h-3.5" />
-                    Inspect Lineage
+                    Open source record →
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Tab 2: Disruption Impact Simulator */}
-          {activeTab === 'impact' && (
-            <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
-              <div>
-                <div className="text-[10px] font-mono uppercase text-slate-500 font-bold tracking-wider mb-1">
-                  Simulate Supply Disruption
-                </div>
-                <p className="text-xs text-slate-400 mb-3">
-                  Traverse downstream dependencies across Products, Purchase Orders, and Warehouses to quantify financial exposure.
-                </p>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-[10px] font-mono text-slate-400 uppercase">
-                      Origin Entity ID:
-                    </label>
-                    <input
-                      type="text"
-                      value={impactOrigin}
-                      onChange={(e) => setImpactOrigin(e.target.value)}
-                      className="w-full mt-1 px-3 py-1.5 text-xs font-mono text-white rounded-lg focus:outline-none"
-                      style={{
-                        background: '#080C14',
-                        border: '1px solid #1E293B',
-                      }}
-                      placeholder="e.g. sup-b or sup-1"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-mono text-slate-400 uppercase">
-                      Severity:
-                    </label>
-                    <select
-                      value={impactSeverity}
-                      onChange={(e) => setImpactSeverity(e.target.value)}
-                      className="w-full mt-1 px-3 py-1.5 text-xs font-mono text-white rounded-lg focus:outline-none"
-                      style={{
-                        background: '#080C14',
-                        border: '1px solid #1E293B',
-                      }}
-                    >
-                      <option value="CRITICAL">CRITICAL</option>
-                      <option value="HIGH">HIGH</option>
-                      <option value="MEDIUM">MEDIUM</option>
-                    </select>
-                  </div>
-
-                  <button
-                    onClick={handleRunImpactAnalysis}
-                    disabled={isAnalyzingImpact}
-                    className="w-full py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
-                    style={{
-                      background: 'linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)',
-                      color: '#FFFFFF',
-                    }}
-                  >
-                    <Activity
-                      className={`w-3.5 h-3.5 ${
-                        isAnalyzingImpact ? 'animate-spin' : ''
-                      }`}
-                    />
-                    {isAnalyzingImpact ? 'Traversing Graph...' : 'Execute Impact Analysis'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Impact Results */}
-              {impactResult && (
-                <div
-                  className="rounded-lg p-3 space-y-3"
-                  style={{
-                    background: '#080C14',
-                    border: '1px solid rgba(239,68,68,0.3)',
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold text-red-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      Disruption Assessment
-                    </span>
-                    <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-red-950 text-red-300 border border-red-800">
-                      {impactResult.severity}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-center">
-                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                      <div className="text-[9px] font-mono text-slate-500">
-                        REVENUE AT RISK
-                      </div>
-                      <div className="text-sm font-bold text-red-400 mt-0.5">
-                        ₹
-                        {impactResult.total_revenue_at_risk_inr.toLocaleString(
-                          'en-IN'
-                        )}
-                      </div>
-                    </div>
-                    <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                      <div className="text-[9px] font-mono text-slate-500">
-                        ORDERS AT RISK
-                      </div>
-                      <div className="text-sm font-bold text-white mt-0.5">
-                        {impactResult.affected_order_ids.length}
-                      </div>
-                    </div>
-                  </div>
-
-                  {impactResult.alternative_suppliers.length > 0 && (
-                    <div>
-                      <div className="text-[9px] font-mono text-emerald-400 font-bold uppercase mb-1 flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3" />
-                        Discovered Alternative Suppliers
-                      </div>
-                      <div className="space-y-1">
-                        {impactResult.alternative_suppliers.map((alt: any) => (
-                          <div
-                            key={alt.supplier_id}
-                            className="p-1.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono flex items-center justify-between"
-                          >
-                            <span className="text-white font-medium">
-                              {alt.name}
-                            </span>
-                            <span className="text-emerald-400">
-                              ₹{alt.unit_cost_inr} · {alt.lead_time_days}d
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="p-2 rounded bg-slate-900 border border-slate-800">
-                    <div className="text-[9px] font-mono text-cyan-400 font-bold uppercase mb-1">
-                      Graph Mitigative Action
-                    </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      {impactResult.mitigation_recommendation}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Tab 3: Lineage & Provenance */}
-          {activeTab === 'provenance' && (
-            <div className="p-4 space-y-4 max-h-[500px] overflow-y-auto">
-              <div>
-                <div className="text-[10px] font-mono uppercase text-slate-500 font-bold tracking-wider mb-1">
-                  Entity Lineage & Grounding
-                </div>
-                <p className="text-xs text-slate-400">
-                  Audit trail and relational source references confirming entity integrity.
-                </p>
-              </div>
-
-              {isLoadingProvenance ? (
-                <div className="text-center py-8 text-xs font-mono text-slate-500">
-                  Traversing provenance hops...
-                </div>
-              ) : provenanceResponse ? (
-                <div className="space-y-3">
-                  <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
-                    <div className="text-[9px] font-mono text-indigo-400 uppercase font-bold mb-1">
-                      Traversal Scope
-                    </div>
-                    <div className="text-slate-300 font-mono text-[11px]">
-                      {provenanceResponse.node_count} nodes connected across{' '}
-                      {provenanceResponse.edge_count} relationships in{' '}
-                      {provenanceResponse.query_time_ms.toFixed(1)}ms.
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {provenanceResponse.nodes.map((n) => (
-                      <div
-                        key={n.id}
-                        className="p-2 rounded bg-[#080C14] border border-[#1E293B] text-[11px] font-mono flex items-center justify-between"
-                      >
-                        <div>
-                          <div className="text-white font-bold">{n.label}</div>
-                          <div className="text-[9px] text-slate-500">
-                            Source: {n.source_table || 'Authoritative DB'} [ID:{' '}
-                            {n.source_id || n.id}]
-                          </div>
-                        </div>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800">
-                          {n.type}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-xs font-mono text-slate-500">
-                  Select an entity in the Inspector and click &quot;Inspect Lineage&quot; to trace graph provenance.
-                </div>
-              )}
-            </div>
-          )}
+            ) : (
+              <p className="text-13 text-text-3 py-6 text-center">
+                Select any node on the topology canvas to inspect properties, dependencies, and trace impact.
+              </p>
+            )}
+          </Panel>
         </div>
       </div>
     </div>

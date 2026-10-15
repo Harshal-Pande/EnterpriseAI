@@ -1,290 +1,182 @@
-import React, { useState } from 'react';
-import {
-  Play, RotateCcw, Cpu, Search, Bell, Settings, HelpCircle,
-  ChevronDown, X
-} from 'lucide-react';
+import React from 'react';
+import { Sun, Moon, Menu } from 'lucide-react';
 import { useDemo } from '../../state/DemoContext';
+import { useTheme } from '../../state/ThemeContext';
+import { SourceBadge } from '../common/SourceBadge';
 import type { DemoScenario } from '../../types';
+import type { ScreenId } from './Sidebar';
 
-const SCENARIOS: { id: DemoScenario; label: string; tag: string }[] = [
-  { id: 'normal',              label: 'Normal Order Flow',          tag: 'Standard' },
-  { id: 'supplier_unavailable',label: 'Supplier Unavailable',       tag: 'Exception' },
-  { id: 'budget_breach',       label: 'Budget Breach',              tag: 'Exception' },
-  { id: 'delivery_delay',      label: 'Delivery Delay (+48h)',       tag: 'Exception' },
-  { id: 'multi_exception',     label: 'Multi-Exception Recovery',   tag: 'Stress' },
+interface TopHeaderProps {
+  currentScreen?: ScreenId;
+  onOpenMobileNav?: () => void;
+}
+
+const SCENARIO_OPTIONS: { id: DemoScenario; label: string }[] = [
+  { id: 'normal', label: 'Normal fulfilment' },
+  { id: 'supplier_unavailable', label: 'Supplier unavailable' },
+  { id: 'budget_breach', label: 'Budget overrun' },
+  { id: 'delivery_delay', label: 'Delivery delay' },
+  { id: 'multi_exception', label: 'Combined failure' },
 ];
 
-export const TopHeader: React.FC = () => {
+const SCREEN_TITLES: Record<ScreenId, string> = {
+  overview: 'Operations Overview',
+  orders: 'Orders',
+  exceptions: 'Exceptions & Approvals',
+  mesh: 'Agent Mesh Diagnostics',
+  orchestration: 'Governed Orchestration',
+  inventory: 'Warehouse Inventory',
+  procurement: 'Procurement & Bidding',
+  finance: 'Financial Governance',
+  logistics: 'Logistics & Transit',
+  graph: 'Enterprise Knowledge Graph',
+  audit: 'Cryptographic Audit Trail',
+  benchmarks: 'Mesh Telemetry Benchmarks',
+  security: 'Security & Posture',
+  support: 'Support & Docs',
+};
+
+export const TopHeader: React.FC<TopHeaderProps> = ({
+  currentScreen = 'overview',
+  onOpenMobileNav,
+}) => {
   const {
     dataMode,
-    toggleDataMode,
-    isLiveConnected,
-    liveLoading,
-    refreshLiveData,
-    isSimulating,
-    workflowStage,
     activeScenario,
     setActiveScenario,
     runDemoOrder,
-    resetDemo
+    isSimulating,
+    wsConnectionState,
+    activeOrder,
+    isLiveConnected,
+    isOrchestrating,
+    executeLiveOrchestration,
+    activeLiveOrderId,
   } = useDemo();
 
-  const [showScenarioPicker, setShowScenarioPicker] = useState(false);
-  const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const { resolvedTheme, toggleTheme } = useTheme();
 
-  const activeScenarioMeta = SCENARIOS.find(s => s.id === activeScenario) ?? SCENARIOS[0];
+  const isExecuting = isSimulating || isOrchestrating;
 
-  const stageLabel: Record<string, string> = {
-    IDLE:                    'Idle',
-    RECEIVED:                'Order Received',
-    SUPERVISOR_ANALYSIS:     'Supervisor Analysing',
-    INVENTORY_CHECK:         'Inventory Check',
-    PROCUREMENT_NEGOTIATION: 'Procurement Negotiating',
-    FINANCE_VALIDATION:      'Finance Validating',
-    LOGISTICS_FEASIBILITY:   'Logistics Routing',
-    SUPERVISOR_DECISION:     'Final Decision',
-    COMPLETED:               'Order Completed',
+  // Realtime WS Status text and color
+  const wsStatusConfig = {
+    CONNECTED: { text: 'Realtime connected', dotClass: 'bg-ok' },
+    CONNECTING: { text: 'Reconnecting', dotClass: 'bg-warn' },
+    RECONNECTING: { text: 'Reconnecting', dotClass: 'bg-warn' },
+    DISCONNECTED: { text: 'Realtime off', dotClass: 'bg-text-3' },
+    UNAUTHORIZED: { text: 'Realtime unauthorized', dotClass: 'bg-danger' },
+  }[wsConnectionState] || { text: 'Realtime off', dotClass: 'bg-text-3' };
+
+  // Run Order Handler
+  const handleRunOrder = () => {
+    if (isExecuting) return;
+    if (dataMode === 'live') {
+      executeLiveOrchestration(activeLiveOrderId || undefined, activeScenario);
+    } else {
+      runDemoOrder(activeScenario);
+    }
   };
 
-  return (
-    <header
-      className="h-12 shrink-0 flex items-center justify-between px-5 gap-4 sticky top-0 z-20"
-      style={{
-        background: '#07090F',
-        borderBottom: '1px solid #1A2438'
-      }}
-    >
-      {/* Left: Title + Search */}
-      <div className="flex items-center gap-5 min-w-0">
-        <div className="shrink-0">
-          <span className="text-[13px] font-bold text-white tracking-tight">
-            Enterprise AI Mesh
-          </span>
-        </div>
+  const isLiveDisabled = dataMode === 'live' && !isLiveConnected;
+  const disabledReason = isLiveDisabled
+    ? 'Backend unreachable. Connect backend to run live orchestration.'
+    : isExecuting
+    ? 'Workflow run currently in progress.'
+    : '';
 
-        {/* Global Search */}
-        <div className="relative w-56 hidden lg:block">
-          <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search orders, agents, IDs…"
-            id="global-search"
-            className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-200 placeholder-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition"
-            style={{ background: '#0F172A', border: '1px solid #1E293B' }}
-          />
+  const activeCaseId = dataMode === 'live' ? activeLiveOrderId : activeOrder?.id;
+
+  return (
+    <header className="h-[52px] px-4 shrink-0 flex items-center justify-between border-b border-border bg-surface text-text sticky top-0 z-20 select-none">
+      {/* Left: Mobile Nav Button + Breadcrumb */}
+      <div className="flex items-center gap-3 min-w-0">
+        {onOpenMobileNav && (
+          <button
+            type="button"
+            onClick={onOpenMobileNav}
+            className="md:hidden p-1 text-text-3 hover:text-text rounded-[4px] cursor-pointer"
+            title="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[14px] font-semibold text-text truncate">
+            {SCREEN_TITLES[currentScreen] || 'Operations'}
+          </span>
+          {activeCaseId && (
+            <>
+              <span className="text-text-3 text-[12px]">/</span>
+              <span className="text-[12px] font-mono text-text-2 truncate">
+                {activeCaseId}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Right: Controls */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* Right: Controls & Diagnostics */}
+      <div className="flex items-center gap-3 shrink-0">
+        {/* Data Source Indicator */}
+        <SourceBadge variant="compact" />
 
-        {/* Mode Switcher: LIVE vs DEMO */}
-        <div className="flex items-center gap-1.5 p-1 rounded-lg border border-[#1E293B] bg-[#0A0F1D]">
-          <button
-            id="toggle-data-mode"
-            onClick={toggleDataMode}
-            className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition-all flex items-center gap-1.5 ${
-              dataMode === 'live'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
-            }`}
-            title="Toggle between Live PostgreSQL Backend and Demo Script"
+        {/* Scenario Selector & Run Order Button */}
+        <div className="hidden sm:flex items-center gap-2">
+          <select
+            value={activeScenario}
+            onChange={(e) => setActiveScenario(e.target.value as DemoScenario)}
+            disabled={isExecuting}
+            className="h-[32px] px-2 text-[12px] bg-surface-sunk text-text border border-border rounded-[4px] focus:outline-none focus:border-accent cursor-pointer disabled:opacity-50"
+            title="Select scenario to run"
           >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                dataMode === 'live'
-                  ? isLiveConnected
-                    ? 'bg-emerald-400 animate-pulse'
-                    : 'bg-rose-500'
-                  : 'bg-indigo-400'
-              }`}
-            />
-            <span>{dataMode === 'live' ? (isLiveConnected ? 'LIVE BACKEND' : 'BACKEND OFFLINE') : 'DEMO MODE'}</span>
-          </button>
+            {SCENARIO_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
 
-          {dataMode === 'live' && (
-            <button
-              id="refresh-live-data"
-              onClick={() => refreshLiveData()}
-              disabled={liveLoading}
-              className="p-1 text-slate-400 hover:text-white transition disabled:opacity-50"
-              title="Refresh Live Data from Backend"
-            >
-              <RotateCcw className={`w-3 h-3 ${liveLoading ? 'animate-spin text-cyan-400' : ''}`} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleRunOrder}
+            disabled={isExecuting || isLiveDisabled}
+            title={disabledReason || 'Run selected scenario'}
+            className="h-[32px] px-3 bg-accent hover:bg-accent-hover text-white text-[12px] font-medium rounded-[4px] transition-colors disabled:bg-surface-2 disabled:text-text-3 disabled:cursor-not-allowed cursor-pointer shrink-0"
+          >
+            {isExecuting ? 'Running...' : 'Run order'}
+          </button>
         </div>
 
-        {/* System Status Badge */}
+        {/* WebSocket Realtime Status */}
         <div
-          className="hidden md:flex items-center gap-2 px-3 h-7 rounded-md text-[11px] font-medium"
-          style={{
-            background: isSimulating ? 'rgba(56,189,248,0.08)' : 'rgba(16,185,129,0.08)',
-            border: `1px solid ${isSimulating ? 'rgba(56,189,248,0.2)' : 'rgba(16,185,129,0.2)'}`,
-            color: isSimulating ? '#38BDF8' : '#10B981'
-          }}
+          className="hidden lg:flex items-center gap-1.5 text-[12px] text-text-2 border-l border-border pl-3"
+          title={`WebSocket Status: ${wsConnectionState}`}
         >
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${isSimulating ? 'bg-cyan-400 animate-ping' : 'bg-emerald-400'}`}
-          />
-          <span className="font-mono text-[10px]">
-            {isSimulating ? (stageLabel[workflowStage] ?? workflowStage) : (dataMode === 'live' ? 'Database: Active' : 'System Status: Optimal')}
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${wsStatusConfig.dotClass}`} />
+          <span className="text-text-3 text-[11px] whitespace-nowrap">
+            {wsStatusConfig.text}
           </span>
         </div>
 
-        {/* Icon Group */}
-        <div className="flex items-center gap-0.5" style={{ borderRight: '1px solid #1E293B', paddingRight: '8px', marginRight: '4px' }}>
-          {/* Notifications */}
-          <div className="relative">
-            <button
-              id="btn-notifications"
-              onClick={() => setShowNotifPanel(v => !v)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] transition"
-            >
-              <Bell className="w-4 h-4" />
-            </button>
-            {showNotifPanel && (
-              <div
-                className="absolute right-0 top-10 w-72 rounded-xl shadow-2xl z-50 animate-fade-slide text-xs"
-                style={{ background: '#0F172A', border: '1px solid #24334D' }}
-              >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-[#1E293B]">
-                  <span className="font-bold text-white text-sm">Notifications</span>
-                  <button onClick={() => setShowNotifPanel(false)} className="text-slate-500 hover:text-white"><X className="w-3.5 h-3.5" /></button>
-                </div>
-                <div className="p-3 space-y-2">
-                  {[
-                    { color: 'amber', text: 'Inventory shortfall detected: 78 units WP-800' },
-                    { color: 'rose',  text: 'Exception order ORD-1047: Budget breach alert' },
-                    { color: 'cyan',  text: 'Audit block #184729 committed to Polygon layer' },
-                  ].map(({ color, text }) => (
-                    <div key={text} className="p-2.5 rounded-lg flex gap-2.5 items-start" style={{ background: '#080C14', border: '1px solid #1E293B' }}>
-                      <span className={`w-1.5 h-1.5 rounded-full mt-1 shrink-0 ${color === 'amber' ? 'bg-amber-400' : color === 'rose' ? 'bg-rose-400' : 'bg-cyan-400'}`} />
-                      <span className="text-slate-300 text-[11px] leading-relaxed">{text}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+        {/* Theme Toggle (Sun/Moon) */}
+        <div className="border-l border-border pl-3">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="w-8 h-8 flex items-center justify-center rounded-[4px] text-text-2 hover:text-text hover:bg-surface-2 transition-colors cursor-pointer"
+            title={
+              resolvedTheme === 'dark'
+                ? 'Switch to light theme'
+                : 'Switch to dark theme'
+            }
+            aria-label="Toggle theme"
+          >
+            {resolvedTheme === 'dark' ? (
+              <Sun className="w-4 h-4" />
+            ) : (
+              <Moon className="w-4 h-4" />
             )}
-          </div>
-
-          <button
-            id="btn-settings"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] transition"
-            title="Settings"
-          >
-            <Settings className="w-4 h-4" />
           </button>
-
-          <button
-            id="btn-help"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] transition"
-            title="Help"
-          >
-            <HelpCircle className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Scenario Picker */}
-        <div className="relative">
-          <button
-            id="scenario-picker"
-            onClick={() => !isSimulating && setShowScenarioPicker(v => !v)}
-            disabled={isSimulating}
-            className="flex items-center gap-2 h-8 px-3 rounded-lg text-[11px] font-medium text-slate-300 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: '#111827', border: '1px solid #1E293B' }}
-          >
-            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
-              activeScenario === 'normal'
-                ? 'bg-emerald-500/15 text-emerald-300'
-                : 'bg-amber-500/15 text-amber-300'
-            }`}>
-              {activeScenarioMeta.tag}
-            </span>
-            <span className="hidden sm:inline max-w-[120px] truncate">{activeScenarioMeta.label}</span>
-            <ChevronDown className="w-3 h-3 text-slate-500 shrink-0" />
-          </button>
-
-          {showScenarioPicker && (
-            <div
-              className="absolute right-0 top-10 w-64 rounded-xl shadow-2xl z-50 text-xs animate-fade-slide"
-              style={{ background: '#0F172A', border: '1px solid #24334D' }}
-            >
-              <div className="px-3 py-2 border-b border-[#1E293B]">
-                <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">Demo Scenarios</span>
-              </div>
-              {SCENARIOS.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => { setActiveScenario(s.id); setShowScenarioPicker(false); }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 text-left transition hover:bg-white/[0.05] ${
-                    s.id === activeScenario ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <span>{s.label}</span>
-                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                    s.tag === 'Standard'  ? 'bg-emerald-500/15 text-emerald-300' :
-                    s.tag === 'Stress'    ? 'bg-purple-500/15 text-purple-300'   :
-                                            'bg-amber-500/15  text-amber-300'
-                  }`}>{s.tag}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Reset */}
-        <button
-          id="btn-reset"
-          onClick={resetDemo}
-          disabled={isSimulating}
-          title="Reset Simulation"
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] transition disabled:opacity-40"
-          style={{ border: '1px solid #1E293B' }}
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-        </button>
-
-        {/* Run Demo Order - Primary CTA */}
-        <button
-          id="btn-run-demo"
-          onClick={() => runDemoOrder()}
-          disabled={isSimulating}
-          className="flex items-center gap-2 px-4 h-8 rounded-lg text-[12px] font-bold transition-all disabled:cursor-wait shrink-0"
-          style={isSimulating ? {
-            background: 'rgba(56,189,248,0.12)',
-            border: '1px solid rgba(56,189,248,0.3)',
-            color: '#38BDF8'
-          } : {
-            background: 'linear-gradient(135deg, #38BDF8 0%, #2563EB 100%)',
-            color: '#07090F',
-            boxShadow: '0 2px 12px rgba(56,189,248,0.25)'
-          }}
-        >
-          {isSimulating ? (
-            <>
-              <Cpu className="w-3.5 h-3.5 animate-spin" />
-              <span className="hidden sm:inline font-mono text-[10px]">{stageLabel[workflowStage] ?? 'Running…'}</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Run Demo Order</span>
-            </>
-          )}
-        </button>
-
-        {/* User Avatar */}
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 cursor-pointer"
-          style={{
-            background: 'linear-gradient(135deg, #312E81 0%, #1E1B4B 100%)',
-            border: '1px solid rgba(99,102,241,0.3)',
-            color: '#A5B4FC'
-          }}
-          title="Admin"
-        >
-          AS
         </div>
       </div>
     </header>

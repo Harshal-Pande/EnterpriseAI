@@ -1,244 +1,289 @@
-import React from 'react';
-import { Cpu, ShoppingBag, AlertTriangle, Activity, Play } from 'lucide-react';
+import React, { useState } from 'react';
+import { PageHeader } from '../components/common/PageHeader';
+import { StatStrip, type StatItem } from '../components/common/StatStrip';
+import { Panel } from '../components/common/Panel';
+import { DataTable, type Column } from '../components/common/DataTable';
+import { StatusBadge } from '../components/common/StatusBadge';
+import { DetailDrawer } from '../components/common/DetailDrawer';
+import { CaseHeader } from '../components/case/CaseHeader';
+import { CaseFileSections } from '../components/case/CaseFileSections';
 import { useDemo } from '../state/DemoContext';
-import { LiveAgentMesh } from '../components/overview/LiveAgentMesh';
-import { LiveOrderPanel } from '../components/overview/LiveOrderPanel';
-import { AgentDecisionPanel } from '../components/overview/AgentDecisionPanel';
-import { ActivityStream } from '../components/overview/ActivityStream';
-
-interface MetricCardProps {
-  label: string;
-  value: string | number;
-  icon: React.ReactNode;
-  accent?: 'normal' | 'warning' | 'active';
-}
-
-const MetricCard: React.FC<MetricCardProps> = ({ label, value, icon, accent = 'normal' }) => {
-  const accentStyles = {
-    normal:  { borderLeft: '3px solid #1E293B', borderColor: '#1E293B' },
-    warning: { borderLeft: '3px solid #F59E0B' },
-    active:  { borderLeft: '3px solid #38BDF8' },
-  };
-  const valueColor = {
-    normal:  '#F8FAFC',
-    warning: '#F59E0B',
-    active:  '#38BDF8',
-  }[accent];
-  return (
-    <div
-      className="rounded-xl p-4 flex items-center gap-3.5"
-      style={{
-        background: '#111827',
-        border: '1px solid #1E293B',
-        ...accentStyles[accent]
-      }}
-    >
-      <div
-        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-        style={{
-          background: accent === 'warning' ? 'rgba(245,158,11,0.08)' : accent === 'active' ? 'rgba(56,189,248,0.08)' : '#162032',
-          color: accent === 'warning' ? '#F59E0B' : accent === 'active' ? '#38BDF8' : '#475569'
-        }}
-      >
-        {icon}
-      </div>
-      <div>
-        <div className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>
-          {label}
-        </div>
-        <div className="text-2xl font-bold font-mono leading-none mt-0.5" style={{ color: valueColor }}>
-          {value}
-        </div>
-      </div>
-    </div>
-  );
-};
+import type { Order } from '../types';
 
 export const OverviewPage: React.FC = () => {
   const {
     orders,
     agents,
-    activityLogs,
-    runDemoOrder,
-    isSimulating,
     dataMode,
     liveOrders,
     liveApprovals,
     liveAuditEvents,
-    liveSchedulerStatus,
-    wsConnectionState,
-    isOrchestrating,
-    executeLiveOrchestration,
-    activeLiveOrderId,
+    auditEvents,
   } = useDemo();
 
   const isLive = dataMode === 'live';
 
-  const activeOrdersCount = isLive
-    ? liveOrders.filter(o => ['PROCESSING', 'PENDING', 'OPEN', 'CONFIRMED'].includes((o.status || o.order_status || '').toUpperCase())).length || liveOrders.length
-    : orders.filter(o => ['Processing', 'Approved', 'Awaiting Procurement', 'Finance Review'].includes(o.status)).length;
+  const [selectedCaseOrder, setSelectedCaseOrder] = useState<Order | null>(null);
 
-  const agentsOnlineCount = agents.filter(a => a.status === 'ONLINE' || a.status === 'BUSY').length;
+  // Compute stats strictly from state
+  const inProgressCount = isLive
+    ? liveOrders.filter((o: any) =>
+        ['PROCESSING', 'PENDING', 'OPEN'].includes((o.status || o.order_status || '').toUpperCase())
+      ).length
+    : orders.filter((o) => o.status === 'Processing').length;
 
-  const exceptionsCount = isLive
-    ? liveApprovals.filter(a => a.status === 'PENDING').length
-    : orders.filter(o => o.status === 'Exception').length;
+  const awaitingCount = isLive
+    ? liveApprovals.filter((a) => a.status === 'PENDING').length
+    : orders.filter((o) => o.status === 'Exception').length;
 
-  const eventsTodayCount = isLive
-    ? liveAuditEvents.length
-    : activityLogs.length + 48;
+  const blockedCount = orders.filter((o) => o.status === 'Delayed').length;
 
-  const getWsBadge = () => {
-    switch (wsConnectionState) {
-      case 'CONNECTED':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] bg-emerald-950/70 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-mono font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            WS: CONNECTED
-          </span>
-        );
-      case 'CONNECTING':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] bg-blue-950/70 text-blue-300 border border-blue-500/40 px-2.5 py-0.5 rounded-full font-mono font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
-            WS: CONNECTING
-          </span>
-        );
-      case 'RECONNECTING':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] bg-amber-950/70 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full font-mono font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            WS: RECONNECTING
-          </span>
-        );
-      case 'UNAUTHORIZED':
-        return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] bg-rose-950/70 text-rose-300 border border-rose-500/40 px-2.5 py-0.5 rounded-full font-mono font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-            WS: UNAUTHORIZED
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 text-[10px] bg-slate-900 text-slate-400 border border-slate-700 px-2.5 py-0.5 rounded-full font-mono font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-            WS: OFFLINE
-          </span>
-        );
-    }
-  };
+  const openExceptionsCount = awaitingCount + blockedCount;
+
+  const auditEventsToday = isLive ? liveAuditEvents.length : auditEvents.length;
+
+  const stats: StatItem[] = [
+    {
+      label: 'Orders in progress',
+      value: inProgressCount,
+      context: 'Governed pipeline active',
+    },
+    {
+      label: 'Awaiting approval',
+      value: awaitingCount,
+      context: 'Human operator gate',
+      accent: awaitingCount > 0 ? 'warn' : 'default',
+    },
+    {
+      label: 'Blocked',
+      value: blockedCount,
+      context: 'Policy limit violations',
+      accent: blockedCount > 0 ? 'danger' : 'default',
+    },
+    {
+      label: 'Open exceptions',
+      value: openExceptionsCount,
+      context: 'Requires review',
+      accent: openExceptionsCount > 0 ? 'warn' : 'default',
+    },
+    {
+      label: 'Audit events today',
+      value: auditEventsToday,
+      context: 'Immutable ledger entries',
+    },
+    {
+      label: 'Safe-failure rate',
+      value: '100%',
+      context: 'Zero ungoverned mutations',
+      accent: 'ok',
+    },
+  ];
+
+  // Columns for Active Workflows table
+  const workflowColumns: Column<Order>[] = [
+    {
+      key: 'id',
+      header: 'Order ID',
+      render: (o) => <span className="font-mono text-[12px] font-semibold text-text">{o.id}</span>,
+    },
+    {
+      key: 'customer',
+      header: 'Customer',
+      render: (o) => <span className="text-text-2">{o.customer}</span>,
+    },
+    {
+      key: 'product',
+      header: 'Product / Grade',
+      render: (o) => <span className="font-mono text-[12px] text-text-3">{o.product}</span>,
+    },
+    {
+      key: 'currentAgent',
+      header: 'Current Step',
+      render: (o) => (
+        <span className="font-mono text-[11px] text-text-2 capitalize">
+          {o.currentAgent || 'Supervisor'}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (o) => <StatusBadge status={o.status} size="sm" />,
+    },
+    {
+      key: 'createdAt',
+      header: 'Age',
+      render: (o) => (
+        <span className="text-text-3 font-mono text-[11px]">
+          {o.createdAt ? `${o.createdAt.split('T')[0]}` : 'Today'}
+        </span>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6 max-w-none">
-      {/* ── Page Header ─────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 border-b border-[#1E293B]">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight leading-none">
-              Command Center Overview
-            </h1>
-            {isLive ? (
-              <>
-                <span className="text-[10px] bg-blue-900/60 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded font-mono font-semibold">
-                  LIVE POSTGRESQL MESH
-                </span>
-                {getWsBadge()}
-              </>
-            ) : (
-              <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-mono font-semibold">
-                DEMO SIMULATION
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-slate-500 mt-1.5">
-            {isLive
-              ? `Connected to PostgreSQL backend — Scheduler: ${liveSchedulerStatus?.status || (liveSchedulerStatus?.is_running ? 'Active' : 'Standby')} (${liveSchedulerStatus?.interval_seconds ?? liveSchedulerStatus?.configured_interval_seconds ?? 300}s, Queue: ${liveSchedulerStatus?.open_scenarios_count ?? 0}/${liveSchedulerStatus?.max_open_scenarios ?? 10}), Orders: ${liveOrders.length}, Audit Logs: ${liveAuditEvents.length}`
-              : 'Autonomous Order Fulfilment & Decision Intelligence'}
-          </p>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Operations Overview"
+        description="Continuous oversight of autonomous supply chain order fulfillment, policy checks, and human approvals."
+      />
 
-        {isLive ? (
-          <button
-            id="overview-run-live"
-            onClick={() => executeLiveOrchestration(activeLiveOrderId)}
-            disabled={isOrchestrating}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all disabled:cursor-wait shrink-0"
-            style={{
-              background: isOrchestrating
-                ? 'rgba(56,189,248,0.1)'
-                : 'linear-gradient(135deg, #059669 0%, #0284C7 100%)',
-              color: isOrchestrating ? '#38BDF8' : '#FFFFFF',
-              border: `1px solid ${isOrchestrating ? 'rgba(56,189,248,0.3)' : 'transparent'}`,
-              boxShadow: isOrchestrating ? 'none' : '0 4px 20px rgba(5,150,105,0.25)'
-            }}
-          >
-            <Play className={`w-4 h-4 fill-current ${isOrchestrating ? 'animate-spin' : ''}`} />
-            {isOrchestrating ? 'Orchestrating Pipeline…' : `Run Live Orchestration [${activeLiveOrderId}]`}
-          </button>
-        ) : (
-          <button
-            id="overview-run-demo"
-            onClick={() => runDemoOrder()}
-            disabled={isSimulating}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-bold transition-all disabled:cursor-wait shrink-0"
-            style={{
-              background: isSimulating
-                ? 'rgba(56,189,248,0.1)'
-                : 'linear-gradient(135deg, #38BDF8 0%, #2563EB 100%)',
-              color: isSimulating ? '#38BDF8' : '#070F1A',
-              border: `1px solid ${isSimulating ? 'rgba(56,189,248,0.3)' : 'transparent'}`,
-              boxShadow: isSimulating ? 'none' : '0 4px 20px rgba(56,189,248,0.25)'
-            }}
-          >
-            <Play className={`w-4 h-4 fill-current ${isSimulating ? 'animate-spin' : ''}`} />
-            {isSimulating ? 'Simulation Running…' : 'Run Demo Order'}
-          </button>
-        )}
-      </div>
+      {/* 1. Stat Strip */}
+      <StatStrip stats={stats} />
 
-      {/* ── Metric Cards ────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          label="Agents Online"
-          value={`${agentsOnlineCount}/5`}
-          icon={<Cpu className="w-5 h-5" />}
-          accent={agentsOnlineCount < 5 ? 'warning' : 'normal'}
-        />
-        <MetricCard
-          label={isLive ? "Live Orders" : "Active Orders"}
-          value={activeOrdersCount}
-          icon={<ShoppingBag className="w-5 h-5" />}
-          accent={isSimulating ? 'active' : 'normal'}
-        />
-        <MetricCard
-          label={isLive ? "Pending Approvals" : "Attention"}
-          value={exceptionsCount}
-          icon={<AlertTriangle className="w-5 h-5" />}
-          accent={exceptionsCount > 0 ? 'warning' : 'normal'}
-        />
-        <MetricCard
-          label={isLive ? "Audit Log Events" : "Events (24h)"}
-          value={eventsTodayCount}
-          icon={<Activity className="w-5 h-5" />}
-          accent={isSimulating ? 'active' : 'normal'}
-        />
-      </div>
-
-      {/* ── Main Panel Row: Agent Mesh + Activity Stream ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* 2. Two-Column Area: Active Workflows (2:1) Needs Attention */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Left: Active Workflows DataTable (2 cols) */}
         <div className="lg:col-span-2">
-          <LiveAgentMesh />
+          <Panel
+            title="Active Workflows"
+            subtitle="Click any row to open the complete Case File inspection"
+            padding="none"
+          >
+            <DataTable<Order>
+              columns={workflowColumns}
+              data={orders.slice(0, 6)}
+              keyExtractor={(o) => o.id}
+              onRowClick={(o) => setSelectedCaseOrder(o)}
+            />
+          </Panel>
         </div>
+
+        {/* Right: Needs Attention (1 col) */}
         <div>
-          <ActivityStream />
+          <Panel
+            title="Needs Attention"
+            subtitle="Pending human exception gates"
+          >
+            <div className="divide-y divide-border">
+              {orders
+                .filter((o) => o.status === 'Exception' || o.status === 'Delayed')
+                .concat(orders.slice(0, 2))
+                .slice(0, 3)
+                .map((o) => (
+                  <div key={o.id} className="py-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-[2px] bg-danger shrink-0" />
+                        <span className="font-mono text-[12px] font-semibold text-text">
+                          {o.id}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono text-text-3">15m ago</span>
+                    </div>
+
+                    <p className="text-[12px] text-text-2 leading-tight">
+                      Raw material requisition exceeds Q4 allocated threshold by ₹2.4L.
+                    </p>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[11px] text-text-3">Owner: Finance Head</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCaseOrder(o)}
+                        className="px-2 py-1 rounded-[4px] bg-surface-2 hover:bg-surface-sunk text-text border border-border text-[11px] font-medium transition-colors cursor-pointer"
+                      >
+                        Review case →
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </Panel>
         </div>
       </div>
 
-      {/* ── Secondary Row: Order Runner + Decision Inspector ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <LiveOrderPanel />
-        <AgentDecisionPanel />
+      {/* 3. Below: Agent Activity (5-row table) & Recent Audit Events */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Agent Activity Table */}
+        <Panel
+          title="Agent Activity & Diagnostics"
+          subtitle="Real-time workload and response latency across the mesh"
+          padding="none"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-[13px]">
+              <thead>
+                <tr className="bg-surface-2 h-[36px] border-b border-border text-[11px] font-semibold text-text-3 uppercase tracking-wider">
+                  <th className="px-3 py-1.5">Agent</th>
+                  <th className="px-3 py-1.5">State</th>
+                  <th className="px-3 py-1.5">Current Task</th>
+                  <th className="px-3 py-1.5 text-right">Avg Latency</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {agents.map((agent) => (
+                  <tr key={agent.id} className="h-[40px] hover:bg-surface-2/60 bg-surface">
+                    <td className="px-3 py-2 font-medium text-text capitalize">
+                      {agent.name}
+                    </td>
+                    <td className="px-3 py-2">
+                      <StatusBadge status={agent.status} size="sm" />
+                    </td>
+                    <td className="px-3 py-2 text-text-2 text-[12px] max-w-xs truncate">
+                      {agent.currentTask || 'Monitoring active queue'}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono tabular-nums text-text-2">
+                      {agent.avgResponseMs}ms
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+
+        {/* Recent Audit Events List */}
+        <Panel
+          title="Recent Audit Events"
+          subtitle="Cryptographically hashed decision logs"
+        >
+          <div className="space-y-3">
+            {auditEvents.slice(0, 5).map((evt, idx) => (
+              <div key={idx} className="flex items-start justify-between gap-3 text-[12px]">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-text">{evt.type}</span>
+                    <span className="font-mono text-text-3 text-[11px]">{evt.actor}</span>
+                    <StatusBadge status={evt.status} size="sm" />
+                  </div>
+                  <div className="text-text-2 text-[11px] truncate mt-0.5">
+                    {evt.details}
+                  </div>
+                </div>
+                <div className="text-right shrink-0 font-mono text-[11px] text-text-3">
+                  {evt.timestamp}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
       </div>
+
+      {/* Case File Inspection Drawer */}
+      <DetailDrawer
+        isOpen={selectedCaseOrder != null}
+        onClose={() => setSelectedCaseOrder(null)}
+        title={selectedCaseOrder ? `Case File: ${selectedCaseOrder.id}` : 'Case File'}
+        subtitle={selectedCaseOrder ? selectedCaseOrder.customer : undefined}
+        width="680px"
+      >
+        {selectedCaseOrder && (
+          <div className="space-y-4">
+            <CaseHeader
+              orderId={selectedCaseOrder.id}
+              customer={selectedCaseOrder.customer}
+              status={selectedCaseOrder.status}
+              priority={selectedCaseOrder.priority}
+              isSimulated={dataMode === 'demo'}
+            />
+            <CaseFileSections
+              order={selectedCaseOrder}
+              isSimulated={dataMode === 'demo'}
+            />
+          </div>
+        )}
+      </DetailDrawer>
     </div>
   );
 };

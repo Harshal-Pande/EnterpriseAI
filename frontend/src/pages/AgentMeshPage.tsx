@@ -1,175 +1,244 @@
-import React from 'react';
-import { Cpu, Server, ShieldCheck, Activity, Clock } from 'lucide-react';
-import { useDemo } from '../state/DemoContext';
+import React, { useState } from 'react';
+import { PageHeader } from '../components/common/PageHeader';
+import { Panel } from '../components/common/Panel';
 import { StatusBadge } from '../components/common/StatusBadge';
-import type { AgentId } from '../types';
-
-const AGENT_STYLE: Record<AgentId, { color: string; bg: string; border: string; label: string }> = {
-  supervisor:  { color: '#6366F1', bg: 'rgba(99,102,241,0.1)',  border: 'rgba(99,102,241,0.25)',  label: 'Supervisor'   },
-  inventory:   { color: '#10B981', bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.25)',  label: 'Inventory'    },
-  procurement: { color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.25)',  label: 'Procurement'  },
-  finance:     { color: '#EC4899', bg: 'rgba(236,72,153,0.1)',  border: 'rgba(236,72,153,0.25)',  label: 'Finance'      },
-  logistics:   { color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)', border: 'rgba(139,92,246,0.25)',  label: 'Logistics'    },
-};
+import { useDemo } from '../state/DemoContext';
+import { ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 
 export const AgentMeshPage: React.FC = () => {
-  const { agents, selectedAgentId, setSelectedAgentId } = useDemo();
-  const selectedAgent = agents.find(a => a.id === selectedAgentId) ?? agents[0];
-  const style = AGENT_STYLE[selectedAgent.id];
+  const { agents, dataMode } = useDemo();
+  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (id: string, text: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
+
+  const interAgentMessages = [
+    { time: '19:15:02', from: 'SUPERVISOR', to: 'INVENTORY', type: 'TASK_DISPATCH', summary: 'Check Bokaro slab stock for 25 MT order ORD-1042' },
+    { time: '19:15:03', from: 'INVENTORY', to: 'SUPERVISOR', type: 'FINDING_REPORT', summary: '10 MT available, 15 MT shortage detected; safety stock reserved' },
+    { time: '19:15:04', from: 'SUPERVISOR', to: 'PROCUREMENT', type: 'NEGOTIATION_TRIGGER', summary: 'Request 40 MT quote from secondary suppliers' },
+    { time: '19:15:05', from: 'PROCUREMENT', to: 'FINANCE', type: 'QUOTE_VALIDATION', summary: 'JSW Steel quoted ₹41,500/MT (Total ₹16.6L)' },
+    { time: '19:15:06', from: 'FINANCE', to: 'SUPERVISOR', type: 'POLICY_ALERT', summary: 'Overrun of ₹2.4L exceeds Q4 raw material limit POL-FIN-02' },
+    { time: '19:15:07', from: 'SUPERVISOR', to: 'LOGISTICS', type: 'FEASIBILITY_CHECK', summary: 'Evaluate 48-hour rail freight feasibility' },
+    { time: '19:15:08', from: 'LOGISTICS', to: 'SUPERVISOR', type: 'FEASIBILITY_REPORT', summary: 'Confirmed Rail Corridor East via Concor; 38h transit' },
+  ];
 
   return (
-    <div className="space-y-5">
-      {/* Page Header */}
-      <div className="pb-5 border-b border-[#1E293B]">
-        <h1 className="text-2xl font-extrabold text-white tracking-tight">Agent Mesh Operations</h1>
-        <p className="text-sm text-slate-500 mt-1">Autonomous sub-agent fleet topology, workloads, and execution telemetry</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Agent Mesh Diagnostics"
+        description="Structured performance telemetry, inter-agent consensus logs, and execution parameters."
+      />
 
-      {/* Agent Fleet Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {agents.map(agent => {
-          const s = AGENT_STYLE[agent.id];
-          const isSelected = selectedAgentId === agent.id;
-          return (
-            <div
-              key={agent.id}
-              id={`agent-card-${agent.id}`}
-              onClick={() => setSelectedAgentId(agent.id)}
-              className="rounded-xl p-4 cursor-pointer transition-all duration-150"
-              style={{
-                background: isSelected ? s.bg : '#111827',
-                border: `1px solid ${isSelected ? s.border : '#1E293B'}`,
-                boxShadow: isSelected ? `0 0 20px ${s.bg}` : 'none'
-              }}
-            >
-              {/* Icon + Status */}
-              <div className="flex items-center justify-between mb-3">
-                <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center"
-                  style={{ background: s.bg, border: `1px solid ${s.border}` }}
-                >
-                  <Cpu className="w-4.5 h-4.5" style={{ color: s.color }} />
-                </div>
-                <StatusBadge status={agent.status} size="sm" />
-              </div>
-
-              {/* Name + Role */}
-              <div className="font-bold text-sm text-white mb-0.5">{agent.name}</div>
-              <div className="text-[10px] text-slate-500 truncate mb-3">{agent.role}</div>
-
-              {/* Workload bar */}
-              <div className="space-y-1 mb-3">
-                <div className="flex justify-between text-[10px] font-mono text-slate-500">
-                  <span>Workload</span>
-                  <span style={{ color: s.color }}>{agent.workload}%</span>
-                </div>
-                <div className="h-1 rounded-full overflow-hidden" style={{ background: '#1E293B' }}>
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${agent.workload}%`, background: s.color }}
-                  />
-                </div>
-              </div>
-
-              {/* Latency + Tasks */}
-              <div className="flex items-center justify-between text-[10px] font-mono border-t border-[#1E293B] pt-2">
-                <span className="text-slate-600">Avg Latency</span>
-                <span className="text-cyan-400">{agent.avgResponseMs}ms</span>
-              </div>
-              <div className="flex items-center justify-between text-[10px] font-mono mt-1">
-                <span className="text-slate-600">Tasks Done</span>
-                <span className="text-white">{agent.tasksCompleted.toLocaleString()}</span>
-              </div>
-
-              {/* Active indicator */}
-              {agent.active && (
-                <div className="mt-2 flex items-center gap-1.5 text-[9px] font-mono font-bold uppercase" style={{ color: s.color }}>
-                  <span className="w-1.5 h-1.5 rounded-full animate-ping" style={{ background: s.color }} />
-                  Processing Task
-                </div>
-              )}
+      {/* Restrained Static Schematic (Max 160px height, 1px lines, no animation) */}
+      <Panel title="Coordination Schematic" subtitle="Hierarchical supervisor-specialist delegation">
+        <div className="h-[120px] flex items-center justify-center p-2">
+          <div className="w-full max-w-2xl flex flex-col items-center">
+            {/* Supervisor Node */}
+            <div className="px-4 py-1.5 rounded-[4px] border border-border bg-surface-2 text-text font-semibold text-[12px] flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-accent" />
+              <span>Supervisor Agent</span>
             </div>
-          );
-        })}
-      </div>
 
-      {/* Inspector Panel */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: '#0F172A', border: `1px solid ${style.border}` }}
+            {/* Connecting lines */}
+            <div className="w-[1px] h-4 bg-border" />
+            <div className="w-3/4 h-[1px] bg-border relative">
+              <div className="absolute left-0 top-0 w-[1px] h-3 bg-border" />
+              <div className="absolute left-1/3 top-0 w-[1px] h-3 bg-border" />
+              <div className="absolute left-2/3 top-0 w-[1px] h-3 bg-border" />
+              <div className="absolute right-0 top-0 w-[1px] h-3 bg-border" />
+            </div>
+
+            {/* Specialist Nodes */}
+            <div className="w-full flex justify-between gap-2 pt-3 text-[11px] font-medium text-text-2">
+              <div className="flex-1 text-center py-1 px-2 rounded-[4px] border border-border bg-surface">
+                Inventory
+              </div>
+              <div className="flex-1 text-center py-1 px-2 rounded-[4px] border border-border bg-surface">
+                Procurement
+              </div>
+              <div className="flex-1 text-center py-1 px-2 rounded-[4px] border border-border bg-surface">
+                Finance
+              </div>
+              <div className="flex-1 text-center py-1 px-2 rounded-[4px] border border-border bg-surface">
+                Logistics
+              </div>
+            </div>
+          </div>
+        </div>
+      </Panel>
+
+      {/* Agent Fleet Performance Table */}
+      <Panel
+        title="Agent Performance Telemetry"
+        subtitle="Click any row to expand recent structured output and execution parameters"
+        padding="none"
       >
-        {/* Inspector Header */}
-        <div
-          className="flex items-center justify-between px-5 py-4 border-b"
-          style={{ borderColor: style.border, background: style.bg }}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${style.border}` }}
-            >
-              <Server className="w-5 h-5" style={{ color: style.color }} />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-white">{selectedAgent.name} — Inspector</div>
-              <div className="text-[11px] text-slate-400">{selectedAgent.role}</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <StatusBadge status={selectedAgent.status} />
-          </div>
-        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-[13px]">
+            <thead>
+              <tr className="bg-surface-2 h-[36px] border-b border-border text-[11px] font-semibold text-text-3 uppercase tracking-wider">
+                <th className="px-3 py-1.5">Agent</th>
+                <th className="px-3 py-1.5">Role</th>
+                <th className="px-3 py-1.5">State</th>
+                <th className="px-3 py-1.5 text-right">Runs Today</th>
+                <th className="px-3 py-1.5 text-right">Avg Latency</th>
+                <th className="px-3 py-1.5 text-right">Timeouts</th>
+                <th className="px-3 py-1.5">Provider</th>
+                <th className="px-3 py-1.5">Last Error</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {agents.map((agent) => {
+                const isExpanded = expandedAgentId === agent.id;
 
-        {/* Metrics Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-5">
-          {[
-            { label: 'Tasks Executed',       value: selectedAgent.tasksCompleted.toLocaleString(), icon: <Activity className="w-4 h-4" />,     color: style.color },
-            { label: 'Avg Response Time',     value: `${selectedAgent.avgResponseMs} ms`,           icon: <Clock className="w-4 h-4" />,         color: '#38BDF8'   },
-            { label: 'Confidence Level',      value: `${selectedAgent.confidence}%`,                icon: <ShieldCheck className="w-4 h-4" />,   color: '#10B981'   },
-            { label: 'Workload',             value: `${selectedAgent.workload}%`,                   icon: <Cpu className="w-4 h-4" />,           color: '#F59E0B'   },
-          ].map(({ label, value, icon, color }) => (
-            <div key={label} className="rounded-lg p-3" style={{ background: '#080C14', border: '1px solid #1E293B' }}>
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-600 font-mono uppercase mb-1.5">
-                <span style={{ color }}>{icon}</span>
-                {label}
-              </div>
-              <div className="text-xl font-bold font-mono" style={{ color }}>{value}</div>
-            </div>
-          ))}
-        </div>
+                const structuredOutput = {
+                  agent_id: agent.id,
+                  task: agent.currentTask || 'Requisition evaluation',
+                  decision: agent.lastDecision,
+                  confidence_score: agent.confidence,
+                  rationale: agent.rationale,
+                  parameters: {
+                    latency_ms: agent.avgResponseMs,
+                    workload_pct: agent.workload,
+                    completed_count: agent.tasksCompleted,
+                  },
+                };
 
-        {/* Decision fields */}
-        <div className="px-5 pb-5 space-y-3">
-          {[
-            { label: 'Current Task',   value: selectedAgent.currentTask,     mono: false },
-            { label: 'Input Received', value: selectedAgent.inputReceived,   mono: true  },
-            { label: 'Last Decision',  value: selectedAgent.lastDecision,    mono: false, accent: style.color },
-            { label: 'Next Action',    value: selectedAgent.nextAction,      mono: false, accent: '#F59E0B'   },
-          ].map(({ label, value, mono, accent }) => (
-            <div key={label} className="rounded-lg px-4 py-3" style={{ background: '#080C14', border: '1px solid #1E293B' }}>
-              <div className="text-[9px] font-mono font-bold text-slate-600 uppercase tracking-widest mb-1">{label}</div>
-              <div className={`text-[11px] leading-snug ${mono ? 'font-mono' : ''}`} style={{ color: accent ?? '#CBD5E1' }}>
-                {value}
-              </div>
-            </div>
-          ))}
+                return (
+                  <React.Fragment key={agent.id}>
+                    <tr
+                      onClick={() =>
+                        setExpandedAgentId(isExpanded ? null : agent.id)
+                      }
+                      className="h-[40px] hover:bg-surface-2/60 bg-surface cursor-pointer transition-colors"
+                    >
+                      <td className="px-3 py-2 font-medium text-text">
+                        <div className="flex items-center gap-1.5">
+                          {isExpanded ? (
+                            <ChevronUp className="w-3.5 h-3.5 text-text-3" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5 text-text-3" />
+                          )}
+                          <span className="capitalize">{agent.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-text-2 text-[12px] max-w-xs truncate">
+                        {agent.role}
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={agent.status} size="sm" />
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono tabular-nums text-text-2">
+                        {agent.tasksCompleted}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono tabular-nums text-text">
+                        {agent.avgResponseMs}ms
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono tabular-nums text-text-3">
+                        0
+                      </td>
+                      <td className="px-3 py-2 font-mono text-[11px] text-text-3">
+                        {dataMode === 'live' ? 'Gemini 2.5' : 'Simulation'}
+                      </td>
+                      <td className="px-3 py-2 text-[12px] text-text-3">
+                        None
+                      </td>
+                    </tr>
 
-          {/* Rationale */}
-          <div
-            className="rounded-lg px-4 py-3"
-            style={{ background: style.bg, border: `1px solid ${style.border}` }}
-          >
-            <div className="flex items-center gap-1.5 text-[9px] font-mono font-bold uppercase tracking-widest mb-1.5"
-              style={{ color: style.color }}
-            >
-              <ShieldCheck className="w-3 h-3" /> Explainability Rationale
-            </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed">
-              "{selectedAgent.rationale}"
-            </p>
-          </div>
+                    {/* Expandable JSON output */}
+                    {isExpanded && (
+                      <tr className="bg-surface-2/30">
+                        <td colSpan={8} className="p-4 border-b border-border">
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[12px] font-semibold text-text">
+                                Last Structured Output (JSON)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopy(agent.id, JSON.stringify(structuredOutput, null, 2));
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] text-text-3 hover:text-text cursor-pointer"
+                              >
+                                {copiedId === agent.id ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-ok" />
+                                    <span className="text-ok">Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>Copy JSON</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            <pre className="p-3 rounded-[4px] bg-surface-sunk border border-border text-text font-mono text-[11px] overflow-x-auto whitespace-pre-wrap">
+{JSON.stringify(structuredOutput, null, 2)}
+                            </pre>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      </div>
+      </Panel>
+
+      {/* Inter-Agent Messages Table */}
+      <Panel
+        title="Inter-Agent Consensus & Communication Logs"
+        subtitle="Chronological message sequence exchanged across the active orchestration cycle"
+        padding="none"
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-[13px]">
+            <thead>
+              <tr className="bg-surface-2 h-[36px] border-b border-border text-[11px] font-semibold text-text-3 uppercase tracking-wider">
+                <th className="px-3 py-1.5">Timestamp</th>
+                <th className="px-3 py-1.5">From</th>
+                <th className="px-3 py-1.5">To</th>
+                <th className="px-3 py-1.5">Message Type</th>
+                <th className="px-3 py-1.5">Summary</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {interAgentMessages.map((msg, idx) => (
+                <tr key={idx} className="h-[38px] hover:bg-surface-2/40 bg-surface">
+                  <td className="px-3 py-1.5 font-mono text-[11px] text-text-3">
+                    {msg.time}
+                  </td>
+                  <td className="px-3 py-1.5 font-mono text-[11px] text-text font-semibold">
+                    {msg.from}
+                  </td>
+                  <td className="px-3 py-1.5 font-mono text-[11px] text-text-2">
+                    {msg.to}
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <span className="px-1.5 py-0.5 rounded-[4px] bg-surface-sunk border border-border text-[10px] font-mono text-text-3">
+                      {msg.type}
+                    </span>
+                  </td>
+                  <td className="px-3 py-1.5 text-text-2 text-[12px]">
+                    {msg.summary}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </div>
   );
 };
