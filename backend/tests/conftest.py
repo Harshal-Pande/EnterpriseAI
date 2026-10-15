@@ -31,12 +31,19 @@ load_project_env()
 os.environ["APP_ENVIRONMENT"] = "development"
 os.environ["LLM_PROVIDER_MODE"] = "SIMULATION"
 
-WORKBOOK_PATH = REPO_ROOT / "project_reference" / "enterprise_ai_industrial_dataset_v2.xlsx"
-
 
 def _is_disposable_test_url(url: str) -> bool:
     dbname = (urlparse(url).path or "").lstrip("/").lower()
     return "test" in dbname
+
+
+# Route app database connections during tests to disposable test database to ensure strict isolation
+_test_db_url = os.environ.get("TEST_DATABASE_URL")
+if _test_db_url and _is_disposable_test_url(_test_db_url):
+    os.environ["DATABASE_URL"] = _test_db_url
+
+
+WORKBOOK_PATH = REPO_ROOT / "project_reference" / "enterprise_ai_industrial_dataset_v2.xlsx"
 
 
 @pytest.fixture(scope="session")

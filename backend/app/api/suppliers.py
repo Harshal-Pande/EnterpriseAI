@@ -84,7 +84,7 @@ def list_suppliers(
         if norm_risk not in ALLOWED_RISK_BANDS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid risk_band: {risk_band}. Allowed values: {sorted(ALLOWED_RISB_BANDS if 'ALLOWED_RISB_BANDS' in locals() else ALLOWED_RISK_BANDS)}",
+                detail=f"Invalid risk_band: {risk_band}. Allowed values: {sorted(ALLOWED_RISK_BANDS if 'ALLOWED_RISB_BANDS' in locals() else ALLOWED_RISK_BANDS)}",
             )
         clauses.append("s.risk_band = %s")
         params.append(norm_risk)

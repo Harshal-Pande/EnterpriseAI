@@ -105,7 +105,15 @@ const DemoContext = createContext<DemoContextType | undefined>(undefined);
 
 export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Live Backend State
-  const [dataMode, setDataMode] = useState<DataMode>('demo');
+  const [dataMode, setDataMode] = useState<DataMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ent_data_mode') as DataMode | null;
+      if (saved === 'demo' || saved === 'live') {
+        return saved;
+      }
+    }
+    return 'live';
+  });
   const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
   const [liveLoading, setLiveLoading] = useState<boolean>(false);
   const [liveError, setLiveError] = useState<string | null>(null);
@@ -599,6 +607,9 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const toggleDataMode = () => {
     const nextMode = dataMode === 'demo' ? 'live' : 'demo';
     setDataMode(nextMode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ent_data_mode', nextMode);
+    }
     if (nextMode === 'live') {
       refreshLiveData();
     }
@@ -702,9 +713,16 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     apiClient
       .checkLive()
-      .then(() => setIsLiveConnected(true))
-      .catch(() => setIsLiveConnected(false));
-  }, []);
+      .then(() => {
+        setIsLiveConnected(true);
+        if (dataMode === 'live') {
+          refreshLiveData();
+        }
+      })
+      .catch(() => {
+        setIsLiveConnected(false);
+      });
+  }, [dataMode]);
 
   useEffect(() => {
     return () => {

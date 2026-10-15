@@ -15,7 +15,7 @@ const API_BASE_URL =
 
 const API_KEY =
   (import.meta.env.VITE_API_KEY as string) ||
-  (typeof window !== 'undefined' ? localStorage.getItem('ent_api_key') || '' : '');
+  (typeof window !== 'undefined' ? localStorage.getItem('ent_api_key') || 'dev-operator-key' : 'dev-operator-key');
 
 export class ApiError extends Error {
   status: number;

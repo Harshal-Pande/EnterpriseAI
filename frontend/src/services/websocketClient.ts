@@ -120,7 +120,7 @@ class WebSocketClientService {
     const wsUrlBase = apiBaseUrl.replace(/^http/, 'ws');
     const apiKey =
       (import.meta.env.VITE_API_KEY as string) ||
-      (typeof window !== 'undefined' ? localStorage.getItem('ent_api_key') || '' : '');
+      (typeof window !== 'undefined' ? localStorage.getItem('ent_api_key') || 'dev-operator-key' : 'dev-operator-key');
 
     const params = new URLSearchParams();
 
