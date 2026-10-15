@@ -1,0 +1,50 @@
+services:
+  # Enterprise AI FastAPI Backend Web Service
+  - type: web
+    name: enterpriseai-backend
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "./entrypoint.sh"
+    envVars:
+      - key: APP_ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false # Paste your free Neon / Supabase PostgreSQL connection string
+      - key: ADMIN_API_KEY
+        generateValue: true
+      - key: FINANCE_API_KEY
+        generateValue: true
+      - key: SUPPLY_CHAIN_API_KEY
+        generateValue: true
+      - key: OPERATOR_API_KEY
+        generateValue: true
+      - key: VIEWER_API_KEY
+        generateValue: true
+      - key: SIMULATE_BLOCKCHAIN
+        value: "true"
+      - key: LLM_PROVIDER_MODE
+        value: "SIMULATION"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: SCHEDULER_ENABLED
+        value: "true"
+
+  # Enterprise AI React Frontend Static Site
+  - type: web
+    name: enterpriseai-frontend
+    runtime: static
+    region: oregon
+    plan: free
+    rootDir: frontend
+    buildCommand: "npm ci && npm run build"
+    staticPublishPath: "./dist"
+    routes:
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false # Set to https://<your-backend-name>.onrender.com

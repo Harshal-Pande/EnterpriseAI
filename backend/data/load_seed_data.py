@@ -39,11 +39,22 @@ from column_mappings import (  # noqa: E402
 )
 from connection import connect, get_database_url  # noqa: E402
 
-WORKBOOK_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "project_reference"
-    / "enterprise_ai_industrial_dataset_v2.xlsx"
-)
+def _find_workbook() -> Path:
+    candidates = [
+        Path(__file__).resolve().parent / "enterprise_ai_industrial_dataset_v2.xlsx",
+        Path(__file__).resolve().parent.parent.parent / "project_reference" / "enterprise_ai_industrial_dataset_v2.xlsx",
+        Path(__file__).resolve().parent.parent / "project_reference" / "enterprise_ai_industrial_dataset_v2.xlsx",
+        Path("/app/data/enterprise_ai_industrial_dataset_v2.xlsx"),
+        Path("/app/project_reference/enterprise_ai_industrial_dataset_v2.xlsx"),
+    ]
+    for p in candidates:
+        if p.is_file():
+            return p
+    return candidates[0]
+
+
+WORKBOOK_PATH = _find_workbook()
+
 
 
 def sheet_to_records(ws) -> list[dict]:
