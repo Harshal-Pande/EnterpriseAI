@@ -1,0 +1,2747 @@
+{
+  "target": {
+    "env_var": "TEST_DATABASE_URL",
+    "database": "enterprise_ai_disposable_test",
+    "host": "::1/128",
+    "port": 5432
+  },
+  "visible_databases": [
+    "enterprise_ai_disposable_test",
+    "enterprise_ai_test",
+    "postgres"
+  ],
+  "tables": {
+    "_schema_migrations": 5,
+    "action_execution_results": 0,
+    "action_queue": 0,
+    "agent_findings": 0,
+    "agent_runs": 0,
+    "approval_requests": 0,
+    "bill_of_materials": 5,
+    "blockchain_anchors": 0,
+    "budgets": 4,
+    "business_rules": 10,
+    "carrier_events": 2,
+    "decisions": 0,
+    "departments": 11,
+    "energy_readings": 240,
+    "entities": 4,
+    "event_log": 0,
+    "feed_health": 4,
+    "goods_receipts": 2,
+    "inventory": 150,
+    "maintenance_assets": 35,
+    "maintenance_work_orders": 50,
+    "order_lines": 200,
+    "orders": 200,
+    "policy_evaluations": 0,
+    "production_batches": 60,
+    "production_lines": 5,
+    "products": 11,
+    "purchase_orders": 3,
+    "quality_events": 40,
+    "reorder_policies": 55,
+    "roles": 7,
+    "safety_events": 25,
+    "scenario_instances": 0,
+    "scenario_templates": 15,
+    "scheduler_state": 1,
+    "shifts": 4,
+    "shipments": 120,
+    "simulation_config": 12,
+    "supplier_contracts": 4,
+    "supplier_offers": 6,
+    "suppliers": 8,
+    "users": 30,
+    "warehouses": 5
+  },
+  "migrations": [
+    {
+      "version": "001_operational_schema",
+      "filename": "001_operational_schema.sql",
+      "applied_at": "2026-10-15 11:00:00.597421+05:30",
+      "checksum": "84c7648476f15c33f303b1bece1b325273702619f32f845b5e3da3729c4e95c3"
+    },
+    {
+      "version": "002_runtime_schema",
+      "filename": "002_runtime_schema.sql",
+      "applied_at": "2026-10-15 11:00:00.832022+05:30",
+      "checksum": "3e23710c83ebd39bc35059a641f59ec9ea6a55fe8505e7cc7583c80875e0249e"
+    },
+    {
+      "version": "003_workflow_agent_schema",
+      "filename": "003_workflow_agent_schema.sql",
+      "applied_at": "2026-10-15 11:00:00.979532+05:30",
+      "checksum": "71081884009be382d56b07546216a27b95677364d4020a26024d436cd6aa5dd5"
+    },
+    {
+      "version": "004_scheduler_lifecycle_schema",
+      "filename": "004_scheduler_lifecycle_schema.sql",
+      "applied_at": "2026-10-15 11:00:00.987413+05:30",
+      "checksum": "9148b4834ae06f504b8199763fd0a1b74fc1dbe73a591e3ba4bfde2b5c5a99ef"
+    },
+    {
+      "version": "005_blockchain_anchoring_schema",
+      "filename": "005_blockchain_anchoring_schema.sql",
+      "applied_at": "2026-10-15 11:00:00.993993+05:30",
+      "checksum": "71695d6300cb0e05cfdda45f8ac8d9fa5c77d1b56f607c615d019215fcf2d38d"
+    }
+  ],
+  "check_constraints": [
+    {
+      "table": "_schema_migrations",
+      "constraint": "_schema_migrations_applied_at_not_null",
+      "clause": "applied_at IS NOT NULL"
+    },
+    {
+      "table": "_schema_migrations",
+      "constraint": "_schema_migrations_checksum_not_null",
+      "clause": "checksum IS NOT NULL"
+    },
+    {
+      "table": "_schema_migrations",
+      "constraint": "_schema_migrations_filename_not_null",
+      "clause": "filename IS NOT NULL"
+    },
+    {
+      "table": "_schema_migrations",
+      "constraint": "_schema_migrations_version_not_null",
+      "clause": "version IS NOT NULL"
+    },
+    {
+      "table": "action_execution_results",
+      "constraint": "action_execution_results_action_id_not_null",
+      "clause": "action_id IS NOT NULL"
+    },
+    {
+      "table": "action_execution_results",
+      "constraint": "action_execution_results_attempted_at_not_null",
+      "clause": "attempted_at IS NOT NULL"
+    },
+    {
+      "table": "action_execution_results",
+      "constraint": "action_execution_results_execution_id_not_null",
+      "clause": "execution_id IS NOT NULL"
+    },
+    {
+      "table": "action_execution_results",
+      "constraint": "action_execution_results_status_check",
+      "clause": "(status = ANY (ARRAY['SUCCEEDED'::text, 'FAILED'::text, 'SKIPPED'::text, 'ROLLED_BACK'::text]))"
+    },
+    {
+      "table": "action_execution_results",
+      "constraint": "action_execution_results_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_action_id_not_null",
+      "clause": "action_id IS NOT NULL"
+    },
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_action_type_not_null",
+      "clause": "action_type IS NOT NULL"
+    },
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_decision_id_not_null",
+      "clause": "decision_id IS NOT NULL"
+    },
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_idempotency_key_not_null",
+      "clause": "idempotency_key IS NOT NULL"
+    },
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_payload_not_null",
+      "clause": "payload IS NOT NULL"
+    },
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_requires_approval_not_null",
+      "clause": "requires_approval IS NOT NULL"
+    },
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_scenario_id_not_null",
+      "clause": "scenario_id IS NOT NULL"
+    },
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_status_check",
+      "clause": "(status = ANY (ARRAY['PROPOSED'::text, 'APPROVED'::text, 'REJECTED'::text, 'EXECUTING'::text, 'SUCCEEDED'::text, 'FAILED'::text, 'CANCELLED'::text]))"
+    },
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "agent_findings",
+      "constraint": "agent_findings_agent_run_id_not_null",
+      "clause": "agent_run_id IS NOT NULL"
+    },
+    {
+      "table": "agent_findings",
+      "constraint": "agent_findings_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "agent_findings",
+      "constraint": "agent_findings_evidence_refs_not_null",
+      "clause": "evidence_refs IS NOT NULL"
+    },
+    {
+      "table": "agent_findings",
+      "constraint": "agent_findings_finding_code_not_null",
+      "clause": "finding_code IS NOT NULL"
+    },
+    {
+      "table": "agent_findings",
+      "constraint": "agent_findings_finding_id_not_null",
+      "clause": "finding_id IS NOT NULL"
+    },
+    {
+      "table": "agent_findings",
+      "constraint": "agent_findings_severity_check",
+      "clause": "(severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))"
+    },
+    {
+      "table": "agent_findings",
+      "constraint": "agent_findings_severity_not_null",
+      "clause": "severity IS NOT NULL"
+    },
+    {
+      "table": "agent_findings",
+      "constraint": "agent_findings_summary_not_null",
+      "clause": "summary IS NOT NULL"
+    },
+    {
+      "table": "agent_runs",
+      "constraint": "agent_runs_agent_name_not_null",
+      "clause": "agent_name IS NOT NULL"
+    },
+    {
+      "table": "agent_runs",
+      "constraint": "agent_runs_agent_run_id_not_null",
+      "clause": "agent_run_id IS NOT NULL"
+    },
+    {
+      "table": "agent_runs",
+      "constraint": "agent_runs_evidence_refs_not_null",
+      "clause": "evidence_refs IS NOT NULL"
+    },
+    {
+      "table": "agent_runs",
+      "constraint": "agent_runs_input_refs_not_null",
+      "clause": "input_refs IS NOT NULL"
+    },
+    {
+      "table": "agent_runs",
+      "constraint": "agent_runs_scenario_id_not_null",
+      "clause": "scenario_id IS NOT NULL"
+    },
+    {
+      "table": "agent_runs",
+      "constraint": "agent_runs_started_at_not_null",
+      "clause": "started_at IS NOT NULL"
+    },
+    {
+      "table": "agent_runs",
+      "constraint": "agent_runs_status_check",
+      "clause": "(status = ANY (ARRAY['PENDING'::text, 'RUNNING'::text, 'COMPLETED'::text, 'FAILED'::text, 'SKIPPED'::text]))"
+    },
+    {
+      "table": "agent_runs",
+      "constraint": "agent_runs_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "agent_runs",
+      "constraint": "agent_runs_workflow_run_id_not_null",
+      "clause": "workflow_run_id IS NOT NULL"
+    },
+    {
+      "table": "approval_requests",
+      "constraint": "approval_requests_approval_id_not_null",
+      "clause": "approval_id IS NOT NULL"
+    },
+    {
+      "table": "approval_requests",
+      "constraint": "approval_requests_requested_at_not_null",
+      "clause": "requested_at IS NOT NULL"
+    },
+    {
+      "table": "approval_requests",
+      "constraint": "approval_requests_status_check",
+      "clause": "(status = ANY (ARRAY['PENDING'::text, 'APPROVED'::text, 'REJECTED'::text, 'CANCELLED'::text, 'EXPIRED'::text]))"
+    },
+    {
+      "table": "approval_requests",
+      "constraint": "approval_requests_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "bill_of_materials",
+      "constraint": "bill_of_materials_bom_line_id_not_null",
+      "clause": "bom_line_id IS NOT NULL"
+    },
+    {
+      "table": "bill_of_materials",
+      "constraint": "bill_of_materials_consumption_uom_not_null",
+      "clause": "consumption_uom IS NOT NULL"
+    },
+    {
+      "table": "bill_of_materials",
+      "constraint": "bill_of_materials_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "bill_of_materials",
+      "constraint": "bill_of_materials_input_item_id_not_null",
+      "clause": "input_item_id IS NOT NULL"
+    },
+    {
+      "table": "bill_of_materials",
+      "constraint": "bill_of_materials_output_product_id_not_null",
+      "clause": "output_product_id IS NOT NULL"
+    },
+    {
+      "table": "bill_of_materials",
+      "constraint": "bill_of_materials_quantity_per_output_unit_not_null",
+      "clause": "quantity_per_output_unit IS NOT NULL"
+    },
+    {
+      "table": "bill_of_materials",
+      "constraint": "bill_of_materials_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "bill_of_materials",
+      "constraint": "bill_of_materials_version_status_not_null",
+      "clause": "version_status IS NOT NULL"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_anchor_id_not_null",
+      "clause": "anchor_id IS NOT NULL"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_chain_id_not_null",
+      "clause": "chain_id IS NOT NULL"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_chain_name_not_null",
+      "clause": "chain_name IS NOT NULL"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_confirmation_status_check",
+      "clause": "(confirmation_status = ANY (ARRAY['NOT_SUBMITTED'::text, 'PENDING'::text, 'CONFIRMED'::text, 'FAILED'::text]))"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_confirmation_status_not_null",
+      "clause": "confirmation_status IS NOT NULL"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_contract_address_not_null",
+      "clause": "contract_address IS NOT NULL"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_event_id_or_batch_id_not_null",
+      "clause": "event_id_or_batch_id IS NOT NULL"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_payload_hash_not_null",
+      "clause": "payload_hash IS NOT NULL"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_retry_count_not_null",
+      "clause": "retry_count IS NOT NULL"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_verification_status_check",
+      "clause": "(verification_status = ANY (ARRAY['NOT_VERIFIED'::text, 'MATCHED'::text, 'MISMATCH'::text, 'FAILED'::text]))"
+    },
+    {
+      "table": "blockchain_anchors",
+      "constraint": "blockchain_anchors_verification_status_not_null",
+      "clause": "verification_status IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_approved_limit_inr_not_null",
+      "clause": "approved_limit_inr IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_available_budget_inr_not_null",
+      "clause": "available_budget_inr IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_budget_id_not_null",
+      "clause": "budget_id IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_committed_spend_inr_not_null",
+      "clause": "committed_spend_inr IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_cost_center_not_null",
+      "clause": "cost_center IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_currency_not_null",
+      "clause": "currency IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_entity_id_not_null",
+      "clause": "entity_id IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_period_not_null",
+      "clause": "period IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_status_check",
+      "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'INACTIVE'::text, 'CLOSED'::text]))"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "budgets",
+      "constraint": "budgets_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "business_rules",
+      "constraint": "business_rules_automation_mode_not_null",
+      "clause": "automation_mode IS NOT NULL"
+    },
+    {
+      "table": "business_rules",
+      "constraint": "business_rules_condition_expression_not_null",
+      "clause": "condition_expression IS NOT NULL"
+    },
+    {
+      "table": "business_rules",
+      "constraint": "business_rules_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "business_rules",
+      "constraint": "business_rules_domain_not_null",
+      "clause": "domain IS NOT NULL"
+    },
+    {
+      "table": "business_rules",
+      "constraint": "business_rules_enabled_not_null",
+      "clause": "enabled IS NOT NULL"
+    },
+    {
+      "table": "business_rules",
+      "constraint": "business_rules_failure_action_not_null",
+      "clause": "failure_action IS NOT NULL"
+    },
+    {
+      "table": "business_rules",
+      "constraint": "business_rules_rule_id_not_null",
+      "clause": "rule_id IS NOT NULL"
+    },
+    {
+      "table": "business_rules",
+      "constraint": "business_rules_severity_check",
+      "clause": "(severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))"
+    },
+    {
+      "table": "business_rules",
+      "constraint": "business_rules_severity_not_null",
+      "clause": "severity IS NOT NULL"
+    },
+    {
+      "table": "business_rules",
+      "constraint": "business_rules_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "carrier_events",
+      "constraint": "carrier_events_carrier_event_id_not_null",
+      "clause": "carrier_event_id IS NOT NULL"
+    },
+    {
+      "table": "carrier_events",
+      "constraint": "carrier_events_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "carrier_events",
+      "constraint": "carrier_events_event_timestamp_not_null",
+      "clause": "event_timestamp IS NOT NULL"
+    },
+    {
+      "table": "carrier_events",
+      "constraint": "carrier_events_event_type_not_null",
+      "clause": "event_type IS NOT NULL"
+    },
+    {
+      "table": "carrier_events",
+      "constraint": "carrier_events_shipment_id_not_null",
+      "clause": "shipment_id IS NOT NULL"
+    },
+    {
+      "table": "carrier_events",
+      "constraint": "carrier_events_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_approval_status_check",
+      "clause": "(approval_status = ANY (ARRAY['NOT_REQUIRED'::text, 'PENDING'::text, 'APPROVED'::text, 'REJECTED'::text]))"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_approval_status_not_null",
+      "clause": "approval_status IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_blockchain_anchor_status_check",
+      "clause": "(blockchain_anchor_status = ANY (ARRAY['NOT_SUBMITTED'::text, 'PENDING'::text, 'CONFIRMED'::text, 'FAILED'::text, 'NOT_REQUIRED'::text]))"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_blockchain_anchor_status_not_null",
+      "clause": "blockchain_anchor_status IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_decision_at_not_null",
+      "clause": "decision_at IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_decision_code_not_null",
+      "clause": "decision_code IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_decision_id_not_null",
+      "clause": "decision_id IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_evidence_refs_not_null",
+      "clause": "evidence_refs IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_human_approval_required_not_null",
+      "clause": "human_approval_required IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_policy_checks_not_null",
+      "clause": "policy_checks IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_recommended_action_not_null",
+      "clause": "recommended_action IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_scenario_id_not_null",
+      "clause": "scenario_id IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_supervisor_summary_not_null",
+      "clause": "supervisor_summary IS NOT NULL"
+    },
+    {
+      "table": "decisions",
+      "constraint": "decisions_workflow_run_id_not_null",
+      "clause": "workflow_run_id IS NOT NULL"
+    },
+    {
+      "table": "departments",
+      "constraint": "departments_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "departments",
+      "constraint": "departments_department_id_not_null",
+      "clause": "department_id IS NOT NULL"
+    },
+    {
+      "table": "departments",
+      "constraint": "departments_department_name_not_null",
+      "clause": "department_name IS NOT NULL"
+    },
+    {
+      "table": "departments",
+      "constraint": "departments_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "energy_readings",
+      "constraint": "energy_readings_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "energy_readings",
+      "constraint": "energy_readings_currency_not_null",
+      "clause": "currency IS NOT NULL"
+    },
+    {
+      "table": "energy_readings",
+      "constraint": "energy_readings_energy_kwh_not_null",
+      "clause": "energy_kwh IS NOT NULL"
+    },
+    {
+      "table": "energy_readings",
+      "constraint": "energy_readings_entity_id_not_null",
+      "clause": "entity_id IS NOT NULL"
+    },
+    {
+      "table": "energy_readings",
+      "constraint": "energy_readings_production_line_id_not_null",
+      "clause": "production_line_id IS NOT NULL"
+    },
+    {
+      "table": "energy_readings",
+      "constraint": "energy_readings_reading_at_not_null",
+      "clause": "reading_at IS NOT NULL"
+    },
+    {
+      "table": "energy_readings",
+      "constraint": "energy_readings_reading_id_not_null",
+      "clause": "reading_id IS NOT NULL"
+    },
+    {
+      "table": "energy_readings",
+      "constraint": "energy_readings_signal_check",
+      "clause": "(signal = ANY (ARRAY['NORMAL'::text, 'SPIKE'::text, 'HIGH_USAGE'::text, 'LOW'::text, 'OFFLINE'::text, 'ALERT'::text]))"
+    },
+    {
+      "table": "energy_readings",
+      "constraint": "energy_readings_signal_not_null",
+      "clause": "signal IS NOT NULL"
+    },
+    {
+      "table": "energy_readings",
+      "constraint": "energy_readings_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "entities",
+      "constraint": "entities_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "entities",
+      "constraint": "entities_entity_id_not_null",
+      "clause": "entity_id IS NOT NULL"
+    },
+    {
+      "table": "entities",
+      "constraint": "entities_entity_name_not_null",
+      "clause": "entity_name IS NOT NULL"
+    },
+    {
+      "table": "entities",
+      "constraint": "entities_entity_type_not_null",
+      "clause": "entity_type IS NOT NULL"
+    },
+    {
+      "table": "entities",
+      "constraint": "entities_status_check",
+      "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'INACTIVE'::text]))"
+    },
+    {
+      "table": "entities",
+      "constraint": "entities_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "entities",
+      "constraint": "entities_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_actor_id_not_null",
+      "clause": "actor_id IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_actor_type_not_null",
+      "clause": "actor_type IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_entity_id_not_null",
+      "clause": "entity_id IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_entity_type_not_null",
+      "clause": "entity_type IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_event_id_not_null",
+      "clause": "event_id IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_event_timestamp_not_null",
+      "clause": "event_timestamp IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_event_type_not_null",
+      "clause": "event_type IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_evidence_refs_not_null",
+      "clause": "evidence_refs IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_payload_hash_not_null",
+      "clause": "payload_hash IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_source_channel_not_null",
+      "clause": "source_channel IS NOT NULL"
+    },
+    {
+      "table": "event_log",
+      "constraint": "event_log_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "feed_health",
+      "constraint": "feed_health_consecutive_failures_not_null",
+      "clause": "consecutive_failures IS NOT NULL"
+    },
+    {
+      "table": "feed_health",
+      "constraint": "feed_health_feed_id_not_null",
+      "clause": "feed_id IS NOT NULL"
+    },
+    {
+      "table": "feed_health",
+      "constraint": "feed_health_health_status_check",
+      "clause": "(health_status = ANY (ARRAY['HEALTHY'::text, 'DEGRADED'::text, 'OFFLINE'::text, 'UNKNOWN'::text]))"
+    },
+    {
+      "table": "feed_health",
+      "constraint": "feed_health_health_status_not_null",
+      "clause": "health_status IS NOT NULL"
+    },
+    {
+      "table": "feed_health",
+      "constraint": "feed_health_source_name_not_null",
+      "clause": "source_name IS NOT NULL"
+    },
+    {
+      "table": "feed_health",
+      "constraint": "feed_health_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "goods_receipts",
+      "constraint": "goods_receipts_accepted_qty_not_null",
+      "clause": "accepted_qty IS NOT NULL"
+    },
+    {
+      "table": "goods_receipts",
+      "constraint": "goods_receipts_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "goods_receipts",
+      "constraint": "goods_receipts_grn_id_not_null",
+      "clause": "grn_id IS NOT NULL"
+    },
+    {
+      "table": "goods_receipts",
+      "constraint": "goods_receipts_inspection_status_check",
+      "clause": "(inspection_status = ANY (ARRAY['PENDING'::text, 'ACCEPTED'::text, 'QUALITY_HOLD'::text, 'REJECTED'::text]))"
+    },
+    {
+      "table": "goods_receipts",
+      "constraint": "goods_receipts_inspection_status_not_null",
+      "clause": "inspection_status IS NOT NULL"
+    },
+    {
+      "table": "goods_receipts",
+      "constraint": "goods_receipts_item_id_not_null",
+      "clause": "item_id IS NOT NULL"
+    },
+    {
+      "table": "goods_receipts",
+      "constraint": "goods_receipts_po_id_not_null",
+      "clause": "po_id IS NOT NULL"
+    },
+    {
+      "table": "goods_receipts",
+      "constraint": "goods_receipts_received_qty_not_null",
+      "clause": "received_qty IS NOT NULL"
+    },
+    {
+      "table": "goods_receipts",
+      "constraint": "goods_receipts_supplier_id_not_null",
+      "clause": "supplier_id IS NOT NULL"
+    },
+    {
+      "table": "goods_receipts",
+      "constraint": "goods_receipts_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "inventory",
+      "constraint": "inventory_available_qty_not_null",
+      "clause": "available_qty IS NOT NULL"
+    },
+    {
+      "table": "inventory",
+      "constraint": "inventory_inventory_id_not_null",
+      "clause": "inventory_id IS NOT NULL"
+    },
+    {
+      "table": "inventory",
+      "constraint": "inventory_item_id_not_null",
+      "clause": "item_id IS NOT NULL"
+    },
+    {
+      "table": "inventory",
+      "constraint": "inventory_on_hand_qty_not_null",
+      "clause": "on_hand_qty IS NOT NULL"
+    },
+    {
+      "table": "inventory",
+      "constraint": "inventory_reserved_qty_not_null",
+      "clause": "reserved_qty IS NOT NULL"
+    },
+    {
+      "table": "inventory",
+      "constraint": "inventory_stock_signal_check",
+      "clause": "(stock_signal = ANY (ARRAY['NORMAL'::text, 'LOW_STOCK'::text, 'CRITICAL'::text, 'OUT_OF_STOCK'::text, 'EXCESS'::text]))"
+    },
+    {
+      "table": "inventory",
+      "constraint": "inventory_stock_signal_not_null",
+      "clause": "stock_signal IS NOT NULL"
+    },
+    {
+      "table": "inventory",
+      "constraint": "inventory_uom_not_null",
+      "clause": "uom IS NOT NULL"
+    },
+    {
+      "table": "inventory",
+      "constraint": "inventory_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "inventory",
+      "constraint": "inventory_warehouse_id_not_null",
+      "clause": "warehouse_id IS NOT NULL"
+    },
+    {
+      "table": "maintenance_assets",
+      "constraint": "maintenance_assets_asset_id_not_null",
+      "clause": "asset_id IS NOT NULL"
+    },
+    {
+      "table": "maintenance_assets",
+      "constraint": "maintenance_assets_asset_name_not_null",
+      "clause": "asset_name IS NOT NULL"
+    },
+    {
+      "table": "maintenance_assets",
+      "constraint": "maintenance_assets_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "maintenance_assets",
+      "constraint": "maintenance_assets_failure_risk_score_check",
+      "clause": "((failure_risk_score IS NULL) OR ((failure_risk_score >= (0)::numeric) AND (failure_risk_score <= (1)::numeric)))"
+    },
+    {
+      "table": "maintenance_assets",
+      "constraint": "maintenance_assets_health_status_check",
+      "clause": "(health_status = ANY (ARRAY['NORMAL'::text, 'WARNING'::text, 'CRITICAL'::text]))"
+    },
+    {
+      "table": "maintenance_assets",
+      "constraint": "maintenance_assets_health_status_not_null",
+      "clause": "health_status IS NOT NULL"
+    },
+    {
+      "table": "maintenance_assets",
+      "constraint": "maintenance_assets_production_line_id_not_null",
+      "clause": "production_line_id IS NOT NULL"
+    },
+    {
+      "table": "maintenance_assets",
+      "constraint": "maintenance_assets_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "constraint": "maintenance_work_orders_asset_id_not_null",
+      "clause": "asset_id IS NOT NULL"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "constraint": "maintenance_work_orders_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "constraint": "maintenance_work_orders_priority_check",
+      "clause": "(priority = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "constraint": "maintenance_work_orders_priority_not_null",
+      "clause": "priority IS NOT NULL"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "constraint": "maintenance_work_orders_status_check",
+      "clause": "(status = ANY (ARRAY['OPEN'::text, 'SCHEDULED'::text, 'IN_PROGRESS'::text, 'COMPLETED'::text, 'CANCELLED'::text]))"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "constraint": "maintenance_work_orders_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "constraint": "maintenance_work_orders_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "constraint": "maintenance_work_orders_work_order_id_not_null",
+      "clause": "work_order_id IS NOT NULL"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "constraint": "maintenance_work_orders_work_type_not_null",
+      "clause": "work_type IS NOT NULL"
+    },
+    {
+      "table": "order_lines",
+      "constraint": "order_lines_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "order_lines",
+      "constraint": "order_lines_order_id_not_null",
+      "clause": "order_id IS NOT NULL"
+    },
+    {
+      "table": "order_lines",
+      "constraint": "order_lines_order_line_id_not_null",
+      "clause": "order_line_id IS NOT NULL"
+    },
+    {
+      "table": "order_lines",
+      "constraint": "order_lines_product_id_not_null",
+      "clause": "product_id IS NOT NULL"
+    },
+    {
+      "table": "order_lines",
+      "constraint": "order_lines_requested_qty_not_null",
+      "clause": "requested_qty IS NOT NULL"
+    },
+    {
+      "table": "order_lines",
+      "constraint": "order_lines_uom_not_null",
+      "clause": "uom IS NOT NULL"
+    },
+    {
+      "table": "order_lines",
+      "constraint": "order_lines_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "orders",
+      "constraint": "orders_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "orders",
+      "constraint": "orders_currency_not_null",
+      "clause": "currency IS NOT NULL"
+    },
+    {
+      "table": "orders",
+      "constraint": "orders_customer_ref_not_null",
+      "clause": "customer_ref IS NOT NULL"
+    },
+    {
+      "table": "orders",
+      "constraint": "orders_entity_id_not_null",
+      "clause": "entity_id IS NOT NULL"
+    },
+    {
+      "table": "orders",
+      "constraint": "orders_order_id_not_null",
+      "clause": "order_id IS NOT NULL"
+    },
+    {
+      "table": "orders",
+      "constraint": "orders_priority_check",
+      "clause": "(priority = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))"
+    },
+    {
+      "table": "orders",
+      "constraint": "orders_priority_not_null",
+      "clause": "priority IS NOT NULL"
+    },
+    {
+      "table": "orders",
+      "constraint": "orders_status_check",
+      "clause": "(status = ANY (ARRAY['OPEN'::text, 'IN_PROGRESS'::text, 'AT_RISK'::text, 'COMPLETED'::text, 'CANCELLED'::text]))"
+    },
+    {
+      "table": "orders",
+      "constraint": "orders_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "orders",
+      "constraint": "orders_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "policy_evaluations",
+      "constraint": "policy_evaluations_details_not_null",
+      "clause": "details IS NOT NULL"
+    },
+    {
+      "table": "policy_evaluations",
+      "constraint": "policy_evaluations_evaluated_at_not_null",
+      "clause": "evaluated_at IS NOT NULL"
+    },
+    {
+      "table": "policy_evaluations",
+      "constraint": "policy_evaluations_policy_eval_id_not_null",
+      "clause": "policy_eval_id IS NOT NULL"
+    },
+    {
+      "table": "policy_evaluations",
+      "constraint": "policy_evaluations_result_check",
+      "clause": "(result = ANY (ARRAY['PASS'::text, 'FAIL'::text, 'SKIP'::text, 'NEEDS_APPROVAL'::text]))"
+    },
+    {
+      "table": "policy_evaluations",
+      "constraint": "policy_evaluations_result_not_null",
+      "clause": "result IS NOT NULL"
+    },
+    {
+      "table": "production_batches",
+      "constraint": "production_batches_batch_id_not_null",
+      "clause": "batch_id IS NOT NULL"
+    },
+    {
+      "table": "production_batches",
+      "constraint": "production_batches_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "production_batches",
+      "constraint": "production_batches_output_product_id_not_null",
+      "clause": "output_product_id IS NOT NULL"
+    },
+    {
+      "table": "production_batches",
+      "constraint": "production_batches_production_line_id_not_null",
+      "clause": "production_line_id IS NOT NULL"
+    },
+    {
+      "table": "production_batches",
+      "constraint": "production_batches_risk_flag_check",
+      "clause": "(risk_flag = ANY (ARRAY['NORMAL'::text, 'MATERIAL_RISK'::text, 'DELAY_RISK'::text, 'CAPACITY_RISK'::text, 'QUALITY_RISK'::text]))"
+    },
+    {
+      "table": "production_batches",
+      "constraint": "production_batches_risk_flag_not_null",
+      "clause": "risk_flag IS NOT NULL"
+    },
+    {
+      "table": "production_batches",
+      "constraint": "production_batches_status_check",
+      "clause": "(status = ANY (ARRAY['PLANNED'::text, 'IN_PROGRESS'::text, 'COMPLETED'::text, 'CANCELLED'::text]))"
+    },
+    {
+      "table": "production_batches",
+      "constraint": "production_batches_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "production_batches",
+      "constraint": "production_batches_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "production_lines",
+      "constraint": "production_lines_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "production_lines",
+      "constraint": "production_lines_entity_id_not_null",
+      "clause": "entity_id IS NOT NULL"
+    },
+    {
+      "table": "production_lines",
+      "constraint": "production_lines_line_name_not_null",
+      "clause": "line_name IS NOT NULL"
+    },
+    {
+      "table": "production_lines",
+      "constraint": "production_lines_process_stage_not_null",
+      "clause": "process_stage IS NOT NULL"
+    },
+    {
+      "table": "production_lines",
+      "constraint": "production_lines_production_line_id_not_null",
+      "clause": "production_line_id IS NOT NULL"
+    },
+    {
+      "table": "production_lines",
+      "constraint": "production_lines_status_check",
+      "clause": "(status = ANY (ARRAY['RUNNING'::text, 'STOPPED'::text, 'MAINTENANCE'::text, 'IDLE'::text]))"
+    },
+    {
+      "table": "production_lines",
+      "constraint": "production_lines_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "production_lines",
+      "constraint": "production_lines_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "production_lines",
+      "constraint": "production_lines_utilisation_pct_check",
+      "clause": "((utilisation_pct IS NULL) OR ((utilisation_pct >= (0)::numeric) AND (utilisation_pct <= (1)::numeric)))"
+    },
+    {
+      "table": "products",
+      "constraint": "products_base_uom_not_null",
+      "clause": "base_uom IS NOT NULL"
+    },
+    {
+      "table": "products",
+      "constraint": "products_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "products",
+      "constraint": "products_product_category_not_null",
+      "clause": "product_category IS NOT NULL"
+    },
+    {
+      "table": "products",
+      "constraint": "products_product_id_not_null",
+      "clause": "product_id IS NOT NULL"
+    },
+    {
+      "table": "products",
+      "constraint": "products_product_name_not_null",
+      "clause": "product_name IS NOT NULL"
+    },
+    {
+      "table": "products",
+      "constraint": "products_status_check",
+      "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'INACTIVE'::text, 'OBSOLETE'::text]))"
+    },
+    {
+      "table": "products",
+      "constraint": "products_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "products",
+      "constraint": "products_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "purchase_orders",
+      "constraint": "purchase_orders_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "purchase_orders",
+      "constraint": "purchase_orders_currency_not_null",
+      "clause": "currency IS NOT NULL"
+    },
+    {
+      "table": "purchase_orders",
+      "constraint": "purchase_orders_item_id_not_null",
+      "clause": "item_id IS NOT NULL"
+    },
+    {
+      "table": "purchase_orders",
+      "constraint": "purchase_orders_po_id_not_null",
+      "clause": "po_id IS NOT NULL"
+    },
+    {
+      "table": "purchase_orders",
+      "constraint": "purchase_orders_quantity_not_null",
+      "clause": "quantity IS NOT NULL"
+    },
+    {
+      "table": "purchase_orders",
+      "constraint": "purchase_orders_status_check",
+      "clause": "(status = ANY (ARRAY['DRAFT'::text, 'APPROVED'::text, 'IN_TRANSIT'::text, 'RECEIVED'::text, 'CANCELLED'::text]))"
+    },
+    {
+      "table": "purchase_orders",
+      "constraint": "purchase_orders_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "purchase_orders",
+      "constraint": "purchase_orders_supplier_id_not_null",
+      "clause": "supplier_id IS NOT NULL"
+    },
+    {
+      "table": "purchase_orders",
+      "constraint": "purchase_orders_unit_cost_inr_not_null",
+      "clause": "unit_cost_inr IS NOT NULL"
+    },
+    {
+      "table": "purchase_orders",
+      "constraint": "purchase_orders_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "quality_events",
+      "constraint": "quality_events_batch_id_not_null",
+      "clause": "batch_id IS NOT NULL"
+    },
+    {
+      "table": "quality_events",
+      "constraint": "quality_events_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "quality_events",
+      "constraint": "quality_events_defect_code_not_null",
+      "clause": "defect_code IS NOT NULL"
+    },
+    {
+      "table": "quality_events",
+      "constraint": "quality_events_product_id_not_null",
+      "clause": "product_id IS NOT NULL"
+    },
+    {
+      "table": "quality_events",
+      "constraint": "quality_events_quality_event_id_not_null",
+      "clause": "quality_event_id IS NOT NULL"
+    },
+    {
+      "table": "quality_events",
+      "constraint": "quality_events_severity_check",
+      "clause": "(severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))"
+    },
+    {
+      "table": "quality_events",
+      "constraint": "quality_events_severity_not_null",
+      "clause": "severity IS NOT NULL"
+    },
+    {
+      "table": "quality_events",
+      "constraint": "quality_events_status_check",
+      "clause": "(status = ANY (ARRAY['OPEN'::text, 'IN_REVIEW'::text, 'RELEASED'::text, 'REJECTED'::text]))"
+    },
+    {
+      "table": "quality_events",
+      "constraint": "quality_events_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "quality_events",
+      "constraint": "quality_events_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_item_id_not_null",
+      "clause": "item_id IS NOT NULL"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_policy_id_not_null",
+      "clause": "policy_id IS NOT NULL"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_reorder_point_qty_not_null",
+      "clause": "reorder_point_qty IS NOT NULL"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_safety_stock_qty_not_null",
+      "clause": "safety_stock_qty IS NOT NULL"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_status_check",
+      "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'INACTIVE'::text]))"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_warehouse_id_not_null",
+      "clause": "warehouse_id IS NOT NULL"
+    },
+    {
+      "table": "roles",
+      "constraint": "roles_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "roles",
+      "constraint": "roles_role_id_not_null",
+      "clause": "role_id IS NOT NULL"
+    },
+    {
+      "table": "roles",
+      "constraint": "roles_role_name_not_null",
+      "clause": "role_name IS NOT NULL"
+    },
+    {
+      "table": "roles",
+      "constraint": "roles_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "safety_events",
+      "constraint": "safety_events_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "safety_events",
+      "constraint": "safety_events_entity_id_not_null",
+      "clause": "entity_id IS NOT NULL"
+    },
+    {
+      "table": "safety_events",
+      "constraint": "safety_events_event_type_not_null",
+      "clause": "event_type IS NOT NULL"
+    },
+    {
+      "table": "safety_events",
+      "constraint": "safety_events_occurred_at_not_null",
+      "clause": "occurred_at IS NOT NULL"
+    },
+    {
+      "table": "safety_events",
+      "constraint": "safety_events_safety_event_id_not_null",
+      "clause": "safety_event_id IS NOT NULL"
+    },
+    {
+      "table": "safety_events",
+      "constraint": "safety_events_severity_check",
+      "clause": "(severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))"
+    },
+    {
+      "table": "safety_events",
+      "constraint": "safety_events_severity_not_null",
+      "clause": "severity IS NOT NULL"
+    },
+    {
+      "table": "safety_events",
+      "constraint": "safety_events_status_check",
+      "clause": "(status = ANY (ARRAY['OPEN'::text, 'INVESTIGATING'::text, 'CLOSED'::text, 'ESCALATED'::text]))"
+    },
+    {
+      "table": "safety_events",
+      "constraint": "safety_events_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "safety_events",
+      "constraint": "safety_events_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_data_mode_not_null",
+      "clause": "data_mode IS NOT NULL"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_idempotency_key_not_null",
+      "clause": "idempotency_key IS NOT NULL"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_input_overlay_not_null",
+      "clause": "input_overlay IS NOT NULL"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_scenario_id_not_null",
+      "clause": "scenario_id IS NOT NULL"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_scenario_template_id_not_null",
+      "clause": "scenario_template_id IS NOT NULL"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_scheduled_at_not_null",
+      "clause": "scheduled_at IS NOT NULL"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_severity_check",
+      "clause": "(severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_severity_not_null",
+      "clause": "severity IS NOT NULL"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_status_check",
+      "clause": "(status = ANY (ARRAY['QUEUED'::text, 'CREATED'::text, 'TRIAGED'::text, 'INVESTIGATING'::text, 'DECISION_READY'::text, 'RUNNING'::text, 'WAITING_APPROVAL'::text, 'AWAITING_APPROVAL'::text, 'EXECUTING'::text, 'RESOLVED'::text, 'REJECTED'::text, 'FAILED'::text, 'FAILED_SAFE'::text, 'CANCELLED'::text, 'NEEDS_HUMAN_REVIEW'::text]))"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_agents_involved_not_null",
+      "clause": "agents_involved IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_description_not_null",
+      "clause": "description IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_domain_not_null",
+      "clause": "domain IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_enabled_not_null",
+      "clause": "enabled IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_expected_response_not_null",
+      "clause": "expected_response IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_guardrail_not_null",
+      "clause": "guardrail IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_injection_method_not_null",
+      "clause": "injection_method IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_scenario_template_id_not_null",
+      "clause": "scenario_template_id IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_scenario_type_not_null",
+      "clause": "scenario_type IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_severity_check",
+      "clause": "(severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_severity_not_null",
+      "clause": "severity IS NOT NULL"
+    },
+    {
+      "table": "scenario_templates",
+      "constraint": "scenario_templates_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "scheduler_state",
+      "constraint": "scheduler_state_consecutive_failures_not_null",
+      "clause": "consecutive_failures IS NOT NULL"
+    },
+    {
+      "table": "scheduler_state",
+      "constraint": "scheduler_state_enabled_not_null",
+      "clause": "enabled IS NOT NULL"
+    },
+    {
+      "table": "scheduler_state",
+      "constraint": "scheduler_state_interval_seconds_check",
+      "clause": "(interval_seconds >= 60)"
+    },
+    {
+      "table": "scheduler_state",
+      "constraint": "scheduler_state_interval_seconds_not_null",
+      "clause": "interval_seconds IS NOT NULL"
+    },
+    {
+      "table": "scheduler_state",
+      "constraint": "scheduler_state_scheduler_name_not_null",
+      "clause": "scheduler_name IS NOT NULL"
+    },
+    {
+      "table": "scheduler_state",
+      "constraint": "scheduler_state_total_runs_not_null",
+      "clause": "total_runs IS NOT NULL"
+    },
+    {
+      "table": "scheduler_state",
+      "constraint": "scheduler_state_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "shifts",
+      "constraint": "shifts_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "shifts",
+      "constraint": "shifts_end_local_not_null",
+      "clause": "end_local IS NOT NULL"
+    },
+    {
+      "table": "shifts",
+      "constraint": "shifts_entity_id_not_null",
+      "clause": "entity_id IS NOT NULL"
+    },
+    {
+      "table": "shifts",
+      "constraint": "shifts_shift_id_not_null",
+      "clause": "shift_id IS NOT NULL"
+    },
+    {
+      "table": "shifts",
+      "constraint": "shifts_start_local_not_null",
+      "clause": "start_local IS NOT NULL"
+    },
+    {
+      "table": "shifts",
+      "constraint": "shifts_status_check",
+      "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'INACTIVE'::text]))"
+    },
+    {
+      "table": "shifts",
+      "constraint": "shifts_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "shifts",
+      "constraint": "shifts_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "shipments",
+      "constraint": "shipments_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "shipments",
+      "constraint": "shipments_order_id_not_null",
+      "clause": "order_id IS NOT NULL"
+    },
+    {
+      "table": "shipments",
+      "constraint": "shipments_risk_flag_check",
+      "clause": "(risk_flag = ANY (ARRAY['NORMAL'::text, 'DELAY_RISK'::text, 'AT_RISK'::text]))"
+    },
+    {
+      "table": "shipments",
+      "constraint": "shipments_risk_flag_not_null",
+      "clause": "risk_flag IS NOT NULL"
+    },
+    {
+      "table": "shipments",
+      "constraint": "shipments_shipment_id_not_null",
+      "clause": "shipment_id IS NOT NULL"
+    },
+    {
+      "table": "shipments",
+      "constraint": "shipments_status_check",
+      "clause": "(status = ANY (ARRAY['PLANNED'::text, 'IN_TRANSIT'::text, 'AT_RISK'::text, 'DELIVERED'::text, 'CANCELLED'::text]))"
+    },
+    {
+      "table": "shipments",
+      "constraint": "shipments_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "shipments",
+      "constraint": "shipments_transport_mode_check",
+      "clause": "((transport_mode IS NULL) OR (transport_mode = ANY (ARRAY['RAIL'::text, 'ROAD'::text, 'ROAD_RAIL'::text, 'SEA'::text, 'AIR'::text])))"
+    },
+    {
+      "table": "shipments",
+      "constraint": "shipments_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "simulation_config",
+      "constraint": "simulation_config_config_key_not_null",
+      "clause": "config_key IS NOT NULL"
+    },
+    {
+      "table": "simulation_config",
+      "constraint": "simulation_config_config_value_not_null",
+      "clause": "config_value IS NOT NULL"
+    },
+    {
+      "table": "simulation_config",
+      "constraint": "simulation_config_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "simulation_config",
+      "constraint": "simulation_config_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "supplier_contracts",
+      "constraint": "supplier_contracts_contract_category_not_null",
+      "clause": "contract_category IS NOT NULL"
+    },
+    {
+      "table": "supplier_contracts",
+      "constraint": "supplier_contracts_contract_id_not_null",
+      "clause": "contract_id IS NOT NULL"
+    },
+    {
+      "table": "supplier_contracts",
+      "constraint": "supplier_contracts_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "supplier_contracts",
+      "constraint": "supplier_contracts_currency_not_null",
+      "clause": "currency IS NOT NULL"
+    },
+    {
+      "table": "supplier_contracts",
+      "constraint": "supplier_contracts_status_check",
+      "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'EXPIRED'::text, 'TERMINATED'::text]))"
+    },
+    {
+      "table": "supplier_contracts",
+      "constraint": "supplier_contracts_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "supplier_contracts",
+      "constraint": "supplier_contracts_supplier_id_not_null",
+      "clause": "supplier_id IS NOT NULL"
+    },
+    {
+      "table": "supplier_contracts",
+      "constraint": "supplier_contracts_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "supplier_offers",
+      "constraint": "supplier_offers_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "supplier_offers",
+      "constraint": "supplier_offers_item_id_not_null",
+      "clause": "item_id IS NOT NULL"
+    },
+    {
+      "table": "supplier_offers",
+      "constraint": "supplier_offers_offer_id_not_null",
+      "clause": "offer_id IS NOT NULL"
+    },
+    {
+      "table": "supplier_offers",
+      "constraint": "supplier_offers_offer_status_check",
+      "clause": "(offer_status = ANY (ARRAY['ACTIVE'::text, 'EXPIRED'::text, 'WITHDRAWN'::text]))"
+    },
+    {
+      "table": "supplier_offers",
+      "constraint": "supplier_offers_offer_status_not_null",
+      "clause": "offer_status IS NOT NULL"
+    },
+    {
+      "table": "supplier_offers",
+      "constraint": "supplier_offers_on_time_rate_check",
+      "clause": "((on_time_rate IS NULL) OR ((on_time_rate >= (0)::numeric) AND (on_time_rate <= (1)::numeric)))"
+    },
+    {
+      "table": "supplier_offers",
+      "constraint": "supplier_offers_price_uom_not_null",
+      "clause": "price_uom IS NOT NULL"
+    },
+    {
+      "table": "supplier_offers",
+      "constraint": "supplier_offers_supplier_id_not_null",
+      "clause": "supplier_id IS NOT NULL"
+    },
+    {
+      "table": "supplier_offers",
+      "constraint": "supplier_offers_unit_price_inr_not_null",
+      "clause": "unit_price_inr IS NOT NULL"
+    },
+    {
+      "table": "supplier_offers",
+      "constraint": "supplier_offers_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "suppliers",
+      "constraint": "suppliers_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "suppliers",
+      "constraint": "suppliers_historical_on_time_rate_check",
+      "clause": "((historical_on_time_rate IS NULL) OR ((historical_on_time_rate >= (0)::numeric) AND (historical_on_time_rate <= (1)::numeric)))"
+    },
+    {
+      "table": "suppliers",
+      "constraint": "suppliers_risk_band_check",
+      "clause": "(risk_band = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text]))"
+    },
+    {
+      "table": "suppliers",
+      "constraint": "suppliers_risk_band_not_null",
+      "clause": "risk_band IS NOT NULL"
+    },
+    {
+      "table": "suppliers",
+      "constraint": "suppliers_status_check",
+      "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'INACTIVE'::text, 'SUSPENDED'::text]))"
+    },
+    {
+      "table": "suppliers",
+      "constraint": "suppliers_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "suppliers",
+      "constraint": "suppliers_supplier_category_not_null",
+      "clause": "supplier_category IS NOT NULL"
+    },
+    {
+      "table": "suppliers",
+      "constraint": "suppliers_supplier_id_not_null",
+      "clause": "supplier_id IS NOT NULL"
+    },
+    {
+      "table": "suppliers",
+      "constraint": "suppliers_supplier_name_not_null",
+      "clause": "supplier_name IS NOT NULL"
+    },
+    {
+      "table": "suppliers",
+      "constraint": "suppliers_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "users",
+      "constraint": "users_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "users",
+      "constraint": "users_display_name_not_null",
+      "clause": "display_name IS NOT NULL"
+    },
+    {
+      "table": "users",
+      "constraint": "users_entity_id_not_null",
+      "clause": "entity_id IS NOT NULL"
+    },
+    {
+      "table": "users",
+      "constraint": "users_role_id_not_null",
+      "clause": "role_id IS NOT NULL"
+    },
+    {
+      "table": "users",
+      "constraint": "users_status_check",
+      "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'INACTIVE'::text, 'SUSPENDED'::text]))"
+    },
+    {
+      "table": "users",
+      "constraint": "users_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "users",
+      "constraint": "users_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "users",
+      "constraint": "users_user_id_not_null",
+      "clause": "user_id IS NOT NULL"
+    },
+    {
+      "table": "warehouses",
+      "constraint": "warehouses_created_at_not_null",
+      "clause": "created_at IS NOT NULL"
+    },
+    {
+      "table": "warehouses",
+      "constraint": "warehouses_entity_id_not_null",
+      "clause": "entity_id IS NOT NULL"
+    },
+    {
+      "table": "warehouses",
+      "constraint": "warehouses_status_check",
+      "clause": "(status = ANY (ARRAY['ACTIVE'::text, 'INACTIVE'::text, 'MAINTENANCE'::text]))"
+    },
+    {
+      "table": "warehouses",
+      "constraint": "warehouses_status_not_null",
+      "clause": "status IS NOT NULL"
+    },
+    {
+      "table": "warehouses",
+      "constraint": "warehouses_updated_at_not_null",
+      "clause": "updated_at IS NOT NULL"
+    },
+    {
+      "table": "warehouses",
+      "constraint": "warehouses_warehouse_id_not_null",
+      "clause": "warehouse_id IS NOT NULL"
+    },
+    {
+      "table": "warehouses",
+      "constraint": "warehouses_warehouse_name_not_null",
+      "clause": "warehouse_name IS NOT NULL"
+    },
+    {
+      "table": "warehouses",
+      "constraint": "warehouses_warehouse_type_not_null",
+      "clause": "warehouse_type IS NOT NULL"
+    }
+  ],
+  "foreign_keys": [
+    {
+      "table": "action_execution_results",
+      "column": "action_id",
+      "foreign_table": "action_queue",
+      "foreign_column": "action_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "action_queue",
+      "column": "decision_id",
+      "foreign_table": "decisions",
+      "foreign_column": "decision_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "action_queue",
+      "column": "scenario_id",
+      "foreign_table": "scenario_instances",
+      "foreign_column": "scenario_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "agent_findings",
+      "column": "agent_run_id",
+      "foreign_table": "agent_runs",
+      "foreign_column": "agent_run_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "agent_findings",
+      "column": "scenario_id",
+      "foreign_table": "scenario_instances",
+      "foreign_column": "scenario_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "agent_runs",
+      "column": "scenario_id",
+      "foreign_table": "scenario_instances",
+      "foreign_column": "scenario_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "approval_requests",
+      "column": "action_id",
+      "foreign_table": "action_queue",
+      "foreign_column": "action_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "approval_requests",
+      "column": "decision_id",
+      "foreign_table": "decisions",
+      "foreign_column": "decision_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "approval_requests",
+      "column": "scenario_id",
+      "foreign_table": "scenario_instances",
+      "foreign_column": "scenario_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "bill_of_materials",
+      "column": "input_item_id",
+      "foreign_table": "products",
+      "foreign_column": "product_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "bill_of_materials",
+      "column": "output_product_id",
+      "foreign_table": "products",
+      "foreign_column": "product_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "budgets",
+      "column": "entity_id",
+      "foreign_table": "entities",
+      "foreign_column": "entity_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "carrier_events",
+      "column": "shipment_id",
+      "foreign_table": "shipments",
+      "foreign_column": "shipment_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "carrier_events",
+      "column": "source_supplier_id",
+      "foreign_table": "suppliers",
+      "foreign_column": "supplier_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "decisions",
+      "column": "scenario_id",
+      "foreign_table": "scenario_instances",
+      "foreign_column": "scenario_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "energy_readings",
+      "column": "entity_id",
+      "foreign_table": "entities",
+      "foreign_column": "entity_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "energy_readings",
+      "column": "production_line_id",
+      "foreign_table": "production_lines",
+      "foreign_column": "production_line_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "event_log",
+      "column": "scenario_id",
+      "foreign_table": "scenario_instances",
+      "foreign_column": "scenario_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "goods_receipts",
+      "column": "item_id",
+      "foreign_table": "products",
+      "foreign_column": "product_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "goods_receipts",
+      "column": "po_id",
+      "foreign_table": "purchase_orders",
+      "foreign_column": "po_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "goods_receipts",
+      "column": "supplier_id",
+      "foreign_table": "suppliers",
+      "foreign_column": "supplier_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "inventory",
+      "column": "item_id",
+      "foreign_table": "products",
+      "foreign_column": "product_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "inventory",
+      "column": "warehouse_id",
+      "foreign_table": "warehouses",
+      "foreign_column": "warehouse_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "maintenance_assets",
+      "column": "production_line_id",
+      "foreign_table": "production_lines",
+      "foreign_column": "production_line_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "column": "asset_id",
+      "foreign_table": "maintenance_assets",
+      "foreign_column": "asset_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "order_lines",
+      "column": "order_id",
+      "foreign_table": "orders",
+      "foreign_column": "order_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "order_lines",
+      "column": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "product_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "orders",
+      "column": "entity_id",
+      "foreign_table": "entities",
+      "foreign_column": "entity_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "policy_evaluations",
+      "column": "action_id",
+      "foreign_table": "action_queue",
+      "foreign_column": "action_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "policy_evaluations",
+      "column": "decision_id",
+      "foreign_table": "decisions",
+      "foreign_column": "decision_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "policy_evaluations",
+      "column": "rule_id",
+      "foreign_table": "business_rules",
+      "foreign_column": "rule_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "production_batches",
+      "column": "output_product_id",
+      "foreign_table": "products",
+      "foreign_column": "product_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "production_batches",
+      "column": "production_line_id",
+      "foreign_table": "production_lines",
+      "foreign_column": "production_line_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "production_lines",
+      "column": "entity_id",
+      "foreign_table": "entities",
+      "foreign_column": "entity_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "purchase_orders",
+      "column": "budget_id",
+      "foreign_table": "budgets",
+      "foreign_column": "budget_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "purchase_orders",
+      "column": "item_id",
+      "foreign_table": "products",
+      "foreign_column": "product_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "purchase_orders",
+      "column": "supplier_id",
+      "foreign_table": "suppliers",
+      "foreign_column": "supplier_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "quality_events",
+      "column": "batch_id",
+      "foreign_table": "production_batches",
+      "foreign_column": "batch_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "quality_events",
+      "column": "product_id",
+      "foreign_table": "products",
+      "foreign_column": "product_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "reorder_policies",
+      "column": "item_id",
+      "foreign_table": "products",
+      "foreign_column": "product_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "reorder_policies",
+      "column": "warehouse_id",
+      "foreign_table": "warehouses",
+      "foreign_column": "warehouse_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "safety_events",
+      "column": "entity_id",
+      "foreign_table": "entities",
+      "foreign_column": "entity_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "scenario_instances",
+      "column": "scenario_template_id",
+      "foreign_table": "scenario_templates",
+      "foreign_column": "scenario_template_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "shifts",
+      "column": "entity_id",
+      "foreign_table": "entities",
+      "foreign_column": "entity_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "shipments",
+      "column": "carrier_supplier_id",
+      "foreign_table": "suppliers",
+      "foreign_column": "supplier_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "shipments",
+      "column": "destination_warehouse_id",
+      "foreign_table": "warehouses",
+      "foreign_column": "warehouse_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "shipments",
+      "column": "order_id",
+      "foreign_table": "orders",
+      "foreign_column": "order_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "shipments",
+      "column": "origin_warehouse_id",
+      "foreign_table": "warehouses",
+      "foreign_column": "warehouse_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "supplier_contracts",
+      "column": "supplier_id",
+      "foreign_table": "suppliers",
+      "foreign_column": "supplier_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "supplier_offers",
+      "column": "item_id",
+      "foreign_table": "products",
+      "foreign_column": "product_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "supplier_offers",
+      "column": "supplier_id",
+      "foreign_table": "suppliers",
+      "foreign_column": "supplier_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "users",
+      "column": "entity_id",
+      "foreign_table": "entities",
+      "foreign_column": "entity_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "users",
+      "column": "role_id",
+      "foreign_table": "roles",
+      "foreign_column": "role_id",
+      "on_delete": "NO ACTION"
+    },
+    {
+      "table": "warehouses",
+      "column": "entity_id",
+      "foreign_table": "entities",
+      "foreign_column": "entity_id",
+      "on_delete": "NO ACTION"
+    }
+  ],
+  "unique_constraints": [
+    {
+      "table": "action_queue",
+      "constraint": "action_queue_idempotency_key_key",
+      "column": "idempotency_key"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_item_id_warehouse_id_key",
+      "column": "item_id"
+    },
+    {
+      "table": "reorder_policies",
+      "constraint": "reorder_policies_item_id_warehouse_id_key",
+      "column": "warehouse_id"
+    },
+    {
+      "table": "scenario_instances",
+      "constraint": "scenario_instances_idempotency_key_key",
+      "column": "idempotency_key"
+    }
+  ],
+  "triggers": [],
+  "indexes": [
+    {
+      "table": "_schema_migrations",
+      "index": "_schema_migrations_pkey",
+      "def": "CREATE UNIQUE INDEX _schema_migrations_pkey ON public._schema_migrations USING btree (version)"
+    },
+    {
+      "table": "action_execution_results",
+      "index": "action_execution_results_pkey",
+      "def": "CREATE UNIQUE INDEX action_execution_results_pkey ON public.action_execution_results USING btree (execution_id)"
+    },
+    {
+      "table": "action_execution_results",
+      "index": "idx_action_execution_action",
+      "def": "CREATE INDEX idx_action_execution_action ON public.action_execution_results USING btree (action_id)"
+    },
+    {
+      "table": "action_queue",
+      "index": "action_queue_idempotency_key_key",
+      "def": "CREATE UNIQUE INDEX action_queue_idempotency_key_key ON public.action_queue USING btree (idempotency_key)"
+    },
+    {
+      "table": "action_queue",
+      "index": "action_queue_pkey",
+      "def": "CREATE UNIQUE INDEX action_queue_pkey ON public.action_queue USING btree (action_id)"
+    },
+    {
+      "table": "action_queue",
+      "index": "idx_action_queue_scenario",
+      "def": "CREATE INDEX idx_action_queue_scenario ON public.action_queue USING btree (scenario_id)"
+    },
+    {
+      "table": "action_queue",
+      "index": "idx_action_queue_status",
+      "def": "CREATE INDEX idx_action_queue_status ON public.action_queue USING btree (status, created_at)"
+    },
+    {
+      "table": "agent_findings",
+      "index": "agent_findings_pkey",
+      "def": "CREATE UNIQUE INDEX agent_findings_pkey ON public.agent_findings USING btree (finding_id)"
+    },
+    {
+      "table": "agent_findings",
+      "index": "idx_agent_findings_run",
+      "def": "CREATE INDEX idx_agent_findings_run ON public.agent_findings USING btree (agent_run_id)"
+    },
+    {
+      "table": "agent_runs",
+      "index": "agent_runs_pkey",
+      "def": "CREATE UNIQUE INDEX agent_runs_pkey ON public.agent_runs USING btree (agent_run_id)"
+    },
+    {
+      "table": "agent_runs",
+      "index": "idx_agent_runs_name_status",
+      "def": "CREATE INDEX idx_agent_runs_name_status ON public.agent_runs USING btree (agent_name, status)"
+    },
+    {
+      "table": "agent_runs",
+      "index": "idx_agent_runs_scenario",
+      "def": "CREATE INDEX idx_agent_runs_scenario ON public.agent_runs USING btree (scenario_id, started_at)"
+    },
+    {
+      "table": "agent_runs",
+      "index": "idx_agent_runs_workflow",
+      "def": "CREATE INDEX idx_agent_runs_workflow ON public.agent_runs USING btree (workflow_run_id, started_at)"
+    },
+    {
+      "table": "approval_requests",
+      "index": "approval_requests_pkey",
+      "def": "CREATE UNIQUE INDEX approval_requests_pkey ON public.approval_requests USING btree (approval_id)"
+    },
+    {
+      "table": "approval_requests",
+      "index": "idx_approval_requests_status",
+      "def": "CREATE INDEX idx_approval_requests_status ON public.approval_requests USING btree (status)"
+    },
+    {
+      "table": "bill_of_materials",
+      "index": "bill_of_materials_pkey",
+      "def": "CREATE UNIQUE INDEX bill_of_materials_pkey ON public.bill_of_materials USING btree (bom_line_id)"
+    },
+    {
+      "table": "blockchain_anchors",
+      "index": "blockchain_anchors_pkey",
+      "def": "CREATE UNIQUE INDEX blockchain_anchors_pkey ON public.blockchain_anchors USING btree (anchor_id)"
+    },
+    {
+      "table": "blockchain_anchors",
+      "index": "idx_blockchain_anchors_confirmation",
+      "def": "CREATE INDEX idx_blockchain_anchors_confirmation ON public.blockchain_anchors USING btree (confirmation_status)"
+    },
+    {
+      "table": "blockchain_anchors",
+      "index": "idx_blockchain_anchors_event_id",
+      "def": "CREATE INDEX idx_blockchain_anchors_event_id ON public.blockchain_anchors USING btree (event_id_or_batch_id)"
+    },
+    {
+      "table": "blockchain_anchors",
+      "index": "idx_blockchain_anchors_payload_hash",
+      "def": "CREATE INDEX idx_blockchain_anchors_payload_hash ON public.blockchain_anchors USING btree (payload_hash)"
+    },
+    {
+      "table": "blockchain_anchors",
+      "index": "idx_blockchain_anchors_tx_hash",
+      "def": "CREATE INDEX idx_blockchain_anchors_tx_hash ON public.blockchain_anchors USING btree (transaction_hash)"
+    },
+    {
+      "table": "budgets",
+      "index": "budgets_pkey",
+      "def": "CREATE UNIQUE INDEX budgets_pkey ON public.budgets USING btree (budget_id)"
+    },
+    {
+      "table": "business_rules",
+      "index": "business_rules_pkey",
+      "def": "CREATE UNIQUE INDEX business_rules_pkey ON public.business_rules USING btree (rule_id)"
+    },
+    {
+      "table": "carrier_events",
+      "index": "carrier_events_pkey",
+      "def": "CREATE UNIQUE INDEX carrier_events_pkey ON public.carrier_events USING btree (carrier_event_id)"
+    },
+    {
+      "table": "carrier_events",
+      "index": "idx_carrier_events_shipment",
+      "def": "CREATE INDEX idx_carrier_events_shipment ON public.carrier_events USING btree (shipment_id)"
+    },
+    {
+      "table": "decisions",
+      "index": "decisions_pkey",
+      "def": "CREATE UNIQUE INDEX decisions_pkey ON public.decisions USING btree (decision_id)"
+    },
+    {
+      "table": "decisions",
+      "index": "idx_decisions_scenario",
+      "def": "CREATE INDEX idx_decisions_scenario ON public.decisions USING btree (scenario_id)"
+    },
+    {
+      "table": "departments",
+      "index": "departments_pkey",
+      "def": "CREATE UNIQUE INDEX departments_pkey ON public.departments USING btree (department_id)"
+    },
+    {
+      "table": "energy_readings",
+      "index": "energy_readings_pkey",
+      "def": "CREATE UNIQUE INDEX energy_readings_pkey ON public.energy_readings USING btree (reading_id)"
+    },
+    {
+      "table": "energy_readings",
+      "index": "idx_energy_readings_line_time",
+      "def": "CREATE INDEX idx_energy_readings_line_time ON public.energy_readings USING btree (production_line_id, reading_at)"
+    },
+    {
+      "table": "entities",
+      "index": "entities_pkey",
+      "def": "CREATE UNIQUE INDEX entities_pkey ON public.entities USING btree (entity_id)"
+    },
+    {
+      "table": "event_log",
+      "index": "event_log_pkey",
+      "def": "CREATE UNIQUE INDEX event_log_pkey ON public.event_log USING btree (event_id)"
+    },
+    {
+      "table": "event_log",
+      "index": "idx_event_log_entity_time",
+      "def": "CREATE INDEX idx_event_log_entity_time ON public.event_log USING btree (entity_type, entity_id, event_timestamp)"
+    },
+    {
+      "table": "event_log",
+      "index": "idx_event_log_scenario",
+      "def": "CREATE INDEX idx_event_log_scenario ON public.event_log USING btree (scenario_id, event_timestamp)"
+    },
+    {
+      "table": "feed_health",
+      "index": "feed_health_pkey",
+      "def": "CREATE UNIQUE INDEX feed_health_pkey ON public.feed_health USING btree (feed_id)"
+    },
+    {
+      "table": "goods_receipts",
+      "index": "goods_receipts_pkey",
+      "def": "CREATE UNIQUE INDEX goods_receipts_pkey ON public.goods_receipts USING btree (grn_id)"
+    },
+    {
+      "table": "inventory",
+      "index": "idx_inventory_item",
+      "def": "CREATE INDEX idx_inventory_item ON public.inventory USING btree (item_id)"
+    },
+    {
+      "table": "inventory",
+      "index": "idx_inventory_warehouse",
+      "def": "CREATE INDEX idx_inventory_warehouse ON public.inventory USING btree (warehouse_id)"
+    },
+    {
+      "table": "inventory",
+      "index": "inventory_pkey",
+      "def": "CREATE UNIQUE INDEX inventory_pkey ON public.inventory USING btree (inventory_id)"
+    },
+    {
+      "table": "maintenance_assets",
+      "index": "idx_maintenance_assets_line",
+      "def": "CREATE INDEX idx_maintenance_assets_line ON public.maintenance_assets USING btree (production_line_id)"
+    },
+    {
+      "table": "maintenance_assets",
+      "index": "maintenance_assets_pkey",
+      "def": "CREATE UNIQUE INDEX maintenance_assets_pkey ON public.maintenance_assets USING btree (asset_id)"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "index": "idx_maintenance_wo_asset",
+      "def": "CREATE INDEX idx_maintenance_wo_asset ON public.maintenance_work_orders USING btree (asset_id)"
+    },
+    {
+      "table": "maintenance_work_orders",
+      "index": "maintenance_work_orders_pkey",
+      "def": "CREATE UNIQUE INDEX maintenance_work_orders_pkey ON public.maintenance_work_orders USING btree (work_order_id)"
+    },
+    {
+      "table": "order_lines",
+      "index": "idx_order_lines_order",
+      "def": "CREATE INDEX idx_order_lines_order ON public.order_lines USING btree (order_id)"
+    },
+    {
+      "table": "order_lines",
+      "index": "idx_order_lines_product",
+      "def": "CREATE INDEX idx_order_lines_product ON public.order_lines USING btree (product_id)"
+    },
+    {
+      "table": "order_lines",
+      "index": "order_lines_pkey",
+      "def": "CREATE UNIQUE INDEX order_lines_pkey ON public.order_lines USING btree (order_line_id)"
+    },
+    {
+      "table": "orders",
+      "index": "idx_orders_status",
+      "def": "CREATE INDEX idx_orders_status ON public.orders USING btree (status, created_at)"
+    },
+    {
+      "table": "orders",
+      "index": "orders_pkey",
+      "def": "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (order_id)"
+    },
+    {
+      "table": "policy_evaluations",
+      "index": "idx_policy_evaluations_decision",
+      "def": "CREATE INDEX idx_policy_evaluations_decision ON public.policy_evaluations USING btree (decision_id)"
+    },
+    {
+      "table": "policy_evaluations",
+      "index": "policy_evaluations_pkey",
+      "def": "CREATE UNIQUE INDEX policy_evaluations_pkey ON public.policy_evaluations USING btree (policy_eval_id)"
+    },
+    {
+      "table": "production_batches",
+      "index": "idx_production_batches_line",
+      "def": "CREATE INDEX idx_production_batches_line ON public.production_batches USING btree (production_line_id)"
+    },
+    {
+      "table": "production_batches",
+      "index": "idx_production_batches_status",
+      "def": "CREATE INDEX idx_production_batches_status ON public.production_batches USING btree (status)"
+    },
+    {
+      "table": "production_batches",
+      "index": "production_batches_pkey",
+      "def": "CREATE UNIQUE INDEX production_batches_pkey ON public.production_batches USING btree (batch_id)"
+    },
+    {
+      "table": "production_lines",
+      "index": "production_lines_pkey",
+      "def": "CREATE UNIQUE INDEX production_lines_pkey ON public.production_lines USING btree (production_line_id)"
+    },
+    {
+      "table": "products",
+      "index": "products_pkey",
+      "def": "CREATE UNIQUE INDEX products_pkey ON public.products USING btree (product_id)"
+    },
+    {
+      "table": "purchase_orders",
+      "index": "idx_purchase_orders_supplier",
+      "def": "CREATE INDEX idx_purchase_orders_supplier ON public.purchase_orders USING btree (supplier_id)"
+    },
+    {
+      "table": "purchase_orders",
+      "index": "purchase_orders_pkey",
+      "def": "CREATE UNIQUE INDEX purchase_orders_pkey ON public.purchase_orders USING btree (po_id)"
+    },
+    {
+      "table": "quality_events",
+      "index": "idx_quality_events_batch",
+      "def": "CREATE INDEX idx_quality_events_batch ON public.quality_events USING btree (batch_id)"
+    },
+    {
+      "table": "quality_events",
+      "index": "quality_events_pkey",
+      "def": "CREATE UNIQUE INDEX quality_events_pkey ON public.quality_events USING btree (quality_event_id)"
+    },
+    {
+      "table": "reorder_policies",
+      "index": "reorder_policies_item_id_warehouse_id_key",
+      "def": "CREATE UNIQUE INDEX reorder_policies_item_id_warehouse_id_key ON public.reorder_policies USING btree (item_id, warehouse_id)"
+    },
+    {
+      "table": "reorder_policies",
+      "index": "reorder_policies_pkey",
+      "def": "CREATE UNIQUE INDEX reorder_policies_pkey ON public.reorder_policies USING btree (policy_id)"
+    },
+    {
+      "table": "roles",
+      "index": "roles_pkey",
+      "def": "CREATE UNIQUE INDEX roles_pkey ON public.roles USING btree (role_id)"
+    },
+    {
+      "table": "safety_events",
+      "index": "idx_safety_events_entity",
+      "def": "CREATE INDEX idx_safety_events_entity ON public.safety_events USING btree (entity_id, occurred_at)"
+    },
+    {
+      "table": "safety_events",
+      "index": "safety_events_pkey",
+      "def": "CREATE UNIQUE INDEX safety_events_pkey ON public.safety_events USING btree (safety_event_id)"
+    },
+    {
+      "table": "scenario_instances",
+      "index": "idx_scenario_instances_order",
+      "def": "CREATE INDEX idx_scenario_instances_order ON public.scenario_instances USING btree (linked_order_id)"
+    },
+    {
+      "table": "scenario_instances",
+      "index": "idx_scenario_instances_updated_at",
+      "def": "CREATE INDEX idx_scenario_instances_updated_at ON public.scenario_instances USING btree (updated_at DESC)"
+    },
+    {
+      "table": "scenario_instances",
+      "index": "idx_scenario_instances_workflow_run",
+      "def": "CREATE INDEX idx_scenario_instances_workflow_run ON public.scenario_instances USING btree (workflow_run_id)"
+    },
+    {
+      "table": "scenario_instances",
+      "index": "idx_scenario_queue",
+      "def": "CREATE INDEX idx_scenario_queue ON public.scenario_instances USING btree (status, scheduled_at)"
+    },
+    {
+      "table": "scenario_instances",
+      "index": "scenario_instances_idempotency_key_key",
+      "def": "CREATE UNIQUE INDEX scenario_instances_idempotency_key_key ON public.scenario_instances USING btree (idempotency_key)"
+    },
+    {
+      "table": "scenario_instances",
+      "index": "scenario_instances_pkey",
+      "def": "CREATE UNIQUE INDEX scenario_instances_pkey ON public.scenario_instances USING btree (scenario_id)"
+    },
+    {
+      "table": "scenario_templates",
+      "index": "scenario_templates_pkey",
+      "def": "CREATE UNIQUE INDEX scenario_templates_pkey ON public.scenario_templates USING btree (scenario_template_id)"
+    },
+    {
+      "table": "scheduler_state",
+      "index": "idx_scheduler_state_lease",
+      "def": "CREATE INDEX idx_scheduler_state_lease ON public.scheduler_state USING btree (lease_expires_at)"
+    },
+    {
+      "table": "scheduler_state",
+      "index": "scheduler_state_pkey",
+      "def": "CREATE UNIQUE INDEX scheduler_state_pkey ON public.scheduler_state USING btree (scheduler_name)"
+    },
+    {
+      "table": "shifts",
+      "index": "shifts_pkey",
+      "def": "CREATE UNIQUE INDEX shifts_pkey ON public.shifts USING btree (shift_id)"
+    },
+    {
+      "table": "shipments",
+      "index": "idx_shipments_order",
+      "def": "CREATE INDEX idx_shipments_order ON public.shipments USING btree (order_id)"
+    },
+    {
+      "table": "shipments",
+      "index": "idx_shipments_status",
+      "def": "CREATE INDEX idx_shipments_status ON public.shipments USING btree (status)"
+    },
+    {
+      "table": "shipments",
+      "index": "shipments_pkey",
+      "def": "CREATE UNIQUE INDEX shipments_pkey ON public.shipments USING btree (shipment_id)"
+    },
+    {
+      "table": "simulation_config",
+      "index": "simulation_config_pkey",
+      "def": "CREATE UNIQUE INDEX simulation_config_pkey ON public.simulation_config USING btree (config_key)"
+    },
+    {
+      "table": "supplier_contracts",
+      "index": "supplier_contracts_pkey",
+      "def": "CREATE UNIQUE INDEX supplier_contracts_pkey ON public.supplier_contracts USING btree (contract_id)"
+    },
+    {
+      "table": "supplier_offers",
+      "index": "idx_supplier_offers_supplier",
+      "def": "CREATE INDEX idx_supplier_offers_supplier ON public.supplier_offers USING btree (supplier_id)"
+    },
+    {
+      "table": "supplier_offers",
+      "index": "supplier_offers_pkey",
+      "def": "CREATE UNIQUE INDEX supplier_offers_pkey ON public.supplier_offers USING btree (offer_id)"
+    },
+    {
+      "table": "suppliers",
+      "index": "suppliers_pkey",
+      "def": "CREATE UNIQUE INDEX suppliers_pkey ON public.suppliers USING btree (supplier_id)"
+    },
+    {
+      "table": "users",
+      "index": "idx_users_role",
+      "def": "CREATE INDEX idx_users_role ON public.users USING btree (role_id)"
+    },
+    {
+      "table": "users",
+      "index": "users_pkey",
+      "def": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (user_id)"
+    },
+    {
+      "table": "warehouses",
+      "index": "idx_warehouses_entity",
+      "def": "CREATE INDEX idx_warehouses_entity ON public.warehouses USING btree (entity_id)"
+    },
+    {
+      "table": "warehouses",
+      "index": "warehouses_pkey",
+      "def": "CREATE UNIQUE INDEX warehouses_pkey ON public.warehouses USING btree (warehouse_id)"
+    }
+  ]
+}
