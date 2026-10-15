@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+export PYTHONPATH="${PYTHONPATH:-.}"
+
 # Run schema migrations if database is reachable
 echo "=== Running PostgreSQL Migrations ==="
 python db/migrate.py || echo "[WARN] Migration check failed; continuing to app startup..."
