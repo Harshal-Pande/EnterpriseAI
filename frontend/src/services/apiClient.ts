@@ -88,6 +88,123 @@ export interface BackendOrderSummary {
   exception_count: number;
 }
 
+export interface CreateOrderLineRequest {
+  product_id: string;
+  requested_qty: number;
+  unit_price_inr?: number;
+  uom?: string;
+}
+
+export interface CreateOrderRequest {
+  order_id?: string;
+  customer_ref: string;
+  entity_id: string;
+  priority?: string;
+  required_delivery_at?: string;
+  external_reference?: string;
+  lines: CreateOrderLineRequest[];
+}
+
+export interface OrderCreateResponse {
+  order_id: string;
+  customer_ref: string;
+  entity_id: string;
+  status: string;
+  priority: string;
+  line_count: number;
+  total_amount_inr: number;
+  queue_position: number;
+  message: string;
+}
+
+export interface BackendOrderQueueItem {
+  queue_id: string;
+  order_id: string;
+  queue_position: number;
+  status: string;
+  enqueued_at: string;
+  claimed_at?: string;
+  completed_at?: string;
+  attempt_count: number;
+  last_error?: string;
+  origin: string;
+  customer_ref?: string;
+  entity_id?: string;
+  priority?: string;
+  total_amount_inr?: number;
+}
+
+export interface BackendOrderQueueStatus {
+  total_queued: number;
+  total_processing: number;
+  total_waiting_exception: number;
+  total_completed: number;
+  total_failed: number;
+  auto_replenish: boolean;
+  interval_seconds: number;
+  runner_enabled: boolean;
+  runner_status: string;
+  next_eligible_run_time?: string;
+  current_running_order_id?: string;
+}
+
+export interface BackendOperationalExceptionSummary {
+  exception_id: string;
+  order_id?: string;
+  severity: string;
+  exception_type: string;
+  cause: string;
+  owner_role: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string;
+  customer_ref?: string;
+  entity_id?: string;
+}
+
+export interface BackendOperationalException {
+  exception_id: string;
+  order_id?: string;
+  scenario_id?: string;
+  workflow_run_id?: string;
+  decision_id?: string;
+  action_id?: string;
+  approval_id?: string;
+  severity: string;
+  exception_type: string;
+  cause: string;
+  owner_role: string;
+  status: string;
+  ai_recommendation: Record<string, any>;
+  proposed_action?: Record<string, any>;
+  resolution_notes?: string;
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string;
+  order_details?: Record<string, any>;
+  action_details?: Record<string, any>;
+  approval_details?: Record<string, any>;
+}
+
+export interface BackendExceptionActionProposeRequest {
+  action_type: string;
+  target_entity_id?: string;
+  parameters: Record<string, any>;
+  justification?: string;
+  notes?: string;
+}
+
+export interface BackendExceptionResolutionResponse {
+  exception_id: string;
+  status: string;
+  order_id?: string;
+  order_status?: string;
+  action_id?: string;
+  action_status?: string;
+  message: string;
+}
+
 export interface BackendInventoryItem {
   inventory_id: string;
   item_id: string;
@@ -253,17 +370,26 @@ export interface BackendAuditEvent {
 }
 
 export interface BackendBlockchainStatus {
-  enabled: boolean;
+  enabled?: boolean;
   mode: string;
-  network_name: string;
+  connected?: boolean;
+  chain_name?: string;
+  network_name?: string;
   chain_id: number | null;
   contract_address: string | null;
+  contract_deployed?: boolean;
+  signer_address?: string | null;
   rpc_configured: boolean;
   signer_configured: boolean;
-  explorer_tx_url_template: string | null;
-  healthy: boolean;
-  details: string;
-  total_anchors_tracked: number;
+  latest_block?: number | null;
+  explorer_tx_url_prefix?: string | null;
+  explorer_tx_url_template?: string | null;
+  healthy?: boolean;
+  details?: string;
+  total_anchors?: number;
+  total_anchors_tracked?: number;
+  confirmed_anchors?: number;
+  pending_anchors?: number;
 }
 
 export interface BackendAnchorRecord {
@@ -298,6 +424,7 @@ export interface BackendAuditVerification {
   block_number?: number;
   transaction_hash?: string;
   on_chain_verified?: boolean;
+  digest_verified?: boolean;
   contract_address?: string | null;
   explorer_url?: string | null;
   details: string;
@@ -375,12 +502,50 @@ export const apiClient = {
   checkHealth: () => apiFetch<{ status: string }>('/api/health'),
   checkLive: () => apiFetch<{ status: string }>('/api/live'),
 
-  // Orders
+  // Orders, Queue & Runner
   getOrders: (limit = 100, status?: string) =>
     apiFetch<BackendOrder[]>(
       `/api/orders/?limit=${limit}${status && status !== 'All' ? `&status=${status}` : ''}`
     ),
   getOrderSummary: () => apiFetch<BackendOrderSummary>('/api/orders/summary'),
+  createOrder: (data: CreateOrderRequest) =>
+    apiFetch<OrderCreateResponse>('/api/orders/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getOrderQueue: (limit = 100, offset = 0, status?: string) => {
+    const params = new URLSearchParams();
+    params.append('limit', limit.toString());
+    if (offset > 0) params.append('offset', offset.toString());
+    if (status && status !== 'ALL') params.append('status', status);
+    return apiFetch<BackendOrderQueueItem[]>(`/api/orders/queue?${params.toString()}`);
+  },
+  getOrderHistory: (limit = 100, offset = 0) =>
+    apiFetch<BackendOrder[]>(`/api/orders/history?limit=${limit}&offset=${offset}`),
+  getOrderQueueStatus: () =>
+    apiFetch<BackendOrderQueueStatus>('/api/orders/queue/status'),
+  getOrderQueueRunnerStatus: () =>
+    apiFetch<any>('/api/orders/queue/runner/status'),
+  startOrderQueueRunner: () =>
+    apiFetch<{ status: string; message: string }>('/api/orders/queue/runner/start', {
+      method: 'POST',
+    }),
+  pauseOrderQueueRunner: () =>
+    apiFetch<{ status: string; message: string }>('/api/orders/queue/runner/pause', {
+      method: 'POST',
+    }),
+  resumeOrderQueueRunner: () =>
+    apiFetch<{ status: string; message: string }>('/api/orders/queue/runner/resume', {
+      method: 'POST',
+    }),
+  stopOrderQueueRunner: () =>
+    apiFetch<{ status: string; message: string }>('/api/orders/queue/runner/stop', {
+      method: 'POST',
+    }),
+  processNextQueueOrder: () =>
+    apiFetch<any>('/api/orders/queue/runner/process-next', {
+      method: 'POST',
+    }),
 
   // Inventory
   getInventoryItems: (limit = 100) =>
@@ -448,11 +613,51 @@ export const apiClient = {
       method: 'POST',
     }),
 
+  // Operational Exceptions
+  getExceptions: (status?: string, severity?: string, orderId?: string, limit = 50, offset = 0) => {
+    const params = new URLSearchParams();
+    params.append('limit', limit.toString());
+    if (offset > 0) params.append('offset', offset.toString());
+    if (status && status !== 'ALL') params.append('status_filter', status);
+    if (severity && severity !== 'ALL') params.append('severity', severity);
+    if (orderId) params.append('order_id', orderId);
+    return apiFetch<BackendOperationalExceptionSummary[]>(`/api/exceptions/?${params.toString()}`);
+  },
+  getExceptionDetail: (exceptionId: string) =>
+    apiFetch<BackendOperationalException>(`/api/exceptions/${exceptionId}`),
+  proposeExceptionAction: (exceptionId: string, data: BackendExceptionActionProposeRequest) =>
+    apiFetch<any>(`/api/exceptions/${exceptionId}/propose-action`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  approveExceptionAction: (exceptionId: string, decision: 'APPROVED' | 'REJECTED', justification: string) =>
+    apiFetch<any>(`/api/exceptions/${exceptionId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, justification }),
+    }),
+  executeExceptionAction: (exceptionId: string) =>
+    apiFetch<BackendExceptionResolutionResponse>(`/api/exceptions/${exceptionId}/execute`, {
+      method: 'POST',
+    }),
+  resumeOrderFromException: (exceptionId: string, notes?: string) =>
+    apiFetch<BackendExceptionResolutionResponse>(`/api/exceptions/${exceptionId}/resume`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    }),
+
   // Audit & Blockchain
   getAuditEvents: (limit = 50) =>
     apiFetch<BackendAuditEvent[]>(`/api/audit/events?limit=${limit}`),
   getBlockchainStatus: () =>
     apiFetch<BackendBlockchainStatus>('/api/audit/blockchain/status'),
+  getBlockchainAnchors: (eventId?: string, confirmationStatus?: string, limit = 50, offset = 0) => {
+    const params = new URLSearchParams();
+    params.append('limit', limit.toString());
+    if (offset > 0) params.append('offset', offset.toString());
+    if (eventId) params.append('event_id', eventId);
+    if (confirmationStatus && confirmationStatus !== 'ALL') params.append('confirmation_status', confirmationStatus);
+    return apiFetch<BackendAnchorRecord[]>(`/api/audit/anchors?${params.toString()}`);
+  },
   anchorAuditEvent: (eventId: string, payload: Record<string, any> = {}, forceSimulation = false) =>
     apiFetch<BackendAnchorRecord>('/api/audit/anchor', {
       method: 'POST',
@@ -466,6 +671,10 @@ export const apiClient = {
     apiFetch<BackendAuditVerification>(`/api/audit/verify/${eventId}`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+  verifyAnchorOnChain: (eventId: string) =>
+    apiFetch<BackendAuditVerification>(`/api/audit/verify-on-chain/${eventId}`, {
+      method: 'POST',
     }),
 
   // Governed Orchestration (Phase 4)

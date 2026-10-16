@@ -17,7 +17,7 @@ except ImportError:
         _bdir = Path(__file__).resolve().parent.parent
         if str(_bdir) not in sys.path:
             sys.path.insert(0, str(_bdir))
-        from db.connection import load_project_env
+        from connection import load_project_env
 load_project_env()
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -28,6 +28,7 @@ from app.api import (
     agents,
     approvals,
     audit,
+    exceptions,
     graph,
     health,
     inventory,
@@ -56,6 +57,11 @@ async def lifespan(app: FastAPI):
     init_db_pool()
     default_event_manager.set_loop(asyncio.get_running_loop())
     default_scheduler.start()
+    try:
+        from app.services.order_queue_runner import default_order_queue_runner
+        default_order_queue_runner.start()
+    except Exception as _runner_err:
+        logger.warning("Order queue runner failed to start: %s", _runner_err)
     # Start in-process task worker if explicitly enabled (Phase P4)
     if os.environ.get("ENABLE_TASK_WORKER", "false").lower() in ("true", "1"):
         try:
@@ -64,6 +70,11 @@ async def lifespan(app: FastAPI):
         except Exception as _worker_err:
             logger.warning("Task worker failed to start: %s", _worker_err)
     yield
+    try:
+        from app.services.order_queue_runner import default_order_queue_runner
+        default_order_queue_runner.stop()
+    except Exception:
+        pass
     default_scheduler.stop()
     # Stop task worker if running
     try:
@@ -162,6 +173,7 @@ routers = [
     (scheduler.router, "/scheduler", ["scheduler"], viewer_auth),
     (policies.router, "/policies", ["policies"], viewer_auth),
     (approvals.router, "/approvals", ["approvals"], viewer_auth),
+    (exceptions.router, "/exceptions", ["exceptions"], viewer_auth),
     (actions.router, "/actions", ["actions"], viewer_auth),
     (orchestration.router, "/orchestration", ["orchestration"], viewer_auth),
     (tasks.router, "/tasks", ["tasks"], viewer_auth),

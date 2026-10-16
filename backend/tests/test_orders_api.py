@@ -182,8 +182,140 @@ def test_orders_db_failure_returns_503(client: TestClient):
         app.dependency_overrides.pop(get_db, None)
 
 
-def test_create_order_starter_endpoint_preserved(client: TestClient):
-    """Verify POST /api/orders/ remains intact as starter mock implementation."""
-    res = client.post("/api/orders/", json={"item": "coils"})
+@pytest.mark.integration
+def test_create_order_success_with_queue(operator_client: TestClient):
+    """Verify manual order creation transactionally persists order, lines, and queue entry."""
+    req = {
+        "customer_ref": "Test Automotive Corp",
+        "entity_id": "EAS-HQ",
+        "priority": "HIGH",
+        "currency": "INR",
+        "lines": [
+            {
+                "product_id": "PRD-HRC",
+                "requested_qty": 45.0,
+                "unit_price_inr": 72000.0,
+                "uom": "MT",
+            },
+            {
+                "product_id": "PRD-CRC",
+                "requested_qty": 20.0,
+                "unit_price_inr": 84500.0,
+                "uom": "MT",
+            },
+        ],
+        "auto_enqueue": True,
+    }
+    res = operator_client.post("/api/orders/", json=req)
+    assert res.status_code == 201
+    data = res.json()
+    assert data["status"] == "created"
+    assert data["order_id"].startswith("ORD-")
+    assert data["queue_position"] is not None
+    assert data["queue_position"] > 0
+    assert data["enqueued"] is True
+
+    # Verify created order details
+    order = data["order"]
+    assert order["customer_ref"] == "Test Automotive Corp"
+    assert order["entity_id"] == "EAS-HQ"
+    assert order["priority"] == "HIGH"
+    assert order["line_count"] == 2
+    assert len(order["lines"]) == 2
+    assert order["total_quantity"] == 65.0
+    expected_amount = (45.0 * 72000.0) + (20.0 * 84500.0)
+    assert order["total_amount"] == expected_amount
+
+    # Verify order is fetchable via GET /{order_id}
+    fetch_res = operator_client.get(f"/api/orders/{data['order_id']}")
+    assert fetch_res.status_code == 200
+    assert fetch_res.json()["order_id"] == data["order_id"]
+
+    # Clean up created order to maintain test database isolation
+    from app.db.database import get_db_connection
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM order_processing_queue WHERE order_id = %s;", (data["order_id"],))
+            cur.execute("DELETE FROM order_lines WHERE order_id = %s;", (data["order_id"],))
+            cur.execute("DELETE FROM orders WHERE order_id = %s;", (data["order_id"],))
+            conn.commit()
+
+
+@pytest.mark.integration
+def test_create_order_invalid_entity_returns_400(operator_client: TestClient):
+    """Verify non-existent entity_id returns 400 Bad Request."""
+    req = {
+        "customer_ref": "Test Corp",
+        "entity_id": "NON_EXISTENT_ENTITY",
+        "lines": [{"product_id": "PRD-HRC", "requested_qty": 10.0}],
+    }
+    res = operator_client.post("/api/orders/", json=req)
+    assert res.status_code == 400
+    assert "Entity 'NON_EXISTENT_ENTITY' does not exist" in res.json()["detail"]
+
+
+@pytest.mark.integration
+def test_create_order_invalid_product_returns_400(operator_client: TestClient):
+    """Verify non-existent product_id returns 400 Bad Request."""
+    req = {
+        "customer_ref": "Test Corp",
+        "entity_id": "EAS-HQ",
+        "lines": [{"product_id": "PRD-DOES-NOT-EXIST", "requested_qty": 10.0}],
+    }
+    res = operator_client.post("/api/orders/", json=req)
+    assert res.status_code == 400
+    assert "Product 'PRD-DOES-NOT-EXIST' in line 1 does not exist" in res.json()["detail"]
+
+
+@pytest.mark.integration
+def test_create_order_invalid_quantity_returns_400(operator_client: TestClient):
+    """Verify non-positive quantity returns 422/400 validation error."""
+    req = {
+        "customer_ref": "Test Corp",
+        "entity_id": "EAS-HQ",
+        "lines": [{"product_id": "PRD-HRC", "requested_qty": -5.0}],
+    }
+    res = operator_client.post("/api/orders/", json=req)
+    assert res.status_code in (400, 422)
+
+
+@pytest.mark.integration
+def test_get_order_history_capped_at_100(client: TestClient):
+    """Verify /api/orders/history enforces the strict 100-record cap."""
+    res = client.get("/api/orders/history?limit=100")
     assert res.status_code == 200
-    assert res.json() == {"status": "created", "order_id": "ORD-1043"}
+    history = res.json()
+    assert isinstance(history, list)
+    assert len(history) <= 100
+    assert all(o["status"] == "COMPLETED" for o in history)
+
+
+@pytest.mark.integration
+def test_get_order_queue_and_status(client: TestClient, test_conn):
+    """Verify /api/orders/queue and /api/orders/queue/status endpoints."""
+    from scripts.reconcile_order_queue import reconcile_orders_and_queue
+    reconcile_orders_and_queue(test_conn)
+
+    # Status endpoint
+    s_res = client.get("/api/orders/queue/status")
+    assert s_res.status_code == 200
+    s_data = s_res.json()
+    assert "total_queued" in s_data
+    assert "processing_count" in s_data
+    assert "completed_count" in s_data
+    assert s_data["total_queued"] >= 0
+
+    # Queue list endpoint
+    q_res = client.get("/api/orders/queue?status=QUEUED&limit=10")
+    assert q_res.status_code == 200
+    q_items = q_res.json()
+    assert isinstance(q_items, list)
+    assert len(q_items) > 0
+    first = q_items[0]
+    assert "queue_id" in first
+    assert "order_id" in first
+    assert "queue_position" in first
+    assert first["status"] == "QUEUED"
+    assert "order" in first
+    assert first["order"]["customer_ref"] is not None
+

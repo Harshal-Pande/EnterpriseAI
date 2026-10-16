@@ -634,3 +634,25 @@ def test_audit_event_response_contains_blockchain_fields(client: TestClient, tes
     assert detail["explorer_url"] == "https://sepolia.etherscan.io/tx/0xTxHash456"
     assert detail["receipt_status"] == 1
     assert detail["confirmed_at"] is not None
+
+    # Verify GET /api/audit/anchors lists this anchor
+    res_anchors = client.get(f"/api/audit/anchors?event_id={event_id}")
+    assert res_anchors.status_code == 200
+    anchors_list = res_anchors.json()
+    assert len(anchors_list) >= 1
+    assert anchors_list[0]["event_id_or_batch_id"] == event_id
+    assert anchors_list[0]["transaction_hash"] == "0xTxHash456"
+
+    # Verify empty-payload verify does not falsify mismatch
+    res_verif = client.post(f"/api/audit/verify/{event_id}", json={})
+    assert res_verif.status_code == 200
+    verif_data = res_verif.json()
+    assert verif_data["digest_verified"] is True
+    assert verif_data["verification_status"] == "MATCHED"
+
+    # Verify on-chain verification endpoint works
+    res_on_chain = client.post(f"/api/audit/verify-on-chain/{event_id}")
+    assert res_on_chain.status_code == 200
+    on_chain_data = res_on_chain.json()
+    assert "verification_status" in on_chain_data
+    assert on_chain_data["digest_verified"] is True

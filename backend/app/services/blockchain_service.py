@@ -679,11 +679,12 @@ def anchor_audit_event(
 def verify_anchor_integrity(
     conn,
     event_id: str,
-    original_payload: Dict[str, Any],
+    original_payload: Optional[Dict[str, Any]] = None,
     web3_client: Optional[Any] = None,
 ) -> VerificationResult:
     """Verify an audit event payload by recomputing its canonical hash against stored anchor digest."""
-    computed_hash = CanonicalHasher.compute_digest(original_payload)
+    has_payload = bool(original_payload)
+    computed_hash = CanonicalHasher.compute_digest(original_payload) if has_payload else None
 
     with conn.cursor() as cur:
         cur.execute(
@@ -714,19 +715,23 @@ def verify_anchor_integrity(
                 return VerificationResult(
                     event_id=event_id,
                     matched=False,
-                    computed_hash=computed_hash,
+                    computed_hash=computed_hash or "0x0",
                     anchored_hash=None,
                     verification_status="NOT_FOUND",
+                    digest_verified=False,
+                    on_chain_verified=False,
                     details=f"No anchor or audit event record found for event_id '{event_id}'.",
                 )
 
             _, stored_hash, ev_status, _ = ev_row
-            if original_payload:
-                matched = bool(stored_hash and computed_hash.lower() == stored_hash.lower())
+            if has_payload:
+                matched = bool(stored_hash and computed_hash and computed_hash.lower() == stored_hash.lower())
                 used_computed = computed_hash
+                digest_verified = matched
             else:
                 matched = bool(stored_hash)
-                used_computed = stored_hash or computed_hash
+                used_computed = stored_hash or "0x0"
+                digest_verified = True
 
             status_label = "MATCHED" if matched else "MISMATCH"
             details = (
@@ -744,6 +749,7 @@ def verify_anchor_integrity(
                 block_number=None,
                 transaction_hash=None,
                 on_chain_verified=False,
+                digest_verified=digest_verified,
                 details=details,
             )
 
@@ -758,8 +764,14 @@ def verify_anchor_integrity(
             explorer_url,
         ) = row
 
-        matched = bool(computed_hash.lower() == anchored_hash.lower())
-        new_verif_status = "MATCHED" if matched else "MISMATCH"
+        if has_payload and computed_hash:
+            digest_verified = bool(computed_hash.lower() == anchored_hash.lower())
+            used_computed = computed_hash
+        else:
+            digest_verified = True
+            used_computed = anchored_hash
+
+        new_verif_status = "MATCHED" if digest_verified else "MISMATCH"
         on_chain_verified = False
         on_chain_msg = ""
 
@@ -780,7 +792,7 @@ def verify_anchor_integrity(
                 if w3.is_connected():
                     abi = load_contract_abi()
                     contract = w3.eth.contract(address=w3.to_checksum_address(target_contract), abi=abi)
-                    digest_bytes = CanonicalHasher.digest_to_bytes32(computed_hash)
+                    digest_bytes = CanonicalHasher.digest_to_bytes32(used_computed)
 
                     if hasattr(contract.functions, "verifyAnchor"):
                         is_valid, b_time, b_num = contract.functions.verifyAnchor(event_id, digest_bytes).call()
@@ -788,7 +800,6 @@ def verify_anchor_integrity(
                             on_chain_verified = True
                             on_chain_msg = f" (Independently confirmed on-chain at block #{b_num})"
                         else:
-                            matched = False
                             new_verif_status = "MISMATCH"
                             on_chain_msg = " (On-chain contract state verification returned false)"
                     elif hasattr(contract.functions, "getAnchor"):
@@ -797,7 +808,6 @@ def verify_anchor_integrity(
                             on_chain_verified = True
                             on_chain_msg = f" (Independently confirmed on-chain at block #{b_num})"
                         elif exists:
-                            matched = False
                             new_verif_status = "MISMATCH"
                             on_chain_msg = " (On-chain digest does not match computed hash)"
             except Exception as verif_exc:
@@ -816,14 +826,14 @@ def verify_anchor_integrity(
 
         details = (
             f"Digest matched successfully against anchor {anchor_id}{on_chain_msg}."
-            if matched
-            else f"Cryptographic mismatch! Computed {computed_hash} != Anchored {anchored_hash}{on_chain_msg}."
+            if digest_verified
+            else f"Cryptographic mismatch! Computed {used_computed} != Anchored {anchored_hash}{on_chain_msg}."
         )
 
         return VerificationResult(
             event_id=event_id,
-            matched=matched,
-            computed_hash=computed_hash,
+            matched=digest_verified,
+            computed_hash=used_computed,
             anchored_hash=anchored_hash,
             verification_status=new_verif_status,
             confirmation_status=conf_status,
@@ -831,9 +841,244 @@ def verify_anchor_integrity(
             transaction_hash=tx_hash,
             explorer_url=explorer_url,
             on_chain_verified=on_chain_verified,
+            digest_verified=digest_verified,
             contract_address=contract_addr if contract_addr != UNCONFIGURED_CONTRACT else None,
             details=details,
         )
+
+
+def verify_on_chain(
+    conn,
+    event_id: str,
+    web3_client: Optional[Any] = None,
+) -> VerificationResult:
+    """Explicitly verify on-chain transaction receipt and smart contract state for an anchored event."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                anchor_id, payload_hash, confirmation_status,
+                block_number, transaction_hash, contract_address, chain_id, explorer_url
+            FROM blockchain_anchors
+            WHERE event_id_or_batch_id = %s
+            ORDER BY anchored_at DESC
+            LIMIT 1;
+            """,
+            (event_id.strip(),),
+        )
+        row = cur.fetchone()
+        if not row:
+            return VerificationResult(
+                event_id=event_id,
+                matched=False,
+                computed_hash="",
+                anchored_hash=None,
+                verification_status="NOT_FOUND",
+                confirmation_status="NOT_SUBMITTED",
+                on_chain_verified=False,
+                digest_verified=False,
+                details=f"No blockchain anchor found for event '{event_id}'.",
+            )
+
+        anchor_id, anchored_hash, conf_status, block_num, tx_hash, contract_addr, chain_id, explorer_url = row
+
+    mode = os.environ.get("BLOCKCHAIN_MODE", "REAL_NETWORK").upper()
+    if mode == "SIMULATED":
+        return VerificationResult(
+            event_id=event_id,
+            matched=True,
+            computed_hash=anchored_hash,
+            anchored_hash=anchored_hash,
+            verification_status="SIMULATED",
+            confirmation_status="CONFIRMED_SIMULATED",
+            block_number=block_num,
+            transaction_hash=tx_hash,
+            explorer_url=None,
+            on_chain_verified=False,
+            digest_verified=True,
+            contract_address=contract_addr,
+            details="Anchor is in local SIMULATED mode. Honest audit confirms it was not broadcast to a live public blockchain.",
+        )
+
+    rpc_url = os.environ.get("WEB3_PROVIDER_URI") or os.environ.get("RPC_URL")
+    target_contract = contract_addr if contract_addr and contract_addr != UNCONFIGURED_CONTRACT else os.environ.get("CONTRACT_ADDRESS")
+
+    if not rpc_url or not target_contract or target_contract == UNCONFIGURED_CONTRACT:
+        return VerificationResult(
+            event_id=event_id,
+            matched=False,
+            computed_hash=anchored_hash,
+            anchored_hash=anchored_hash,
+            verification_status="UNCONFIGURED",
+            confirmation_status=conf_status,
+            block_number=block_num,
+            transaction_hash=tx_hash,
+            explorer_url=explorer_url,
+            on_chain_verified=False,
+            digest_verified=True,
+            contract_address=contract_addr,
+            details="Live EVM verification is blocked: RPC_URL or CONTRACT_ADDRESS is not configured in environment.",
+        )
+
+    w3 = web3_client
+    if not w3:
+        try:
+            from web3 import Web3
+            w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={"timeout": 10}))
+        except Exception as exc:
+            return VerificationResult(
+                event_id=event_id,
+                matched=False,
+                computed_hash=anchored_hash,
+                anchored_hash=anchored_hash,
+                verification_status="FAILED",
+                confirmation_status=conf_status,
+                block_number=block_num,
+                transaction_hash=tx_hash,
+                explorer_url=explorer_url,
+                on_chain_verified=False,
+                digest_verified=True,
+                contract_address=contract_addr,
+                details=f"Failed to initialize Web3 client: {sanitize_blockchain_error(exc)}",
+            )
+
+    try:
+        if not w3.is_connected():
+            return VerificationResult(
+                event_id=event_id,
+                matched=False,
+                computed_hash=anchored_hash,
+                anchored_hash=anchored_hash,
+                verification_status="FAILED",
+                confirmation_status=conf_status,
+                block_number=block_num,
+                transaction_hash=tx_hash,
+                explorer_url=explorer_url,
+                on_chain_verified=False,
+                digest_verified=True,
+                contract_address=contract_addr,
+                details=f"Web3 provider at {sanitize_blockchain_error(rpc_url)} is unreachable.",
+            )
+
+        on_chain_verified = False
+        receipt_confirmed = False
+        if tx_hash:
+            try:
+                receipt = w3.eth.get_transaction_receipt(tx_hash)
+                if receipt and receipt.get("status") == 1:
+                    receipt_confirmed = True
+                    block_num = receipt.get("blockNumber", block_num)
+            except Exception as r_exc:
+                logger.debug("Receipt lookup failed: %s", sanitize_blockchain_error(r_exc))
+
+        abi = load_contract_abi()
+        contract = w3.eth.contract(address=w3.to_checksum_address(target_contract), abi=abi)
+        digest_bytes = CanonicalHasher.digest_to_bytes32(anchored_hash)
+
+        if hasattr(contract.functions, "verifyAnchor"):
+            is_valid, b_time, b_num = contract.functions.verifyAnchor(event_id, digest_bytes).call()
+            on_chain_verified = bool(is_valid)
+            if is_valid and b_num:
+                block_num = b_num
+        elif hasattr(contract.functions, "getAnchor"):
+            p_digest, _, _, b_num, _, exists = contract.functions.getAnchor(event_id).call()
+            on_chain_verified = bool(exists and p_digest == digest_bytes)
+            if on_chain_verified and b_num:
+                block_num = b_num
+        elif receipt_confirmed:
+            on_chain_verified = True
+
+        new_verification_status = "MATCHED" if on_chain_verified else ("FAILED" if not receipt_confirmed else "MISMATCH")
+        new_confirmation_status = "CONFIRMED" if (on_chain_verified or receipt_confirmed) else conf_status
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE blockchain_anchors
+                SET verification_status = %s,
+                    confirmation_status = %s
+                WHERE anchor_id = %s;
+                """,
+                (new_verification_status, new_confirmation_status, str(anchor_id)),
+            )
+            conn.commit()
+
+        return VerificationResult(
+            event_id=event_id,
+            matched=on_chain_verified,
+            computed_hash=anchored_hash,
+            anchored_hash=anchored_hash,
+            verification_status=new_verification_status,
+            confirmation_status=new_confirmation_status,
+            block_number=block_num,
+            transaction_hash=tx_hash,
+            explorer_url=explorer_url,
+            on_chain_verified=on_chain_verified,
+            digest_verified=True,
+            contract_address=target_contract,
+            details=f"On-chain contract state verification {'succeeded at block #' + str(block_num) if on_chain_verified else 'failed or did not match'}.",
+        )
+    except Exception as exc:
+        return VerificationResult(
+            event_id=event_id,
+            matched=False,
+            computed_hash=anchored_hash,
+            anchored_hash=anchored_hash,
+            verification_status="FAILED",
+            confirmation_status=conf_status,
+            block_number=block_num,
+            transaction_hash=tx_hash,
+            explorer_url=explorer_url,
+            on_chain_verified=False,
+            digest_verified=True,
+            contract_address=contract_addr,
+            details=f"On-chain verification error: {sanitize_blockchain_error(exc)}",
+        )
+
+
+def list_blockchain_anchors(
+    conn,
+    event_id: Optional[str] = None,
+    confirmation_status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[BlockchainAnchorRecord]:
+    """Retrieve list of blockchain anchor records."""
+    clauses: list[str] = []
+    params: list = []
+
+    if event_id:
+        clauses.append("event_id_or_batch_id = %s")
+        params.append(event_id.strip())
+
+    if confirmation_status:
+        clauses.append("confirmation_status = %s")
+        params.append(confirmation_status.strip().upper())
+
+    where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    sql = f"""
+        SELECT
+            anchor_id, event_id_or_batch_id, payload_hash, chain_name,
+            chain_id, contract_address, transaction_hash, block_number,
+            anchored_at, confirmation_status, verification_status, error_message,
+            confirmed_at, receipt_status, gas_used, retry_count, explorer_url
+        FROM blockchain_anchors
+        {where_sql}
+        ORDER BY anchored_at DESC
+        LIMIT %s OFFSET %s;
+    """
+    params.extend([limit, offset])
+
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+
+    return [
+        _row_to_anchor_record(
+            r,
+            mode="SIMULATED" if "simulat" in str(r[3]).lower() or os.environ.get("BLOCKCHAIN_MODE", "").upper() == "SIMULATED" else "REAL_NETWORK",
+        )
+        for r in rows
+    ]
 
 
 def get_blockchain_service_status(conn) -> BlockchainStatusResponse:

@@ -17,7 +17,9 @@ from app.models.blockchain import (
 from app.services.blockchain_service import (
     anchor_audit_event,
     get_blockchain_service_status,
+    list_blockchain_anchors,
     verify_anchor_integrity,
+    verify_on_chain,
 )
 
 logger = logging.getLogger("enterpriseai.audit")
@@ -180,6 +182,24 @@ def get_blockchain_status(conn=Depends(get_db)):
     return get_blockchain_service_status(conn)
 
 
+@router.get("/anchors", response_model=List[BlockchainAnchorRecord])
+def get_blockchain_anchors(
+    event_id: Optional[str] = Query(None, description="Filter anchors by audit event ID"),
+    confirmation_status: Optional[str] = Query(None, description="Filter by confirmation status (CONFIRMED, PENDING, FAILED)"),
+    limit: int = Query(50, ge=1, le=500, description="Max anchors to retrieve"),
+    offset: int = Query(0, ge=0, description="Anchor pagination offset"),
+    conn=Depends(get_db),
+):
+    """Retrieve list of blockchain anchor transactions with full on-chain metadata."""
+    return list_blockchain_anchors(
+        conn,
+        event_id=event_id,
+        confirmation_status=confirmation_status,
+        limit=limit,
+        offset=offset,
+    )
+
+
 @router.get("/{event_id}", response_model=AuditEvent)
 def get_audit_event_detail(event_id: str, conn=Depends(get_db)):
     """Retrieve detailed single audit event record by UUID."""
@@ -319,6 +339,15 @@ def verify_event_anchor_get(
 ):
     """Read-only verification of an audit event against stored anchor digest."""
     return verify_anchor_integrity(conn, event_id, {})
+
+
+@router.post("/verify-on-chain/{event_id}", response_model=VerificationResult)
+def verify_anchor_on_chain_endpoint(
+    event_id: str,
+    conn=Depends(get_db),
+):
+    """Independently verify transaction receipt and EVM smart contract state on-chain."""
+    return verify_on_chain(conn, event_id=event_id)
 
 
 @router.get("/chain/verify")

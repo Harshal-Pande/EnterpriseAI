@@ -478,16 +478,22 @@ class GovernedOrchestrator:
                     result.status = "COMPLETED"
                     result.can_retry = False
 
-                    transition_workflow_status(
-                        conn, scen_id,
-                        WorkflowTransitionRequest(
-                            new_status="RESOLVED",
-                            reason_code="GOVERNED_PIPELINE_COMPLETED",
-                            actor_id="GovernedOrchestrator",
-                            actor_type="SYSTEM",
-                            resolution_summary=f"[correlation={corr_id}] {summary}",
-                        ),
-                    )
+                    try:
+                        transition_workflow_status(
+                            conn, scen_id,
+                            WorkflowTransitionRequest(
+                                new_status="RESOLVED",
+                                reason_code="GOVERNED_PIPELINE_COMPLETED",
+                                actor_id="GovernedOrchestrator",
+                                actor_type="SYSTEM",
+                                resolution_summary=f"[correlation={corr_id}] {summary}",
+                            ),
+                        )
+                    except HTTPException as t_exc:
+                        if "already" in str(t_exc.detail).lower() or "terminal" in str(t_exc.detail).lower():
+                            logger.info("Workflow %s already in resolved terminal state.", scen_id)
+                        else:
+                            raise
 
             except HTTPException as http_exc:
                 # Policy rejected proposed action (e.g., budget exceeded or supplier inactive)

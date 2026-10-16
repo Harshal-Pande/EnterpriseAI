@@ -7,7 +7,7 @@ Enforces execution gates:
 3. Approval requirement gating (unapproved actions cannot execute).
 4. Precondition revalidation immediately before execution.
 5. Idempotent execution (duplicate calls do not re-execute side effects).
-6. Execution results and attempts persisted in action_execution_results.
+6. Execution results and attempts persisted in action_ex ecution_results.
 """
 
 from __future__ import annotations

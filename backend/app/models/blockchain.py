@@ -46,6 +46,7 @@ class VerificationResult(BaseModel):
     transaction_hash: Optional[str] = None
     explorer_url: Optional[str] = None
     on_chain_verified: Optional[bool] = False
+    digest_verified: Optional[bool] = None
     contract_address: Optional[str] = None
     details: str
 
