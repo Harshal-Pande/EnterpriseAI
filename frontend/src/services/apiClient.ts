@@ -733,7 +733,116 @@ export const apiClient = {
     }),
   getEntityProvenance: (entityId: string, depth = 2) =>
     apiFetch<BackendGraphResponse>(`/api/graph/provenance/${encodeURIComponent(entityId)}?depth=${depth}`),
+
+  // Order Lifecycle & Blockchain Mining
+  getLifecycleQueued: (limit = 100) =>
+    apiFetch<LifecycleQueuedOrder[]>(`/api/orders/lifecycle/queued?limit=${limit}`),
+  getLifecycleRunning: () =>
+    apiFetch<LifecycleRunningOrder[]>('/api/orders/lifecycle/running'),
+  getLifecycleDone: (limit = 100) =>
+    apiFetch<LifecycleDoneOrder[]>(`/api/orders/lifecycle/done?limit=${limit}`),
+  getLifecycleDecisions: (orderId?: string, limit = 50) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (orderId) params.append('order_id', orderId);
+    return apiFetch<AgentDecisionLog[]>(`/api/orders/lifecycle/decisions?${params.toString()}`);
+  },
+  getLifecycleBlockchainBlocks: (limit = 20) =>
+    apiFetch<BlockchainBlock[]>(`/api/orders/lifecycle/blockchain/blocks?limit=${limit}`),
+  runNextLifecycleOrder: (scenario = 'NORMAL') =>
+    apiFetch<LifecycleRunResult>(`/api/orders/lifecycle/run-next?scenario=${encodeURIComponent(scenario)}`, {
+      method: 'POST',
+    }),
+  runSpecificLifecycleOrder: (orderId: string, scenario = 'NORMAL') =>
+    apiFetch<LifecycleRunResult>(`/api/orders/lifecycle/run-order/${encodeURIComponent(orderId)}?scenario=${encodeURIComponent(scenario)}`, {
+      method: 'POST',
+    }),
 };
+
+export interface LifecycleQueuedOrder {
+  queue_id: string;
+  order_id: string;
+  customer_name: string;
+  product_code: string;
+  quantity_tons: number;
+  priority: string;
+  enqueued_at: string | null;
+  queue_position: number;
+  scenario_type: string;
+}
+
+export interface LifecycleRunningOrder {
+  running_id: string;
+  order_id: string;
+  customer_name: string;
+  product_code: string;
+  quantity_tons: number;
+  priority: string;
+  scenario_type: string;
+  started_at: string | null;
+  current_stage: string;
+  status: string;
+  agent_states: Record<string, any>;
+  last_error?: string | null;
+  last_updated_at: string | null;
+}
+
+export interface LifecycleDoneOrder {
+  done_id: string;
+  order_id: string;
+  customer_name: string;
+  product_code: string;
+  quantity_tons: number;
+  priority: string;
+  started_at: string | null;
+  completed_at: string | null;
+  outcome_status: string;
+  final_decision: string;
+  duration_ms: number;
+  blockchain_tx_hash?: string | null;
+  blockchain_block_number?: number | null;
+  decisions_summary: any[];
+}
+
+export interface AgentDecisionLog {
+  decision_log_id: string;
+  order_id: string;
+  workflow_run_id?: string;
+  agent_name: string;
+  decision_type: string;
+  finding: string;
+  rationale?: string;
+  risk_level: string;
+  confidence_score: number;
+  evidence_records: string[];
+  anchored_to_blockchain: boolean;
+  created_at: string;
+}
+
+export interface BlockchainBlock {
+  block_number: number;
+  block_hash: string;
+  previous_block_hash: string;
+  merkle_root: string;
+  transaction_count: number;
+  transactions: any[];
+  validator: string;
+  created_at: string;
+}
+
+export interface LifecycleRunResult {
+  executed: boolean;
+  order_id?: string;
+  customer_name?: string;
+  status: string;
+  exception_type?: string;
+  exception_cause?: string;
+  duration_ms?: number;
+  block_number?: number;
+  block_hash?: string;
+  tx_hash?: string;
+  decisions?: any[];
+  message: string;
+}
 
 export interface BackendGraphNode {
   id: string;

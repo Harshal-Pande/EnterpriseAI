@@ -757,6 +757,26 @@ def create_order(
                 )
                 queue_uuid = str(cur.fetchone()[0])
 
+                # Also insert into dedicated FIFO queue table (Migration 014)
+                first_line = validated_lines[0] if validated_lines else {"product_id": "PRD-HRC", "requested_qty": 50.0}
+                cur.execute(
+                    """
+                    INSERT INTO orders_queued (
+                        queue_id, order_id, customer_name, product_code, quantity_tons, priority, queue_position, scenario_type
+                    ) VALUES (
+                        gen_random_uuid(), %s, %s, %s, %s, %s, %s, 'NORMAL'
+                    ) ON CONFLICT (order_id) DO NOTHING;
+                    """,
+                    (
+                        new_order_id,
+                        cust_ref,
+                        first_line["product_id"],
+                        first_line["requested_qty"],
+                        norm_priority,
+                        queue_pos,
+                    ),
+                )
+
             # Append audit event into event_log
             evt_id = str(uuid.uuid4())
             audit_payload = {
@@ -841,3 +861,80 @@ def update_order_status(
     reason = payload.get("reason")
     actor_id = payload.get("actor_id", current_user.user_id)
     return transition_order_status(conn, order_id, new_status, reason=reason, actor_id=actor_id)
+
+
+# ---------------------------------------------------------------------------
+# Order Lifecycle & Blockchain Mining Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/lifecycle/queued")
+def get_lifecycle_queued(
+    limit: int = Query(100, ge=1, le=500),
+    conn=Depends(get_db),
+):
+    """Retrieve list of orders pending in the dedicated FIFO queue."""
+    from app.services.lifecycle_queue_service import OrderLifecycleService
+    return OrderLifecycleService.get_queued_orders(conn, limit=limit)
+
+
+@router.get("/lifecycle/running")
+def get_lifecycle_running(
+    conn=Depends(get_db),
+):
+    """Retrieve list of orders currently running with live agent states."""
+    from app.services.lifecycle_queue_service import OrderLifecycleService
+    return OrderLifecycleService.get_running_orders(conn)
+
+
+@router.get("/lifecycle/done")
+def get_lifecycle_done(
+    limit: int = Query(100, ge=1, le=500),
+    conn=Depends(get_db),
+):
+    """Retrieve completed/processed order history (archival records)."""
+    from app.services.lifecycle_queue_service import OrderLifecycleService
+    return OrderLifecycleService.get_done_orders(conn, limit=limit)
+
+
+@router.get("/lifecycle/decisions")
+def get_lifecycle_decisions(
+    order_id: Optional[str] = Query(None, description="Optional filter by order_id"),
+    limit: int = Query(50, ge=1, le=200),
+    conn=Depends(get_db),
+):
+    """Retrieve agent decision logs across specialist agents."""
+    from app.services.lifecycle_queue_service import OrderLifecycleService
+    return OrderLifecycleService.get_agent_decision_logs(conn, order_id=order_id, limit=limit)
+
+
+@router.get("/lifecycle/blockchain/blocks")
+def get_lifecycle_blockchain_blocks(
+    limit: int = Query(20, ge=1, le=100),
+    conn=Depends(get_db),
+):
+    """Retrieve mined blockchain blocks containing decision transactions."""
+    from app.services.lifecycle_queue_service import OrderLifecycleService
+    return OrderLifecycleService.get_blockchain_blocks(conn, limit=limit)
+
+
+@router.post("/lifecycle/run-next")
+def run_next_lifecycle_order(
+    scenario: str = Query("NORMAL", description="Scenario: NORMAL, SUPPLIER_UNAVAILABLE, BUDGET_BREACH, DELIVERY_DELAY, STOCK_SHORTFALL"),
+    conn=Depends(get_db),
+):
+    """Atomically pop the next FIFO order from the queue, run agent mesh,
+    record agent decisions, mine a blockchain block, and archive to orders_done.
+    """
+    from app.services.lifecycle_queue_service import OrderLifecycleService
+    return OrderLifecycleService.pop_and_execute_order(conn, scenario_type=scenario)
+
+
+@router.post("/lifecycle/run-order/{order_id}")
+def run_specific_lifecycle_order(
+    order_id: str,
+    scenario: str = Query("NORMAL", description="Scenario: NORMAL, SUPPLIER_UNAVAILABLE, BUDGET_BREACH, DELIVERY_DELAY, STOCK_SHORTFALL"),
+    conn=Depends(get_db),
+):
+    """Run a specific order through the agent mesh lifecycle."""
+    from app.services.lifecycle_queue_service import OrderLifecycleService
+    return OrderLifecycleService.pop_and_execute_order(conn, target_order_id=order_id, scenario_type=scenario)
