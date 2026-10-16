@@ -48,9 +48,9 @@ export const OverviewPage: React.FC = () => {
     if (!isLive) return;
     try {
       const [queuedRes, runningRes, doneRes] = await Promise.all([
-        apiClient.getLifecycleQueued(10),
+        apiClient.getLifecycleQueued(100),
         apiClient.getLifecycleRunning(),
-        apiClient.getLifecycleDone(10),
+        apiClient.getLifecycleDone(100),
       ]);
       setQueuedOrders(queuedRes || []);
       setRunningOrders(runningRes || []);

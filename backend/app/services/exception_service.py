@@ -703,12 +703,17 @@ def resume_order_from_exception(
             (res_notes, now, now, str(val_uuid)),
         )
 
-        # Reset order in order_processing_queue to QUEUED
+        # Reset order in order_processing_queue to QUEUED with bounded attempt allowance
         if order_id:
             cur.execute(
                 """
                 UPDATE order_processing_queue
-                SET status = 'QUEUED', exception_id = NULL, last_error = NULL
+                SET
+                    status = 'QUEUED',
+                    exception_id = NULL,
+                    last_error = NULL,
+                    claimed_at = NULL,
+                    max_attempts = GREATEST(COALESCE(max_attempts, 3), attempt_count + 1)
                 WHERE order_id = %s;
                 """,
                 (order_id,),
@@ -720,6 +725,22 @@ def resume_order_from_exception(
                 WHERE order_id = %s;
                 """,
                 (now, order_id),
+            )
+            # Synchronize with orders_queued and orders_running
+            cur.execute("DELETE FROM orders_running WHERE order_id = %s;", (order_id,))
+            cur.execute(
+                """
+                INSERT INTO orders_queued (
+                    queue_id, order_id, customer_name, product_code, quantity_tons, priority, queue_position, scenario_type
+                )
+                SELECT gen_random_uuid(), o.order_id, o.customer_ref, COALESCE(ol.product_id, 'PRD-HRC'),
+                       COALESCE(ol.requested_qty, 50.0), o.priority, 1, 'NORMAL'
+                FROM orders o
+                LEFT JOIN order_lines ol ON o.order_id = ol.order_id
+                WHERE o.order_id = %s
+                ON CONFLICT (order_id) DO UPDATE SET queue_position = 1;
+                """,
+                (order_id,),
             )
 
         _log_exception_event(

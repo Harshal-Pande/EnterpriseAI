@@ -102,6 +102,7 @@ export interface CreateOrderRequest {
   priority?: string;
   required_delivery_at?: string;
   external_reference?: string;
+  idempotency_key?: string;
   lines: CreateOrderLineRequest[];
 }
 
@@ -508,11 +509,17 @@ export const apiClient = {
       `/api/orders/?limit=${limit}${status && status !== 'All' ? `&status=${status}` : ''}`
     ),
   getOrderSummary: () => apiFetch<BackendOrderSummary>('/api/orders/summary'),
-  createOrder: (data: CreateOrderRequest) =>
-    apiFetch<OrderCreateResponse>('/api/orders/', {
+  createOrder: (data: CreateOrderRequest) => {
+    const headers: Record<string, string> = {};
+    if (data.idempotency_key) {
+      headers['Idempotency-Key'] = data.idempotency_key;
+    }
+    return apiFetch<OrderCreateResponse>('/api/orders/', {
       method: 'POST',
+      headers,
       body: JSON.stringify(data),
-    }),
+    });
+  },
   getOrderQueue: (limit = 100, offset = 0, status?: string) => {
     const params = new URLSearchParams();
     params.append('limit', limit.toString());

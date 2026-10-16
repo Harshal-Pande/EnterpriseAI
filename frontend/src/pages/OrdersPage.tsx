@@ -131,11 +131,16 @@ export const OrdersPage: React.FC = () => {
     setOrderSubmitError(null);
     setOrderSubmitSuccess(null);
 
+    const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `ord-idem-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
     const payload: CreateOrderRequest = {
       customer_ref: newCustomer.trim(),
       entity_id: newEntity,
       priority: newPriority,
       external_reference: newExtRef.trim() || undefined,
+      idempotency_key: idempotencyKey,
       lines: [
         {
           product_id: newProductId,

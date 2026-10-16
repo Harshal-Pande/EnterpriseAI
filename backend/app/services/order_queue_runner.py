@@ -53,8 +53,8 @@ def get_queue_interval_seconds() -> int:
 
 
 def is_queue_auto_replenish() -> bool:
-    """Check whether auto-replenishment is active (default True)."""
-    raw = os.environ.get("ORDER_QUEUE_AUTO_REPLENISH", "true").strip().lower()
+    """Check whether auto-replenishment is active (default False to prevent runaway order generation)."""
+    raw = os.environ.get("ORDER_QUEUE_AUTO_REPLENISH", "false").strip().lower()
     return raw in {"true", "1", "yes", "on"}
 
 
@@ -357,14 +357,76 @@ class OrderQueueRunner:
             conn.rollback()
             return False
 
+    def recover_stale_claims(self, conn, timeout_seconds: int = 300) -> int:
+        """Recover orphaned processing items where worker lease expired or crashed.
+        - If attempt_count < max_attempts: reset status to QUEUED so it can be safely retried.
+        - If attempt_count >= max_attempts: mark FAILED and log exception.
+        """
+        now = datetime.now(timezone.utc)
+        stale_threshold = now - timedelta(seconds=timeout_seconds)
+        sql = """
+            SELECT queue_id, order_id, attempt_count, COALESCE(max_attempts, 3)
+            FROM order_processing_queue
+            WHERE status = 'PROCESSING'
+              AND claimed_at < %s
+            FOR UPDATE SKIP LOCKED;
+        """
+        recovered_count = 0
+        with conn.cursor() as cur:
+            cur.execute(sql, (stale_threshold,))
+            stale_rows = cur.fetchall()
+            for row in stale_rows:
+                q_id, ord_id, attempts, max_att = row[0], row[1], row[2], row[3] or 3
+                if attempts >= max_att:
+                    cur.execute(
+                        """
+                        UPDATE order_processing_queue
+                        SET status = 'FAILED', last_error = 'Processing failed: maximum retry attempts exhausted after crash.'
+                        WHERE queue_id = %s;
+                        """,
+                        (str(q_id),),
+                    )
+                    cur.execute("UPDATE orders SET status = 'AT_RISK', updated_at = %s WHERE order_id = %s;", (now, ord_id))
+                    _log_queue_event(
+                        cur,
+                        event_type="ORDER_CLAIM_EXHAUSTED",
+                        status="FAILED",
+                        order_id=ord_id,
+                        payload={"queue_id": str(q_id), "attempts": attempts, "reason": "STALE_CLAIM_EXHAUSTED"},
+                    )
+                else:
+                    cur.execute(
+                        """
+                        UPDATE order_processing_queue
+                        SET status = 'QUEUED', claimed_at = NULL, last_error = 'Recovered from stale claim following worker timeout.'
+                        WHERE queue_id = %s;
+                        """,
+                        (str(q_id),),
+                    )
+                    cur.execute("UPDATE orders SET status = 'OPEN', updated_at = %s WHERE order_id = %s;", (now, ord_id))
+                    _log_queue_event(
+                        cur,
+                        event_type="ORDER_CLAIM_RECOVERED",
+                        status="QUEUED",
+                        order_id=ord_id,
+                        payload={"queue_id": str(q_id), "attempts": attempts, "reason": "STALE_CLAIM_RECOVERED"},
+                    )
+                recovered_count += 1
+            if recovered_count > 0:
+                conn.commit()
+                logger.info("Recovered %d stale processing claims from crashed/timed-out workers.", recovered_count)
+        return recovered_count
+
     def claim_next_order(self, conn) -> Optional[Tuple[uuid.UUID, str, int]]:
         """Atomically claim the next eligible QUEUED order with SKIP LOCKED.
         Transitions queue record to PROCESSING and order record to IN_PROGRESS.
+        Enforces attempt_count < max_attempts.
         """
         claim_sql = """
             SELECT queue_id, order_id, queue_position
             FROM order_processing_queue
             WHERE status = 'QUEUED'
+              AND attempt_count < COALESCE(max_attempts, 3)
             ORDER BY queue_position ASC
             LIMIT 1
             FOR UPDATE SKIP LOCKED;
@@ -410,6 +472,7 @@ class OrderQueueRunner:
         
         Strict sequential processing:
         - Locks order-queue-runner lease in scheduler_state.
+        - Recovers any stale/orphaned claims older than timeout.
         - Claims lowest queue_position order in QUEUED status.
         - Auto-replenishes 1 order if enabled.
         - Executes via GovernedOrchestrator pipeline.
@@ -431,6 +494,12 @@ class OrderQueueRunner:
 
         replenished_id: Optional[str] = None
         try:
+            # 0. Recover any stale claims before acquiring new order
+            try:
+                self.recover_stale_claims(conn)
+            except Exception as stale_err:
+                logger.warning("Error recovering stale claims: %s", stale_err)
+
             # 1. Claim next order atomically
             claim_result = self.claim_next_order(conn)
             if not claim_result:
@@ -538,6 +607,28 @@ class OrderQueueRunner:
                         scenario_id=scenario_id,
                         payload={"order_id": order_id, "queue_id": str(queue_id), "status": "COMPLETED"},
                     )
+
+                    # Trigger independent blockchain anchoring (non-blocking)
+                    try:
+                        from app.models.blockchain import AnchorEventRequest
+                        from app.services.blockchain_service import anchor_audit_event
+                        anchor_req = AnchorEventRequest(
+                            event_id=f"EVT-COMPLETED-{order_id}",
+                            event_type="ORDER_COMPLETED",
+                            payload={
+                                "order_id": order_id,
+                                "queue_id": str(queue_id),
+                                "scenario_id": scenario_id,
+                                "status": "COMPLETED",
+                                "completed_at": now.isoformat(),
+                            },
+                            chain_name=os.environ.get("BLOCKCHAIN_CHAIN_NAME", "ethereum-sepolia"),
+                            contract_address=os.environ.get("BLOCKCHAIN_CONTRACT_ADDRESS"),
+                            force_simulation=(os.environ.get("BLOCKCHAIN_MODE", "SIMULATED").upper() == "SIMULATED"),
+                        )
+                        anchor_audit_event(conn, anchor_req)
+                    except Exception as anchor_err:
+                        logger.warning("Blockchain anchoring for completed order %s failed (non-blocking): %s", order_id, anchor_err)
 
                 else:
                     # Exception or policy hold encountered

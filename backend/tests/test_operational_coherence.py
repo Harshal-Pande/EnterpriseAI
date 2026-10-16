@@ -103,6 +103,8 @@ def test_order_cancellation_releases_stock_reservations(test_conn):
             assert float(curr_avail) == available
     finally:
         with test_conn.cursor() as cur:
+            if inv_id and reserved is not None and available is not None:
+                cur.execute("UPDATE inventory SET reserved_qty = %s, available_qty = %s WHERE inventory_id = %s;", (reserved, available, inv_id))
             if res_id:
                 cur.execute("DELETE FROM inventory_movements WHERE reference_id = %s;", (res_id,))
                 cur.execute("DELETE FROM stock_reservations WHERE reservation_id = %s;", (res_id,))

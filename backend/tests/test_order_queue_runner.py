@@ -64,6 +64,12 @@ def runner_cleanup(test_conn):
             for exc_id in created_exceptions:
                 cur.execute("DELETE FROM operational_exceptions WHERE exception_id = %s;", (exc_id,))
             for ord_id in created_orders:
+                cur.execute("DELETE FROM blockchain_anchors WHERE event_id_or_batch_id LIKE %s;", (f"%{ord_id}%",))
+                cur.execute("DELETE FROM orders_queued WHERE order_id = %s;", (ord_id,))
+                cur.execute("DELETE FROM orders_running WHERE order_id = %s;", (ord_id,))
+                cur.execute("DELETE FROM orders_done WHERE order_id = %s;", (ord_id,))
+                cur.execute("DELETE FROM agent_decision_logs WHERE order_id = %s;", (ord_id,))
+                cur.execute("DELETE FROM blockchain_tx_queue WHERE order_id = %s;", (ord_id,))
                 cur.execute("DELETE FROM order_processing_queue WHERE order_id = %s;", (ord_id,))
                 cur.execute("DELETE FROM order_lines WHERE order_id = %s;", (ord_id,))
                 cur.execute("DELETE FROM orders WHERE order_id = %s;", (ord_id,))
@@ -213,7 +219,7 @@ def test_runner_process_next_order_clean_execution(test_conn, runner_cleanup):
             INSERT INTO order_processing_queue (
                 queue_id, order_id, queue_position, status, origin
             ) VALUES (
-                gen_random_uuid(), %s, 0, 'QUEUED', 'SYSTEM'
+                gen_random_uuid(), %s, -999, 'QUEUED', 'SYSTEM'
             );
             """,
             (test_order_id,),
@@ -314,7 +320,7 @@ def test_runner_process_next_order_exception_gate(test_conn, runner_cleanup, mon
             INSERT INTO order_processing_queue (
                 queue_id, order_id, queue_position, status, origin
             ) VALUES (
-                gen_random_uuid(), %s, 0, 'QUEUED', 'SYSTEM'
+                gen_random_uuid(), %s, -999, 'QUEUED', 'SYSTEM'
             );
             """,
             (test_order_id,),

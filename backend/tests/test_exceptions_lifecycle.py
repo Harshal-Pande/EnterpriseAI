@@ -1,7 +1,4 @@
-"""Integration tests for Operational Exceptions API and Resolution Lifecycle."""
-
-from __future__ import annotations
-
+import logging
 import uuid
 from datetime import datetime, timezone
 import pytest
@@ -9,6 +6,8 @@ from fastapi.testclient import TestClient
 
 from app.db.database import get_db
 from app.main import app
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
@@ -95,19 +94,27 @@ def test_order_and_exception():
                     cur.execute("DELETE FROM action_execution_results WHERE action_id = %s;", (str(act_id),))
                     cur.execute("DELETE FROM policy_evaluations WHERE action_id = %s;", (str(act_id),))
                     cur.execute("DELETE FROM action_queue WHERE action_id = %s;", (str(act_id),))
+                cur.execute("DELETE FROM blockchain_anchors WHERE event_id_or_batch_id LIKE %s;", (f"%{order_id}%",))
+                cur.execute("DELETE FROM event_log WHERE entity_id = %s OR entity_id = %s;", (order_id, exc_id))
                 if sc_id:
+                    cur.execute("DELETE FROM event_log WHERE scenario_id::text = %s;", (str(sc_id),))
+                    cur.execute("DELETE FROM policy_evaluations WHERE decision_id IN (SELECT decision_id FROM decisions WHERE scenario_id = %s);", (str(sc_id),))
                     cur.execute("DELETE FROM decisions WHERE scenario_id = %s;", (str(sc_id),))
+                    cur.execute("DELETE FROM agent_findings WHERE scenario_id = %s OR agent_run_id IN (SELECT agent_run_id FROM agent_runs WHERE scenario_id = %s);", (str(sc_id), str(sc_id)))
+                    cur.execute("DELETE FROM agent_runs WHERE scenario_id = %s;", (str(sc_id),))
+                cur.execute("DELETE FROM orders_queued WHERE order_id = %s;", (order_id,))
+                cur.execute("DELETE FROM orders_running WHERE order_id = %s;", (order_id,))
+                cur.execute("DELETE FROM orders_done WHERE order_id = %s;", (order_id,))
+                cur.execute("DELETE FROM order_processing_queue WHERE order_id = %s;", (order_id,))
                 cur.execute("DELETE FROM operational_exceptions WHERE exception_id = %s;", (exc_id,))
                 if sc_id:
                     cur.execute("DELETE FROM scenario_instances WHERE scenario_id = %s;", (str(sc_id),))
-                cur.execute("DELETE FROM order_processing_queue WHERE order_id = %s;", (order_id,))
                 cur.execute("DELETE FROM order_lines WHERE order_id = %s;", (order_id,))
                 cur.execute("DELETE FROM orders WHERE order_id = %s;", (order_id,))
-                cur.execute("DELETE FROM event_log WHERE entity_id = %s;", (order_id,))
-                cur.execute("DELETE FROM event_log WHERE entity_id = %s;", (exc_id,))
                 conn.commit()
-        except Exception:
-            pass
+        except Exception as cleanup_err:
+            conn.rollback()
+            logger.warning("Cleanup error in test_order_and_exception: %s", cleanup_err)
         try:
             conn_gen.close()
         except Exception:

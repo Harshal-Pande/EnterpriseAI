@@ -463,6 +463,10 @@ def test_find01_admin_capacity_override_bypasses_limit(test_conn, scheduler_test
     monkeypatch.setenv("SCHEDULER_MAX_OPEN_SCENARIOS", "1")
     sched = ScenarioScheduler()
 
+    with test_conn.cursor() as cur:
+        cur.execute("UPDATE scenario_instances SET status = 'RESOLVED' WHERE status IN ('QUEUED', 'RUNNING', 'INVESTIGATING', 'EXECUTING', 'WAITING_APPROVAL');")
+        test_conn.commit()
+
     # Run cycle 1 -> succeeds
     res1 = sched.run_cycle(test_conn)
     assert res1["executed"] is True

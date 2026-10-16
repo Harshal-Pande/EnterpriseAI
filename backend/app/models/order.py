@@ -27,6 +27,7 @@ class Order(BaseModel):
     destination: Optional[str] = None
     currency: str = "INR"
     external_reference: Optional[str] = None
+    idempotency_key: Optional[str] = None
     created_at: Optional[str] = None
     required_delivery_at: Optional[str] = None
     total_amount: Optional[float] = 0.0
@@ -49,6 +50,7 @@ class OrderCreateRequest(BaseModel):
     required_delivery_at: Optional[str] = Field(None, description="ISO datetime for required customer delivery")
     currency: str = Field("INR", description="Order currency code")
     external_reference: Optional[str] = Field(None, description="External ERP PO or requisition reference")
+    idempotency_key: Optional[str] = Field(None, description="Unique client idempotency token to prevent duplicate creation on retry")
     lines: List[OrderLineCreateRequest] = Field(..., min_length=1, description="One or more constituent order lines")
     auto_enqueue: bool = Field(True, description="Whether order should automatically enter processing queue")
 

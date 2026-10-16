@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from app.core.security import AuthUser, UserRole, require_role
 from app.db.database import get_db
@@ -52,7 +52,8 @@ def _fetch_order_by_id(cur, order_id: str) -> Optional[Order]:
             o.required_delivery_at,
             COALESCE(SUM(ol.requested_qty * ol.unit_price_inr), 0) AS total_amount,
             COALESCE(SUM(ol.requested_qty), 0) AS total_quantity,
-            COUNT(ol.order_line_id) AS line_count
+            COUNT(ol.order_line_id) AS line_count,
+            o.idempotency_key
         FROM orders o
         LEFT JOIN order_lines ol ON o.order_id = ol.order_id
         WHERE o.order_id = %s
@@ -65,7 +66,8 @@ def _fetch_order_by_id(cur, order_id: str) -> Optional[Order]:
             o.currency,
             o.external_reference,
             o.created_at,
-            o.required_delivery_at;
+            o.required_delivery_at,
+            o.idempotency_key;
     """
     lines_sql = """
         SELECT
@@ -116,6 +118,7 @@ def _fetch_order_by_id(cur, order_id: str) -> Optional[Order]:
         priority=order_row[4],
         currency=order_row[5],
         external_reference=order_row[6],
+        idempotency_key=order_row[12] if len(order_row) > 12 else None,
         created_at=order_row[7].isoformat() if order_row[7] else None,
         required_delivery_at=order_row[8].isoformat() if order_row[8] else None,
         total_amount=float(order_row[9]) if order_row[9] is not None else 0.0,
@@ -584,10 +587,13 @@ def get_order(order_id: str, conn=Depends(get_db)):
 @router.post("/", response_model=OrderCreateResponse, status_code=status.HTTP_201_CREATED)
 def create_order(
     payload: OrderCreateRequest,
+    idempotency_header: Optional[str] = Header(None, alias="Idempotency-Key"),
     current_user: AuthUser = Depends(require_role(UserRole.OPERATOR)),
     conn=Depends(get_db),
 ):
-    """Create a new manual order transactionally with lines and queue entry."""
+    """Create a new manual order transactionally with lines and queue entry.
+    Deduplicates requests matching a previously supplied idempotency_key.
+    """
     # 1. Validate priority
     norm_priority = payload.priority.strip().upper()
     if norm_priority not in ALLOWED_PRIORITIES:
@@ -614,6 +620,9 @@ def create_order(
             detail="Order must contain at least one line item.",
         )
 
+    raw_idem = payload.idempotency_key or idempotency_header
+    idem_key = raw_idem.strip() if raw_idem else None
+
     now = datetime.now(timezone.utc)
     req_delivery = None
     if payload.required_delivery_at:
@@ -627,6 +636,37 @@ def create_order(
 
     try:
         with conn.cursor() as cur:
+            # Idempotency check: Return existing order if identical key was already submitted
+            if idem_key:
+                cur.execute(
+                    "SELECT order_id FROM orders WHERE idempotency_key = %s;",
+                    (idem_key,),
+                )
+                existing_row = cur.fetchone()
+                if existing_row:
+                    existing_order_id = existing_row[0]
+                    existing_order = _fetch_order_by_id(cur, existing_order_id)
+                    cur.execute(
+                        "SELECT queue_position, queue_id FROM order_processing_queue WHERE order_id = %s;",
+                        (existing_order_id,),
+                    )
+                    q_row = cur.fetchone()
+                    q_pos = q_row[0] if q_row else None
+                    q_id = str(q_row[1]) if q_row and q_row[1] else None
+                    logger.info(
+                        "Order %s already exists with idempotency key '%s'; returning existing record.",
+                        existing_order_id,
+                        idem_key,
+                    )
+                    return OrderCreateResponse(
+                        status="existing",
+                        order_id=existing_order_id,
+                        queue_position=q_pos,
+                        queue_id=q_id,
+                        enqueued=q_pos is not None,
+                        order=existing_order,
+                    )
+
             # Foreign key check for entity_id
             cur.execute("SELECT entity_id FROM entities WHERE entity_id = %s;", (ent_id,))
             if not cur.fetchone():
@@ -687,9 +727,9 @@ def create_order(
                 """
                 INSERT INTO orders (
                     order_id, customer_ref, entity_id, status, priority,
-                    currency, external_reference, created_at, required_delivery_at, updated_at
+                    currency, external_reference, idempotency_key, created_at, required_delivery_at, updated_at
                 )
-                VALUES (%s, %s, %s, 'OPEN', %s, %s, %s, %s, %s, %s);
+                VALUES (%s, %s, %s, 'OPEN', %s, %s, %s, %s, %s, %s, %s);
                 """,
                 (
                     new_order_id,
@@ -698,6 +738,7 @@ def create_order(
                     norm_priority,
                     payload.currency or "INR",
                     payload.external_reference,
+                    idem_key,
                     now,
                     req_delivery,
                     now,
@@ -743,15 +784,16 @@ def create_order(
                 cur.execute(
                     """
                     INSERT INTO order_processing_queue (
-                        order_id, queue_position, status, enqueued_at, origin, metadata
+                        order_id, queue_position, status, enqueued_at, origin, idempotency_key, metadata
                     )
-                    VALUES (%s, %s, 'QUEUED', %s, 'MANUAL', %s)
+                    VALUES (%s, %s, 'QUEUED', %s, 'MANUAL', %s, %s)
                     RETURNING queue_id;
                     """,
                     (
                         new_order_id,
                         queue_pos,
                         now,
+                        idem_key,
                         json.dumps({"created_by": current_user.user_id, "role": current_user.role.value}),
                     ),
                 )
